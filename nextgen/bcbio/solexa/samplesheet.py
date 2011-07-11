@@ -20,14 +20,14 @@ def _organize_lanes(info_iter, barcode_ids):
     """Organize flat lane information into nested YAML structure.
     """
     all_lanes = []
-    for (fcid, lane, sampleID, sampleref), info in itertools.groupby(info_iter, lambda x: (x[0], x[1], x[2], x[3])):
+    for (fcid, lane), info in itertools.groupby(info_iter, lambda x: (x[0], x[1])):
         info = list(info)
+        sampleref = info[0][3].lower()
         cur_lane = dict(flowcell_id=fcid, lane=lane, genome_build=sampleref, analysis="Standard")
         
-        if not _has_barcode(info):
-            cur_lane["description"] = info[0][2]
-        else: # barcoded sample
-            cur_lane["description"] = "Lane %s, %s" % (lane, info[0][5])
+        cur_lane["description"] = "Lane %s, %s" % (lane, info[0][5])
+        
+        if _has_barcode(info):
             multiplex = []
             for (_, _, sample_id, _, bc_seq, descr) in info:
                 bc_type, bc_id = barcode_ids[bc_seq]
@@ -36,14 +36,15 @@ def _organize_lanes(info_iter, barcode_ids):
                                       sequence=bc_seq,
                                       name=sample_id))
             cur_lane["multiplex"] = multiplex
+
         all_lanes.append(cur_lane)
     return all_lanes
 
 def _has_barcode(sample):
     if sample[0][4]:
         return True
-    else:
-        raise "No barcode present on samplesheet sample %s !" % sample
+    else: # lane is not multiplexed
+       pass 
 
 def _generate_barcode_ids(info_iter):
     """Create unique barcode IDs assigned to sequences
