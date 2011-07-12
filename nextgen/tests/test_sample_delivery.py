@@ -7,11 +7,6 @@ import subprocess
 import unittest
 import shutil
 
-try:
-    import bcbio
-except:
-    raise ImportError("Module bcbio required to run sample based analysis. Make sure to run python setup.py develop so bcbio.__path__ is defined.")
-
 class SampleDeliveryTest(unittest.TestCase):
     """Deliver samples from bcbio-processed data to John Doe"""
     

@@ -5,8 +5,7 @@ import shutil
 from string import Template
 __version__ = '0.2'
 
-TEMPLATEDIR= os.path.join(os.path.dirname(__file__), "solid_templates")
-
+TEMPLATEDIR= os.path.join(os.path.dirname(__file__), "templates")
 
 # Utility functions, not for export
 def _make_dirs(d):
@@ -16,7 +15,6 @@ def _make_dirs(d):
 
 def _write_template(fo, tmpl, write=True):
     """Write the template"""
-    print "Writing template " + fo
     if write:
         if not os.path.exists(fo):
             fp = open(fo, "w")
@@ -119,8 +117,10 @@ class WT_SingleRead(SOLiDProject):
     def wt_single_read_ini(self):
         return self.ini_file('wt.single.read.workflow.ini')
 
+# NOTE: the saet_target_file is a dummy file containing only one line
+# indicating the target region size - otherwise bioscope crashes...
 class TargetedFrag(SOLiDProject):
-    def __init__(self, runname, samplename, reference, basedir, targetfile, cmap, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0):
+    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
         _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file'})
         self.config.update({
@@ -129,6 +129,7 @@ class TargetedFrag(SOLiDProject):
         self.d.update( {
                 'cmap' : cmap,
                 'target_file' : targetfile,
+                'saet_target_file' : saettargetfile,
                 'annotation_human_hg18' : annotation_human_hg18
                 } )
         self.d.update(self._set_d())
