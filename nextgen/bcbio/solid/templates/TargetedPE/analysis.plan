@@ -1,0 +1,18 @@
+##############################
+# Analysis plan file
+# Requires primer names
+##############################
+
+=./$primer1/saet.ini
+=./$primer2/saet.ini
+
++
+
+=./$primer1/$primer1.ini
+=./$primer2/$primer2.ini
+
+
+./$primer1/ma.to.bam.ini
+./$primer2/ma.to.bam.ini
+./enrichment.ini
+./targeted.paired.end.workflow.ini

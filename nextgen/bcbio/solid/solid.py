@@ -102,6 +102,9 @@ class SOLiDProject(object):
         for k, p in self.primersets.items():
             p.clean(verbose)
 
+    def __str__(self):
+        return "<%s>" % (self.__class__)
+
 class WT_SingleRead(SOLiDProject):
     def __init__(self, runname, samplename, reference, basedir, csfastafile, qualfile, filterref, exons_gtf, junction_ref, read_length=50):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
@@ -216,8 +219,26 @@ class Primer(object):
         
 
 class TargetedPE(SOLiDProject):
-    def __init__(self):
-        pass
+    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, annotation_gtf_file=None, read_length=[50, 35], annotation_human_hg18=0, primersetlabels=["F3", "F5-BC"]):
+        SOLiDProject.__init__(self, runname, samplename, reference, basedir)
+        _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file'})
+        self.config.update({
+                'annotation_gtf_file':annotation_gtf_file
+                })
+        self.d.update( {
+                'cmap' : cmap,
+                'target_file' : targetfile,
+                'saet_target_file' : saettargetfile,
+                'annotation_human_hg18' : annotation_human_hg18
+                } )
+        self.d.update(self._set_d())
+        self.primersets[primersetlabels[0]] = Primer(primersetlabels[0], read_length[0], self)
+        self.primersets[primersetlabels[1]] = Primer(primersetlabels[1], read_length[1], self)
+
+    def primerset_global(self):
+        self.d.update({
+                       'csfastafilebase':self.primersets['F3'].d['csfastafilebase']
+                       })
 
 class ReseqFrag(SOLiDProject):
     def __init__(self):
