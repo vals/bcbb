@@ -3,11 +3,13 @@
 import os
 import copy
 import csv
+import glob
 
 from bcbio.pipeline import log
-from bcbio.pipeline.fastq import get_fastq_files
+from bcbio.pipeline.fastq import get_fastq_files, get_multiplex_items
 from bcbio.pipeline.demultiplex import split_by_barcode
 from bcbio.pipeline.alignment import align_to_sort_bam
+from bcbio.solexa.flowcell import get_flowcell_info
 
 def process_lane(info, fc_name, fc_date, dirs, config):
     """Prepare lanes, potentially splitting based on barcodes.
@@ -119,7 +121,7 @@ def get_flowcell_id(run_info, fc_dir, check_bc=True, glob_ext="_fastq.txt"):
         glob_str = "%s_*%s" % (lane, glob_ext)
     files = glob.glob(os.path.join(fc_dir, glob_str))
     try:
-        (name, date) = get_flowcell_info(files[0])
+        (name, date) = get_flowcell_info(os.path.basename(files[0]))
     except:
         raise StandardError("No flowcell information found in " + str(fc_dir))
     return name, date

@@ -18,13 +18,16 @@ from optparse import OptionParser
 from itertools import izip
 import yaml
 
-# XXX: Use bcbio lib ?
-from scilife.pipeline.lane import get_flowcell_id
-from scilife.pipeline.fastq import get_barcoded_project_files, convert_name_to_barcode_id
+from bcbio.log import create_log_handler
+from bcbio.pipeline import log
+from bcbio.pipeline.lane import get_flowcell_id
+from bcbio.pipeline.fastq import get_barcoded_project_files, convert_name_to_barcode_id
 
 def main(run_info_yaml, fastq_dir, project_dir="./"):
     with open(run_info_yaml) as in_handle:
         run_info = yaml.load(in_handle)
+    fastq_dir = os.path.normpath(fastq_dir)
+    project_dir = os.path.normpath(project_dir)
     dirs  = dict(work_dir = project_dir)
     if os.path.exists( os.path.join(project_dir, "data", fastq_dir)):
         dirs.update(fastq_dir = os.path.join(project_dir, "data", fastq_dir))
@@ -36,7 +39,7 @@ def main(run_info_yaml, fastq_dir, project_dir="./"):
                   fc_name = fc_name,
                   fc_date = fc_date
                   )
-    dirs.update(fc_dir = os.path.join(project_dir, "intermediate", os.path.basename(fastq_dir), 
+    dirs.update(fc_dir = os.path.join(project_dir, "intermediate", "nobackup", os.path.basename(fastq_dir), 
                                                 "%s_%s" %(fc_date, fc_name)))
 
 

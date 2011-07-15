@@ -30,6 +30,13 @@ def get_fastq_files(directory, lane, fc_name, bc_name=None, glob_ext="_fastq.txt
 def get_single_fastq_files(lane, fc_dir, fc_name):
     return get_fastq_files(fc_dir, lane, fc_name)
 
+# TODO: these two could probably also be handled much more efficiently
+def get_barcoded_project_files(multiplex, lane, fc_dir, fc_name):
+    fq = list()
+    for bc in multiplex:
+        fq.append(get_fastq_files(fc_dir, lane, fc_name, bc['name'], ".fastq"))
+    return fq
+
 def get_barcoded_fastq_files(multiplex, lane, fc_dir, fc_name, fc_date):
     fq = list()
     bc_dir = "%s_%s_%s_barcode" % (lane, fc_date, fc_name)
@@ -74,4 +81,21 @@ def convert_name_to_barcode_id(multiplex, fc_name, fq):
     if not fqout[1] == None:
         fqout[1] = fqout[1].replace(".fastq", "_fastq.txt")
     return os.path.basename(fqout[0]), (os.path.basename(fqout[1]) if len(fqout) > 1 else None)
+
+def get_multiplex_items(multiplex, lane, fc_dir, fc_name, fc_date):
+    mitems = list()
+    bc_dir = "%s_%s_%s_barcode" % (lane, fc_date, fc_name)
+    bc_dir = os.path.join(fc_dir, bc_dir)
+    lane_name = "%s_%s_%s" % (lane, fc_date, fc_name)
+    for bc in multiplex:
+        mname = bc['barcode_id']
+        mlane_name = "%s_%s" % (lane_name, mname) if mname else lane_name
+        msample = bc['name']
+        if msample is None:
+            msample = "%s---%s" % (sample_name, mname)
+        if not os.path.exists(bc_dir):
+            raise IOError("No barcode directory found: " + str(bc_dir))
+        fastq1, fastq2 = get_fastq_files(bc_dir, lane, fc_name, bc_name=bc['barcode_id'])
+        mitems.append((fastq1, fastq2 , mlane_name, msample))
+    return mitems
 
