@@ -170,6 +170,7 @@ class Primer(object):
                      }
         _make_dirs(self.dirs)
         self.d = {'primer': primer,
+                  'primerlabel': primer.lower(),
                   'read_length':readlength,
                   'csfastafilebase' : self.project.d['samplename'] + "_" + primer + ".csfasta",
                   'saet_input_csfastafile' : os.path.join(self.dirs['reads'], self.project.d['samplename'] + "_" + primer + ".csfasta"),
