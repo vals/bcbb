@@ -125,11 +125,14 @@ class WT_SingleRead(SOLiDProject):
 # NOTE: the saet_target_file is a dummy file containing only one line
 # indicating the target region size - otherwise bioscope crashes...
 class TargetedFrag(SOLiDProject):
-    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0):
+    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0, annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
-        _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file'})
+        _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file', 'annotation_dbsnp_file_snpchrpos':'annotation.dbsnp.file.snpchrpos', 'annotation_dbsnp_file_snpcontigloc':'annotation.dbsnp.file.snpcontigloc', 'annotation_dbsnp_file_snpcontiglocusid':'annotation.dbsnp.file.snpcontiglocusid'})
         self.config.update({
-                'annotation_gtf_file':annotation_gtf_file
+                'annotation_gtf_file':annotation_gtf_file,
+                'annotation_dbsnp_file_snpchrpos':annotation_dbsnp_file_snpchrpos,
+                'annotation_dbsnp_file_snpcontigloc':annotation_dbsnp_file_snpcontigloc,
+                'annotation_dbsnp_file_snpcontiglocusid':annotation_dbsnp_file_snpcontiglocusid
                 })
         self.d.update( {
                 'cmap' : cmap,
@@ -178,8 +181,8 @@ class Primer(object):
                   'primerlabel': primer.lower(),
                   'read_length':readlength,
                   'csfastafilebase' : self.project.d['samplename'] + "_" + primer + ".csfasta",
-                  'saet_input_csfastafile' : os.path.join(self.dirs['reads'], self.project.d['samplename'] + "_" + primer + ".csfasta"),
-                  'saet_input_qualfile' : os.path.join(self.dirs['reads'], self.project.d['samplename'] + "_" + primer + "_QV.qual"),
+                  'saet_input_csfastafile' : os.path.join(self.dirs['reads'], self.project.d['file_base'] + "_" + primer + ".csfasta"),
+                  'saet_input_qualfile' : os.path.join(self.dirs['reads'], self.project.d['file_base'] + "_" + primer + "_QV.qual"),
                   'matobamqual' : self.project.d['samplename'] + "_" + primer + "_QV.qual" 
                   # As of yet I have no idea what this looks like
                   # 'small_indel_frag_qual' : self.project
@@ -229,11 +232,14 @@ class Primer(object):
         
 
 class TargetedPE(SOLiDProject):
-    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, file_base, annotation_gtf_file=None, read_length=[50, 35], annotation_human_hg18=0, primersetlabels=["F3", "F5-BC"]):
+    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, file_base, annotation_gtf_file=None, read_length=[50, 35], annotation_human_hg18=0, primersetlabels=["F3", "F5-BC"], annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
-        _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file'})
+        _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file', 'annotation_dbsnp_file_snpchrpos':'annotation.dbsnp.file.snpchrpos', 'annotation_dbsnp_file_snpcontigloc':'annotation.dbsnp.file.snpcontigloc', 'annotation_dbsnp_file_snpcontiglocusid':'annotation.dbsnp.file.snpcontiglocusid'})
         self.config.update({
-                'annotation_gtf_file':annotation_gtf_file
+                'annotation_gtf_file':annotation_gtf_file,
+                'annotation_dbsnp_file_snpchrpos':annotation_dbsnp_file_snpchrpos,
+                'annotation_dbsnp_file_snpcontigloc':annotation_dbsnp_file_snpcontigloc,
+                'annotation_dbsnp_file_snpcontiglocusid':annotation_dbsnp_file_snpcontiglocusid
                 })
         self.d.update( {
                 'cmap' : cmap,
@@ -243,6 +249,7 @@ class TargetedPE(SOLiDProject):
                 'file_base' : file_base,
                 'primer1' : primersetlabels[0],
                 'primer2' : primersetlabels[1],
+                'primerset' : ",".join(primersetlabels)
                 } )
         self.d.update(self._set_d())
         self.primersets[primersetlabels[0]] = Primer(primersetlabels[0], read_length[0], self)
