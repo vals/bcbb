@@ -53,12 +53,6 @@ class SOLiDProject(object):
                          'globals' : os.path.join(basedir, "workdir", "globals"),
                          'intermediate' : os.path.join(basedir, "intermediate")
                          }
-        # self.workdirs = {'dibayes' : os.path.join(basedir, "workdir", "dibayes"),
-        #                  'positionErrors' : os.path.join(basedir, "workdir", "positionErrors")
-        #                  }
-        # self.outdirs = {'dibayes' : os.path.join(basedir, "output", "dibayes"),
-        #                 'positionErrors' : os.path.join(basedir, "output", "positionErrors")
-        #                 }
         self.template_path = os.path.join(TEMPLATEDIR, self.workflow)
         self.primersets = {}
         self.d = {'runname' :runname,
@@ -85,6 +79,14 @@ class SOLiDProject(object):
 
     def primerset_global(self):
         pass
+
+    def enrichment_ini(self, write=True):
+        tmpl = self.ini_file('enrichment.ini')
+        return _write_template(os.path.join(self.basedirs['work'], 'enrichment.ini'), tmpl, write)
+
+    def targeted_paired_end_workflow_ini(self, write=True):
+        tmpl = self.ini_file('targeted.paired.end.workflow.ini')
+        return _write_template(os.path.join(self.basedirs['work'], 'targeted.paired.end.workflow.ini'), tmpl, write)
 
     def global_ini(self, write=True):
         self.primerset_global()
@@ -133,7 +135,7 @@ class TargetedFrag(SOLiDProject):
                 'cmap' : cmap,
                 'target_file' : targetfile,
                 'saet_target_file' : saettargetfile,
-                'annotation_human_hg18' : annotation_human_hg18
+                'annotation_human_hg18' : annotation_human_hg18,
                 } )
         self.d.update(self._set_d())
         self.primersets['F3'] = Primer("F3", read_length, self)
@@ -168,7 +170,7 @@ class Primer(object):
     def __init__(self, primer, readlength, project):
         self.project = project
         self.dirs = {'work': os.path.join(self.project.basedirs['work'],  primer + "_mapping"),
-                     'output':os.path.join(self.project.basedirs['output'], primer + "_mapping"),
+                     'output':os.path.join(self.project.basedirs['output'], primer),
                      'reads':os.path.join(self.project.basedirs['reads'],  primer)
                      }
         _make_dirs(self.dirs)
@@ -198,6 +200,14 @@ class Primer(object):
     def small_indel_frag_ini(self, write=True):
         tmpl = self.ini_file('small.indel.frag.ini')
         return _write_template(os.path.join(self.dirs['work'], 'small.indel.frag.ini'), tmpl, write)
+
+    def ma_to_bam_ini(self, write=True):
+        tmpl = self.ini_file('ma.to.bam.ini')
+        return _write_template(os.path.join(self.dirs['work'], 'ma.to.bam.ini'), tmpl, write)
+
+    def primer_ini(self, write=True):
+        tmpl = self.ini_file('primer.ini')
+        return _write_template(os.path.join(self.dirs['work'], "%s.ini" % (self.d['primer'])), tmpl, write)
     
     def ini_file(self, filename):
         inifile = os.path.join(self.project.template_path, filename)
@@ -219,7 +229,7 @@ class Primer(object):
         
 
 class TargetedPE(SOLiDProject):
-    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, annotation_gtf_file=None, read_length=[50, 35], annotation_human_hg18=0, primersetlabels=["F3", "F5-BC"]):
+    def __init__(self, runname, samplename, reference, basedir, targetfile, saettargetfile, cmap, file_base, annotation_gtf_file=None, read_length=[50, 35], annotation_human_hg18=0, primersetlabels=["F3", "F5-BC"]):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
         _key_map = self._key_map.update({'cmap':'cmap', 'annotation_gtf_file':'annotation.gtf.file'})
         self.config.update({
@@ -229,7 +239,10 @@ class TargetedPE(SOLiDProject):
                 'cmap' : cmap,
                 'target_file' : targetfile,
                 'saet_target_file' : saettargetfile,
-                'annotation_human_hg18' : annotation_human_hg18
+                'annotation_human_hg18' : annotation_human_hg18,
+                'file_base' : file_base,
+                'primer1' : primersetlabels[0],
+                'primer2' : primersetlabels[1],
                 } )
         self.d.update(self._set_d())
         self.primersets[primersetlabels[0]] = Primer(primersetlabels[0], read_length[0], self)
@@ -239,6 +252,37 @@ class TargetedPE(SOLiDProject):
         self.d.update({
                        'csfastafilebase':self.primersets['F3'].d['csfastafilebase']
                        })
+
+    def init_project(self, saet=True, ma_to_bam=True, enrichment=True, targeted_workflow=True):
+        analysis_plan = os.path.join(self.basedirs['base'], 'analysis.plan')
+        ap = []
+        self.global_ini()
+        primers = self.primersets.keys()
+        if saet:
+            self.primersets[primers[0]].saet_ini()
+            self.primersets[primers[1]].saet_ini()
+            ap.append("=%s" %(os.path.join(self.primersets[primers[0]].dirs['work'], 'saet.ini')))
+            ap.append("=%s" %(os.path.join(self.primersets[primers[1]].dirs['work'], 'saet.ini')))
+            ap.append("\n\n+\n")
+        self.primersets[primers[0]].primer_ini()
+        self.primersets[primers[1]].primer_ini()
+        ap.append("=%s" %(os.path.join(self.primersets[primers[0]].dirs['work'], "%s.ini" %(primers[0]))))
+        ap.append("=%s" %(os.path.join(self.primersets[primers[1]].dirs['work'], "%s.ini" %(primers[1]))))
+        ap.append("\n\n")
+        if ma_to_bam:
+            self.primersets[primers[0]].ma_to_bam_ini()
+            self.primersets[primers[1]].ma_to_bam_ini()
+            ap.append("%s" %(os.path.join(self.primersets[primers[0]].dirs['work'], 'ma.to.bam.ini')))
+            ap.append("%s" %(os.path.join(self.primersets[primers[1]].dirs['work'], 'ma.to.bam.ini')))
+        if enrichment:
+            self.enrichment_ini()
+            ap.append(os.path.join(self.basedirs['work'], 'enrichment.ini'))
+        if targeted_workflow:
+            self.targeted_paired_end_workflow_ini()
+            ap.append(os.path.join(self.basedirs['work'], 'targeted.paired.end.workflow.ini'))
+        with open(analysis_plan, 'w') as apf:
+            apf.write("\n".join(ap))
+
 
 class ReseqFrag(SOLiDProject):
     def __init__(self):
