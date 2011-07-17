@@ -178,7 +178,7 @@ class Primer(object):
                      }
         _make_dirs(self.dirs)
         self.d = {'primer': primer,
-                  'primerlabel': primer.lower(),
+                  'primerlabel': primer.lower()[0:2],
                   'read_length':readlength,
                   'csfastafilebase' : self.project.d['samplename'] + "_" + primer + ".csfasta",
                   'saet_input_csfastafile' : os.path.join(self.dirs['reads'], self.project.d['file_base'] + "_" + primer + ".csfasta"),
@@ -187,7 +187,7 @@ class Primer(object):
                   # As of yet I have no idea what this looks like
                   # 'small_indel_frag_qual' : self.project
                   }
-
+        
     def saet_ini(self, write=True):
         tmpl = self.ini_file('saet.ini')
         return _write_template(os.path.join(self.dirs['work'], 'saet.ini'), tmpl, write)
@@ -249,7 +249,8 @@ class TargetedPE(SOLiDProject):
                 'file_base' : file_base,
                 'primer1' : primersetlabels[0],
                 'primer2' : primersetlabels[1],
-                'primerset' : ",".join(primersetlabels)
+                'primerset' : ",".join(primersetlabels),
+                'maximal_read_length' : max(read_length)
                 } )
         self.d.update(self._set_d())
         self.primersets[primersetlabels[0]] = Primer(primersetlabels[0], read_length[0], self)
