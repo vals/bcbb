@@ -3,7 +3,7 @@ import sys
 import glob
 import shutil
 from string import Template
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 TEMPLATEDIR= os.path.join(os.path.dirname(__file__), "templates")
 
@@ -195,7 +195,7 @@ class TargetedFrag(SOLiDProject):
 
 class Primer(object):
     """Class for primer set"""
-    def __init__(self, primer, readlength, project):
+    def __init__(self, primer, readlength, project, small_indel_frag_run=1):
         self.project = project
         self.dirs = {'work': os.path.join(self.project.basedirs['work'],  primer + "_mapping"),
                      'output':os.path.join(self.project.basedirs['output'], primer),
@@ -210,7 +210,8 @@ class Primer(object):
                   'saet_input_qualfile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + "_QV.qual"),
                   'csfastafile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + ".csfasta"),
                   'qualfile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + "_QV.qual"),
-                  'matobamqual' : self.project.d['samplename'] + "_" + primer + "_QV.qual" 
+                  'matobamqual' : self.project.d['samplename'] + "_" + primer + "_QV.qual",
+                  'small_indel_frag_run',
                   # As of yet I have no idea what this looks like
                   # 'small_indel_frag_qual' : self.project
                   }
@@ -285,7 +286,7 @@ class TargetedPE(SOLiDProject):
                 } )
         self.d.update(self._set_d())
         self.primersets[primersetlabels[0]] = Primer(primersetlabels[0], read_length[0], self)
-        self.primersets[primersetlabels[1]] = Primer(primersetlabels[1], read_length[1], self)
+        self.primersets[primersetlabels[1]] = Primer(primersetlabels[1], read_length[1], self, 0)
 
     def primerset_global(self):
         self.d.update({
