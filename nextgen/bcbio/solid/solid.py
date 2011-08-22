@@ -3,7 +3,7 @@ import sys
 import glob
 import shutil
 from string import Template
-__version__ = '0.2'
+__version__ = '0.2.1'
 
 TEMPLATEDIR= os.path.join(os.path.dirname(__file__), "templates")
 
@@ -59,7 +59,8 @@ class SOLiDProject(object):
                   'samplename' : samplename,
                   'reference' : reference,
                   'basedir' : basedir,
-                  'global_ini' : os.path.join(basedir, "workdir", "globals", "global.ini")
+                  'global_ini' : os.path.join(basedir, "workdir", "globals", "global.ini"),
+                  'file_base' : None
                   }
         _make_dirs(self.basedirs)
         
@@ -108,19 +109,43 @@ class SOLiDProject(object):
         return "<%s>" % (self.__class__)
 
 class WT_SingleRead(SOLiDProject):
-    def __init__(self, runname, samplename, reference, basedir, csfastafile, qualfile, filterref, exons_gtf, junction_ref, read_length=50):
+    """Template class for WT_SingleRead pipeline
+    Required input:
+
+      runname      - name of instrument run
+      samplename   - name of sample
+      reference    - full path to reference file to which mapping is done
+      basedir      - sample-based directory where analysis on particular sample takes place
+      file_base    - base prefix for csfasta, qual files (should be just sample name?)
+      filterref    - full path to file with sequences that should be filtered out
+                     e.g. adapters, rRNA, tRNA, repeats
+                     Usually delivered with bioscope
+      exons_gtf    - full path to file with gene models and exon definitions
+      PENDING: junction_ref - full path to file with extracted exon-exon junctions
+    """
+    def __init__(self, runname, samplename, reference, basedir, file_base, filterref, exons_gtf, junction_ref=None, read_length=50):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
         self.d.update({
                 'read_length':read_length,
-                'csfastafile':csfastafile,
-                'qualfile':qualfile, 
                 'filter_reference':filterref,
                 'exons_gtf':exons_gtf,
-                'junction_reference':junction_ref
+                'file_base':file_base
+                # 'junction_reference':junction_ref
                 })
+        self.primersets['F3'] = Primer("F3", read_length, self)
 
     def wt_single_read_ini(self):
         return self.ini_file('wt.single.read.workflow.ini')
+
+    def init_project(self):
+        analysis_plan = os.path.join(self.basedirs['base'], 'analysis.plan')
+        ap = []
+        self.global_ini()
+        self.primersets['F3'].wt_single_read_workflow_ini()
+        ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'F3.ini'))
+        with open(analysis_plan, 'w') as apf:
+            apf.write("\n".join(ap))
+
 
 # NOTE: the saet_target_file is a dummy file containing only one line
 # indicating the target region size - otherwise bioscope crashes...
@@ -181,8 +206,10 @@ class Primer(object):
                   'primerlabel': primer.lower()[0:2],
                   'read_length':readlength,
                   'csfastafilebase' : self.project.d['samplename'] + "_" + primer + ".csfasta",
-                  'saet_input_csfastafile' : os.path.join(self.dirs['reads'], self.project.d['file_base'] + "_" + primer + ".csfasta"),
-                  'saet_input_qualfile' : os.path.join(self.dirs['reads'], self.project.d['file_base'] + "_" + primer + "_QV.qual"),
+                  'saet_input_csfastafile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + ".csfasta"),
+                  'saet_input_qualfile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + "_QV.qual"),
+                  'csfastafile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + ".csfasta"),
+                  'qualfile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + "_QV.qual"),
                   'matobamqual' : self.project.d['samplename'] + "_" + primer + "_QV.qual" 
                   # As of yet I have no idea what this looks like
                   # 'small_indel_frag_qual' : self.project
@@ -211,7 +238,11 @@ class Primer(object):
     def primer_ini(self, write=True):
         tmpl = self.ini_file('primer.ini')
         return _write_template(os.path.join(self.dirs['work'], "%s.ini" % (self.d['primer'])), tmpl, write)
-    
+
+    def wt_single_read_workflow_ini(self, write=True):
+        tmpl = self.ini_file('wt.single.read.workflow.ini')
+        return _write_template(os.path.join(self.dirs['work'], "%s.ini" % (self.d['primer'])), tmpl, write)
+
     def ini_file(self, filename):
         inifile = os.path.join(self.project.template_path, filename)
         with open(inifile) as in_handle:

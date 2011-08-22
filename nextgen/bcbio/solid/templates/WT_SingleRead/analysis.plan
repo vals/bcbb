@@ -1,1 +1,4 @@
-workdir/F3_mapping/wt.single.read.workflow.ini
+##############################
+## Analysis plan 
+##############################
+workdir/F3_mapping/F3.ini
