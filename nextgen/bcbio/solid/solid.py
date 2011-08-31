@@ -211,7 +211,7 @@ class Primer(object):
                   'csfastafile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + ".csfasta"),
                   'qualfile' : os.path.join(self.dirs['reads'], str(self.project.d['file_base']) + "_" + primer + "_QV.qual"),
                   'matobamqual' : self.project.d['samplename'] + "_" + primer + "_QV.qual",
-                  'small_indel_frag_run',
+                  # 'small_indel_frag_run',
                   # As of yet I have no idea what this looks like
                   # 'small_indel_frag_qual' : self.project
                   }
