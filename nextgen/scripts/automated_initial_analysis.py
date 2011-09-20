@@ -151,7 +151,7 @@ def _upload_to_gdocs(config,fc_dir,run_info_yaml):
     upload_script = gdocs.get("gdocs_upload_script",None)
     destination_file = gdocs.get("gdocs_dmplx_file",None)
     credentials = gdocs.get("gdocs_credentials",None)
-    cl = [upload_script, run_name, run_info_yaml, destination_file, credentials, "-b %s" % base_dir]
+    cl = [upload_script, run_name, destination_file, credentials, "--config=%s" %  run_info_yaml, "--analysis_dir=%s" % base_dir]
     try:
         subprocess.check_call(cl)
     except Exception, e:
