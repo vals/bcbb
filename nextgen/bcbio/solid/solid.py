@@ -181,20 +181,50 @@ class TargetedFrag(SOLiDProject):
             self.primersets['F3'].saet_ini()
             ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'saet.ini'))
         if small_indel_frag:
-            self.primersets['F3'].enrichment_ini()
+            self.primersets['F3'].small_indel_frag_ini()
             ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'small.indel.frag.ini'))
         if enrichment:
-            self.primersets['F3'].targeted_frag_workflow_ini()
+            self.primersets['F3'].enrichment_ini()
             ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'enrichment.ini'))
         if targeted_workflow:
-            self.primersets['F3'].small_indel_frag_ini()
+            self.primersets['F3'].targeted_workflow_ini()
             ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'targeted.frag.workflow.ini'))
         with open(analysis_plan, 'w') as apf:
             apf.write("\n".join(ap))
 
 class ReseqFrag(SOLiDProject):
-    def __init__(self):
-        pass
+    def __init__(self, runname, samplename, reference, basedir, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0, annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
+        SOLiDProject.__init__(self, runname, samplename, reference, basedir)
+        _key_map = self._key_map.update({'annotation_gtf_file':'annotation.gtf.file', 'annotation_dbsnp_file_snpchrpos':'annotation.dbsnp.file.snpchrpos', 'annotation_dbsnp_file_snpcontigloc':'annotation.dbsnp.file.snpcontigloc', 'annotation_dbsnp_file_snpcontiglocusid':'annotation.dbsnp.file.snpcontiglocusid'})
+        self.config.update({
+                'annotation_gtf_file':annotation_gtf_file,
+                'annotation_dbsnp_file_snpchrpos':annotation_dbsnp_file_snpchrpos,
+                'annotation_dbsnp_file_snpcontigloc':annotation_dbsnp_file_snpcontigloc,
+                'annotation_dbsnp_file_snpcontiglocusid':annotation_dbsnp_file_snpcontiglocusid
+                })
+        self.d.update( {
+                'annotation_human_hg18' : annotation_human_hg18,
+                } )
+        self.d.update(self._set_d())
+        self.primersets['F3'] = Primer("F3", read_length, self)
+
+    def primerset_global(self):
+        self.d.update({'read_length':self.primersets['F3'].d['read_length'],
+                       'csfastafilebase':self.primersets['F3'].d['csfastafilebase']
+                       })
+
+    def init_project(self, small_indel_frag=True, targeted_workflow=True):
+        analysis_plan = os.path.join(self.basedirs['base'], 'analysis.plan')
+        ap = []
+        self.global_ini()
+        if small_indel_frag:
+            self.primersets['F3'].small_indel_frag_ini()
+            ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'small.indel.frag.ini'))
+        if targeted_workflow:
+            self.primersets['F3'].frag_workflow_ini()
+            ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'frag.workflow.ini'))
+        with open(analysis_plan, 'w') as apf:
+            apf.write("\n".join(ap))
 
 class Primer(object):
     """Class for primer set"""
@@ -230,6 +260,9 @@ class Primer(object):
     def targeted_frag_workflow_ini(self, write=True):
         tmpl = self.ini_file('targeted.frag.workflow.ini')
         return _write_template(os.path.join(self.dirs['work'], 'targeted.frag.workflow.ini'), tmpl, write)
+    def frag_workflow_ini(self, write=True):
+        tmpl = self.ini_file('frag.workflow.ini')
+        return _write_template(os.path.join(self.dirs['work'], 'frag.workflow.ini'), tmpl, write)
 
     def small_indel_frag_ini(self, write=True):
         tmpl = self.ini_file('small.indel.frag.ini')
