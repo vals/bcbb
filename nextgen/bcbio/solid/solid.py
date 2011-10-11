@@ -191,7 +191,10 @@ class TargetedFrag(SOLiDProject):
             ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'targeted.frag.workflow.ini'))
         with open(analysis_plan, 'w') as apf:
             apf.write("\n".join(ap))
-                          
+
+class ReseqFrag(SOLiDProject):
+    def __init__(self):
+        pass
 
 class Primer(object):
     """Class for primer set"""
@@ -322,11 +325,4 @@ class TargetedPE(SOLiDProject):
             ap.append(os.path.join(self.basedirs['work'], 'targeted.paired.end.workflow.ini'))
         with open(analysis_plan, 'w') as apf:
             apf.write("\n".join(ap))
-
-
-class ReseqFrag(SOLiDProject):
-    def __init__(self):
-        pass
-
-
 
