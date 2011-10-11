@@ -3,7 +3,7 @@ import sys
 import glob
 import shutil
 from string import Template
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 TEMPLATEDIR= os.path.join(os.path.dirname(__file__), "templates")
 
@@ -77,6 +77,14 @@ class SOLiDProject(object):
         with open(inifile) as in_handle:
             tmpl = Template(in_handle.read())
         return tmpl.safe_substitute(self.d)
+
+    def csfasta_files(self):
+        ret = []
+        for p in self.primersets.values():
+            ret.append(p.d['csfastafile'])
+        if len(ret)==0:
+            ret = None
+        return ret
 
     def primerset_global(self):
         pass
@@ -193,18 +201,22 @@ class TargetedFrag(SOLiDProject):
             apf.write("\n".join(ap))
 
 class ReseqFrag(SOLiDProject):
+    """
+    file_base    - base prefix for csfasta, qual files (should be just sample name?)
+    """
     def __init__(self, runname, samplename, reference, basedir, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0, annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
         _key_map = self._key_map.update({'annotation_gtf_file':'annotation.gtf.file', 'annotation_dbsnp_file_snpchrpos':'annotation.dbsnp.file.snpchrpos', 'annotation_dbsnp_file_snpcontigloc':'annotation.dbsnp.file.snpcontigloc', 'annotation_dbsnp_file_snpcontiglocusid':'annotation.dbsnp.file.snpcontiglocusid'})
         self.config.update({
-                'annotation_gtf_file':annotation_gtf_file,
-                'annotation_dbsnp_file_snpchrpos':annotation_dbsnp_file_snpchrpos,
-                'annotation_dbsnp_file_snpcontigloc':annotation_dbsnp_file_snpcontigloc,
-                'annotation_dbsnp_file_snpcontiglocusid':annotation_dbsnp_file_snpcontiglocusid
-                })
+            'annotation_gtf_file':annotation_gtf_file,
+            'annotation_dbsnp_file_snpchrpos':annotation_dbsnp_file_snpchrpos,
+            'annotation_dbsnp_file_snpcontigloc':annotation_dbsnp_file_snpcontigloc,
+            'annotation_dbsnp_file_snpcontiglocusid':annotation_dbsnp_file_snpcontiglocusid
+            })
         self.d.update( {
-                'annotation_human_hg18' : annotation_human_hg18,
-                } )
+            'annotation_human_hg18' : annotation_human_hg18,
+            'file_base':samplename
+            } )
         self.d.update(self._set_d())
         self.primersets['F3'] = Primer("F3", read_length, self)
 
@@ -213,10 +225,17 @@ class ReseqFrag(SOLiDProject):
                        'csfastafilebase':self.primersets['F3'].d['csfastafilebase']
                        })
 
-    def init_project(self, small_indel_frag=True, targeted_workflow=True):
+    def init_project(self, saet=True, small_indel_frag=True, targeted_workflow=True):
+        if saet:
+            self.d.update({'saet_fixdir' : "$${output.dir}/fixed"})
+        else:
+            self.d.update({'saet_fixdir' : self.primersets['F3'].dirs['reads']})
         analysis_plan = os.path.join(self.basedirs['base'], 'analysis.plan')
         ap = []
         self.global_ini()
+        if saet:
+            self.primersets['F3'].saet_ini()
+            ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'saet.ini'))
         if small_indel_frag:
             self.primersets['F3'].small_indel_frag_ini()
             ap.append(os.path.join(self.primersets['F3'].dirs['work'], 'small.indel.frag.ini'))
@@ -248,6 +267,7 @@ class Primer(object):
                   # As of yet I have no idea what this looks like
                   # 'small_indel_frag_qual' : self.project
                   }
+        print "Set the read files: " + str(self.d)
         
     def saet_ini(self, write=True):
         tmpl = self.ini_file('saet.ini')
