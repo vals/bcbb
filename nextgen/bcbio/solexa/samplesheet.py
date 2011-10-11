@@ -5,7 +5,9 @@ files from Illumina SampleSheet or Genesifter.
 """
 import os
 import sys
+import fileinput
 import csv
+import codecs
 import itertools
 import difflib
 import glob
@@ -16,14 +18,15 @@ import yaml
 from bcbio.solexa.flowcell import (get_flowcell_info)
 from bcbio import utils
 
+
 def _organize_lanes(info_iter, barcode_ids):
     """Organize flat lane information into nested YAML structure.
     """
     all_lanes = []
-    for (fcid, lane), info in itertools.groupby(info_iter, lambda x: (x[0], x[1])):
+    for lane, info in itertools.groupby(info_iter, lambda x: x[1]):
         info = list(info)
         sampleref = info[0][3].lower()
-        cur_lane = dict(flowcell_id=fcid, lane=lane, genome_build=sampleref, analysis="Standard")
+        cur_lane = dict(flowcell_id=info[0][0], lane=lane, genome_build=sampleref, analysis="Standard")
         
         cur_lane["description"] = "Lane %s, %s" % (lane, info[0][5])
         
@@ -44,7 +47,7 @@ def _has_barcode(sample):
     if sample[0][4]:
         return True
     else: # lane is not multiplexed
-       pass 
+       pass
 
 def _generate_barcode_ids(info_iter):
     """Create unique barcode IDs assigned to sequences
@@ -60,13 +63,21 @@ def _generate_barcode_ids(info_iter):
 def _read_input_csv(in_file):
     """Parse useful details from SampleSheet CSV file.
     """
-    with open(in_file, "rU") as in_handle:
-        reader = csv.reader(in_handle)
-        reader.next() # header
-        for line in reader:
-            if line: # empty lines
-                (fc_id, lane, sample_id, genome, barcode, description) = line[:6]
-                yield fc_id, lane, sample_id, genome, barcode, description
+    # Sanitize raw file before opening with csv reader
+    #_sanitize(in_file)
+
+    try:
+        with open(in_file, "rU") as in_handle:
+            reader = csv.reader(in_handle)
+            #reader = unicode_csv_reader(in_handle)
+            reader.next() # header
+            for line in reader:
+                if line: # empty lines
+                    (fc_id, lane, sample_id, genome, barcode, description) = line[:6]
+                    yield fc_id, lane, sample_id, genome, barcode, description
+    except ValueError:
+        print "Corrupt samplesheet %s, please fix it" % in_file 
+        pass
 
 def _get_flowcell_id(in_file, require_single=True):
     """Retrieve the unique flowcell id represented in the SampleSheet.
@@ -77,6 +88,18 @@ def _get_flowcell_id(in_file, require_single=True):
     else:
         return fc_ids
 
+def _sanitize(in_file):
+    """Removes badly balanced quotes and other possible future
+       cruft introduced on the samplesheets
+    """
+    for line in fileinput.FileInput(in_file, inplace=1):
+        line = line.replace('"','')
+        # print adds line in place, not stdout
+        print line.replace("\n", '')
+
+    fileinput.close()
+
+
 def csv2yaml(in_file, out_file=None):
     """Convert a CSV SampleSheet to YAML run_info format.
     """
@@ -86,7 +109,7 @@ def csv2yaml(in_file, out_file=None):
     barcode_ids = _generate_barcode_ids(_read_input_csv(in_file))
     lanes = _organize_lanes(_read_input_csv(in_file), barcode_ids)
     with open(out_file, "w") as out_handle:
-        out_handle.write(yaml.dump(lanes, default_flow_style=False))
+        out_handle.write(yaml.safe_dump(lanes, default_flow_style=False, allow_unicode=True))
     return out_file
 
 
