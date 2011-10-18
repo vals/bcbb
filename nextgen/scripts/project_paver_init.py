@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    pavement_init.py
+    project_paver_init.py
     ~~~~~~~~~~~~~~~~
 
     Setup pavement configuration file for a project for use with 
