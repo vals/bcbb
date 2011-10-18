@@ -14,7 +14,7 @@ from bcbio.pipeline.config_loader import load_config
 
 @contextlib.contextmanager
 def make_workdir():
-    dirname = os.path.join(os.path.dirname(__file__), "projects", "j_doe_00_01", "intermediate", "nobackup", "20000101A_hiseq2000")
+    dirname = os.path.join(os.path.dirname(__file__), "projects", "j_doe_00_01", "intermediate", "nobackup", "110106_FC70BUKAAXX")
     if os.path.exists(dirname):
         if os.path.islink(dirname):
             os.remove(dirname)
@@ -89,6 +89,6 @@ class SampleBasedAnalysisTest(unittest.TestCase):
             cl = ["project_exome_pipeline.py",
                   os.path.join(self.fc_dir, "post_process.yaml"),
                   os.path.join(self.proj_dir, "intermediate", "nobackup", "110106_FC70BUKAAXX"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml"),
-                  "--project_dir=%s" %(self.proj_dir)]
+                  os.path.join(self.proj_dir, "intermediate", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml")]
+
             subprocess.check_call(cl)
