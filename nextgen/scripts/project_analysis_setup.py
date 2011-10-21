@@ -101,8 +101,8 @@ def process_lane(info, config, dirs):
     
     ## Move data along with fastq files
     fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
+    _make_dir(fc_bc_dir, "fastq.txt barcode directory")
     if not options.only_fastq:
-        _make_dir(fc_bc_dir, "fastq.txt barcode directory")
         data, fastqc = _get_analysis_results(config, dirs, info['lane'])
         _deliver_data(data, fastqc, config['data_delivery_dir'])
 
