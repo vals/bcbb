@@ -41,6 +41,7 @@ from optparse import OptionParser
 from Bio import pairwise2
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
+
 def main(barcode_file, out_format, in1, in2, mismatch,
          first_read, three_end, allow_indels,
          metrics_file, verbose):
@@ -76,6 +77,7 @@ def main(barcode_file, out_format, in1, in2, mismatch,
             writer = csv.writer(out_handle, dialect="excel-tab")
             for bc in sort_bcs:
                 writer.writerow([bc, stats[bc]])
+
 
 def best_match(end_gen, barcodes, mismatch, allow_indels=True):
     """Identify barcode best matching to the test sequence, with mismatch.
