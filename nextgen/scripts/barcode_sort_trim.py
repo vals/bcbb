@@ -90,6 +90,7 @@ def best_match(end_gen, barcodes, mismatch, allow_indels=True):
         size = len(barcodes.keys()[0])
         test_seq = end_gen(size)
         return barcodes.values()[0], test_seq, test_seq
+
     # easiest, fastest case -- exact match
     sizes = list(set(len(b) for b in barcodes.keys()))
     for s in sizes:
@@ -99,6 +100,7 @@ def best_match(end_gen, barcodes, mismatch, allow_indels=True):
             return bc_id, test_seq, test_seq
         except KeyError:
             pass
+
     # check for best approximate match within mismatch values
     match_info = []
     if mismatch > 0:
@@ -120,6 +122,7 @@ def best_match(end_gen, barcodes, mismatch, allow_indels=True):
     else:
         return "unmatched", "", ""
 
+
 def end_generator(seq1, seq2=None, first_read=True, three_end=True):
     """Function which pulls a barcode of a provided size from paired seqs.
 
@@ -128,13 +131,16 @@ def end_generator(seq1, seq2=None, first_read=True, three_end=True):
     """
     seq = seq1 if first_read else seq2
     assert seq is not None
+
     def _get_end(size):
         assert size > 0
         if three_end:
             return seq[-size:]
         else:
             return seq[:size]
+
     return _get_end
+
 
 def _remove_from_end(seq, qual, match_seq, three_end):
     if match_seq:
@@ -147,6 +153,7 @@ def _remove_from_end(seq, qual, match_seq, three_end):
             seq = seq[len(match_seq):]
             qual = qual[len(match_seq):]
     return seq, qual
+
 
 def remove_barcode(seq1, qual1, seq2, qual2, match_seq, first_read, three_end):
     """Trim found barcode from the appropriate sequence end.
