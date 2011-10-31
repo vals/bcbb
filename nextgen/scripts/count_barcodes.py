@@ -18,16 +18,13 @@ import yaml
 from bcbio.solexa import INDEX_LOOKUP
 
 
-def main(fastq, run_info, length, offset, mismatch):
+def main(fastq, run_info_file, length, offset, mismatch):
     bcodes = {}  # collect counts for all observed barcodes
 
     mismatch = 1
     length = 6
 
-    cntr = 0
     last_was_header = False
-    # pos = int(sys.argv[2
-    pos = -offset - length - 1
     for line in open(fastq):
         if not last_was_header:
             if line[0] == "@":
@@ -42,29 +39,19 @@ def main(fastq, run_info, length, offset, mismatch):
         if last_was_header:
             last_was_header = False
 
-    if run_info != None:
-        with open(run_info) as in_handle:
+    if run_info_file != None:
+        with open(run_info_file) as in_handle:
             run_info = yaml.load(in_handle)
-
-        given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
-
-        matched_bc = {}
-        for bc, c in bcodes.items():
-            if bc in given_bcodes:
-                if bc in matched_bc:
-                    matched_bc[bc] += c
-                else:
-                    matched_bc[bc] = c
-
-        print matched_bc
+            given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
 
         matched_bc_grouping = approximate_matching(bcodes, given_bcodes, mismatch)
 
-        print
-        print matched_bc_grouping
+    else:
+        matched_bc_grouping = approximate_matching(bcodes, list(set(INDEX_LOOKUP.values())), mismatch)
 
-    matched_against_index = approximate_matching(bcodes, list(set(INDEX_LOOKUP.values())), mismatch)
-    print matched_against_index
+    print matched_bc_grouping
+    with open("dumped.yaml", "w") as out_handle:
+        yaml.dump(matched_bc_grouping, out_handle, width=70)
 
 
 def approximate_matching(bcodes, given_bcodes, mismatch):
@@ -98,7 +85,7 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
                     matches["indexes"] = []
                 matches["indexes"].append(illumina_index)
 
-    matched_bc_grouping["unmatched"] = set(bcodes) - found_bcodes
+    matched_bc_grouping["unmatched"] = list(set(bcodes) - found_bcodes)
 
     return matched_bc_grouping
 
@@ -116,4 +103,5 @@ if __name__ == "__main__":
     else:
         print __doc__
         sys.exit()
-    main(fastq, run_info, options.length, options.offset, options.mismatch)
+    main(fastq, run_info, int(options.length), int(options.offset),
+                                                int(options.mismatch))

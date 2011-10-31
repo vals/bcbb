@@ -120,7 +120,8 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             tag_size = tag_sizes[0]
             this_size = _get_fastq_size(item, fastq_dir, fc_name)
             if this_size == expected_size:
-                item["multiplex"] = [{"name" : item.get("name", item["description"]),
+                item["multiplex"] = [{"name" : item.get("name",
+                                      item["description"]),
                                       "barcode_id": "trim",
                                       "sequence" : "N" * tag_size}]
             else:
