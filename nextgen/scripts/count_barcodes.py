@@ -17,6 +17,12 @@ Usage:
         -v, --verbose (sets the script to print out what is written to
                         the file)
 
+    If called only with the fastq file, the bar codes will be matched to and
+    grouped with bar codes from the Illumina documentation.
+    If also the <run info yaml file> is given, the bar codes in the fastq file
+    will be matched to the bar codes in the run info file. Index names will
+    still be extracted from the Illumina documentation table.
+
 Example:
     count_barcodes.py 1_110106_FC70BUKAAXX_1_fastq.txt -v -b 1 -m 0
     will create a file named "1_110106_FC70BUKAAXX_1_fastq_barcodes.yaml"
