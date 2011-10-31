@@ -4,6 +4,7 @@
 import os
 import re
 import copy
+import glob
 from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
@@ -83,17 +84,20 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
         encoded_credentials = fh.read().strip()
     
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-    bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
+    #bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
+    fc = Flowcell(fc_name,fc_date,run_info)
+    read_counts = get_barcode_metrics(work_dir)
+    fc.set_read_counts(read_counts)
     
     # Upload the data
-    write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
+    write_run_report_to_gdocs(fc,fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
     
     # Get the projects parent folder
     projects_folder = gdocs.get("gdocs_projects_folder",None)
     
     # Write the bc project summary report
     if projects_folder:
-        write_project_report_to_gdocs(fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
+        write_project_report_to_gdocs(fc,fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
 
 
 def format_project_name(unformated_name):
@@ -116,6 +120,22 @@ def format_project_name(unformated_name):
     # Format the name
     project_name = "%s_%s_%s%s" % (name,year,month,suffix)
     return project_name
+   
+def get_barcode_metrics(workdir):
+    """Parse the *_bc.metrics files in the *_barcode directories into a dictionary"""
+    
+    bc_metrics = {}
+    bc_files = glob.glob(os.path.join(workdir,"*_barcode","*_bc.metrics"))
+    for bc_file in bc_files:
+        lane = os.path.basename(bc_file)[0:1]
+        bc_metrics[lane] = {}
+        with open(bc_file) as bcfh:
+            csvr = UnicodeReader(bcfh,dialect='excel-tab')
+            for row in csvr:
+                bc_metrics[lane][str(row[0])] = int(row[1])
+            
+    return bc_metrics
+
    
 def get_bc_stats(fc_date, fc_name, work_dir, run_info):
     """Get a data structure with the run info coupled with the results from barcode demultiplexing"""
@@ -287,7 +307,7 @@ def _structure_to_list(structure):
             
     return metrics_list
         
-def write_project_report_to_gdocs(fc_date,fc_name,project_bc_metrics,encoded_credentials,gdocs_folder=""):
+def write_project_report_to_gdocs(flowcell,encoded_credentials,gdocs_folder=""):
     """Upload the sample read distribution for a project to google docs"""
     
     # Create a client class which will make HTTP requests with Google Docs server.
@@ -297,20 +317,20 @@ def write_project_report_to_gdocs(fc_date,fc_name,project_bc_metrics,encoded_cre
     # Get a reference to the parent folder
     parent_folder = bcbio.google.document.get_folder(doc_client,gdocs_folder)
     
-    # Group the barcode data by project
-    grouped = group_bc_stats(project_bc_metrics)
+    # Get the projects on the flowcell
+    projects = flowcell.get_project_names()
     
     # Loop over the projects and write the project summary for each
-    for pdata in grouped:
+    for project_name in projects:
         
-        project_name = pdata.get("project_name","")
+        pruned_fc = flowcell.prune_to_project(project_name)
         ssheet_title = project_name + "_sequencing_results"
         ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
         if not ssheet:
             bcbio.google.document.add_spreadsheet(doc_client,ssheet_title)
             ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
     
-        _write_project_report_to_gdocs(client,ssheet,fc_date,fc_name,pdata)
+        _write_project_report_to_gdocs(client,ssheet,pruned_fc)
         _write_project_report_summary_to_gdocs(client,ssheet)
         
         # Just to make it look a bit nicer, remove the default 'Sheet1' worksheet
@@ -321,25 +341,23 @@ def write_project_report_to_gdocs(fc_date,fc_name,project_bc_metrics,encoded_cre
         folder_name = project_name
         folder = bcbio.google.document.get_folder(doc_client,folder_name)
         if not folder:
-            log.info("creating folder '%s'" % _from_unicode(folder_name))
+            log.info("creating folder '%s'" % folder_name)
             folder = bcbio.google.document.add_folder(doc_client,folder_name,parent_folder)
             
         ssheet = bcbio.google.document.move_to_folder(doc_client,ssheet,folder)
-        log.info("'%s' spreadsheet written to folder '%s'" % (_from_unicode(ssheet.title.text),_from_unicode(folder_name)))
+        log.info("'%s' spreadsheet written to folder '%s'" % (ssheet.title.text,folder_name))
         
 
-def _write_project_report_to_gdocs(client, ssheet, fc_date, fc_name, project_data):
+def _write_project_report_to_gdocs(client, ssheet, flowcell):
 
     # Get the spreadsheet if it exists
     # Otherwise, create it
-    wsheet_title = "%s_%s" % (fc_date,fc_name)
+    wsheet_title = "%s_%s" % (flowcell.get_fc_date(),flowcell.get_fc_name())
     
     # Flatten the project_data structure into a list
     rows = []
-    for sample in project_data["samples"]:
-        scount = int(sample["read_count"])
-        mcount = round(scount/1000000.,2)
-        row = (sample["sample_name"],"%s_%s" % (fc_date,fc_name),sample["lane"],unicode(scount),unicode(mcount),sample.get("comment",""),"")
+    for sample in flowcell.get_samples():
+        row = (sample.get_name(),wsheet_title,sample["lane"],sample.get_read_count(),sample.get_rounded_read_count(),sample.get("comment",""),"")
         rows.append(row)
     
     # Write the data to the worksheet
@@ -396,7 +414,7 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
     return _write_to_worksheet(client,ssheet,wsheet_title,summary_data.values(),SEQUENCING_RESULT_HEADER,False)
             
 
-def write_run_report_to_gdocs(fc_date, fc_name, bc_metrics, ssheet_title, encoded_credentials, wsheet_title=None, append=False, split_project=False):
+def write_run_report_to_gdocs(fc, fc_date, fc_name, bc_metrics, ssheet_title, encoded_credentials, wsheet_title=None, append=False, split_project=False):
     """Upload the barcode read distribution for a run to google docs"""
     
     # Connect to google and get the spreadsheet
@@ -404,40 +422,23 @@ def write_run_report_to_gdocs(fc_date, fc_name, bc_metrics, ssheet_title, encode
     if not client or not ssheet:
         return False
     
-    # Convert the bc_metrics data structure into a flat list
-    rows = _structure_to_list(bc_metrics)
-    
     # Get the projects in the run
-    projects = _get_unique_project_names(rows)
+    projects = fc.get_project_names()
     log.info("The run contains data from: '%s'" % "', '".join(projects))
-    
-    # Calculate the number of million reads for convenience
-    brci = -1
-    brcmi = -1
-    for i,head in enumerate(BARCODE_STATS_HEADER):
-        if head[1] == 'barcode_read_count':
-            brci = i
-        elif head[1] == 'barcode_read_count_millions':
-            brcmi = i
-    if brci >= 0 and brcmi >= 0:
-        for row in rows:
-            try:
-                row[brcmi] = unicode(round(int(row[brci])/1000000.,2))
-            except ValueError:
-                pass
     
     # If we will split the worksheet by project, use the project names as worksheet titles
     success = True
     if split_project:
         # Filter away the irrelevent project entries and write the remaining to the appropriate worksheet
-        for wsheet_title in projects:
-            success &= _write_to_worksheet(client,ssheet,wsheet_title,_apply_filter(rows,[wsheet_title]),BARCODE_STATS_HEADER,append)
+        for project in projects:
+            pruned_fc = fc.prune_to_project(project)
+            success &= _write_to_worksheet(client,ssheet,project,pruned_fc.to_rows(),BARCODE_STATS_HEADER,append)
             
     # Else, set the default title of the worksheet to be a string of concatenated date and flowcell id
     else:
         if wsheet_title is None:
             wsheet_title = "%s_%s" % (fc_date,fc_name)
-        success &= _write_to_worksheet(client,ssheet,wsheet_title,rows,BARCODE_STATS_HEADER,append)
+        success &= _write_to_worksheet(client,ssheet,wsheet_title,fc.to_rows(),BARCODE_STATS_HEADER,append)
 
     return success
 
