@@ -19,7 +19,6 @@ from bcbio.solexa import INDEX_LOOKUP
 
 
 def main(fastq, run_info, length, offset, mismatch):
-    offset = int(sys.argv[3])
     bcodes = {}  # collect counts for all observed barcodes
 
     mismatch = 1
@@ -27,12 +26,9 @@ def main(fastq, run_info, length, offset, mismatch):
 
     cntr = 0
     last_was_header = False
-    pos = int(sys.argv[2])
-
-    with open(sys.argv[4]) as in_handle:
-        run_info = yaml.load(in_handle)
-
-    for line in open(sys.argv[1]):
+    # pos = int(sys.argv[2
+    pos = -offset - length - 1
+    for line in open(fastq):
         if not last_was_header:
             if line[0] == "@":
                 last_was_header = True
@@ -46,22 +42,26 @@ def main(fastq, run_info, length, offset, mismatch):
         if last_was_header:
             last_was_header = False
 
-    given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
+    if run_info != None:
+        with open(run_info) as in_handle:
+            run_info = yaml.load(in_handle)
 
-    matched_bc = {}
-    for bc, c in bcodes.items():
-        if bc in given_bcodes:
-            if bc in matched_bc:
-                matched_bc[bc] += c
-            else:
-                matched_bc[bc] = c
+        given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
 
-    print matched_bc
+        matched_bc = {}
+        for bc, c in bcodes.items():
+            if bc in given_bcodes:
+                if bc in matched_bc:
+                    matched_bc[bc] += c
+                else:
+                    matched_bc[bc] = c
 
-    matched_bc_grouping = approximate_matching(bcodes, given_bcodes, mismatch)
+        print matched_bc
 
-    print
-    print matched_bc_grouping
+        matched_bc_grouping = approximate_matching(bcodes, given_bcodes, mismatch)
+
+        print
+        print matched_bc_grouping
 
     matched_against_index = approximate_matching(bcodes, list(set(INDEX_LOOKUP.values())), mismatch)
     print matched_against_index
@@ -109,11 +109,11 @@ if __name__ == "__main__":
     parser.add_option("-m", "--mismatch", dest="mismatch", default=1)
     options, args = parser.parse_args()
     if len(args) == 1:
-        fasq = args
+        fastq, = args
         run_info = None
     elif len(args) == 2:
         fastq, run_info = args
     else:
         print __doc__
         sys.exit()
-    main(fastq, run_info, options.verbose)
+    main(fastq, run_info, options.length, options.offset, options.mismatch)
