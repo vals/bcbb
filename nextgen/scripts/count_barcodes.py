@@ -17,44 +17,54 @@ import yaml
 
 from bcbio.solexa import INDEX_LOOKUP
 
-offset = int(sys.argv[3])
-bcodes = {}  # collect counts for all observed barcodes
 
-mismatch = 1
-length = 6
+def main(fastq, run_info, length, offset, mismatch):
+    offset = int(sys.argv[3])
+    bcodes = {}  # collect counts for all observed barcodes
 
-cntr = 0
-last_was_header = False
-pos = int(sys.argv[2])
+    mismatch = 1
+    length = 6
 
-with open(sys.argv[4]) as in_handle:
-    run_info = yaml.load(in_handle)
+    cntr = 0
+    last_was_header = False
+    pos = int(sys.argv[2])
 
-for line in open(sys.argv[1]):
-    if not last_was_header:
-        if line[0] == "@":
-            last_was_header = True
-        continue
+    with open(sys.argv[4]) as in_handle:
+        run_info = yaml.load(in_handle)
 
-    bcode = line[-(offset + 1 + length):-(offset + 1)].strip()
-    if bcode in bcodes:
-        bcodes[bcode] += 1
-    else:
-        bcodes[bcode] = 1
-    if last_was_header:
-        last_was_header = False
+    for line in open(sys.argv[1]):
+        if not last_was_header:
+            if line[0] == "@":
+                last_was_header = True
+            continue
 
-given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
-
-matched_bc = {}
-for bc, c in bcodes.items():
-    if bc in given_bcodes:
-        if bc in matched_bc:
-            matched_bc[bc] += c
+        bcode = line[-(offset + 1 + length):-(offset + 1)].strip()
+        if bcode in bcodes:
+            bcodes[bcode] += 1
         else:
-            matched_bc[bc] = c
+            bcodes[bcode] = 1
+        if last_was_header:
+            last_was_header = False
 
-print matched_bc
+    given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
+
+    matched_bc = {}
+    for bc, c in bcodes.items():
+        if bc in given_bcodes:
+            if bc in matched_bc:
+                matched_bc[bc] += c
+            else:
+                matched_bc[bc] = c
+
+    print matched_bc
+
+    matched_bc_grouping = approximate_matching(bcodes, given_bcodes, mismatch)
+
+    print
+    print matched_bc_grouping
+
+    matched_against_index = approximate_matching(bcodes, list(set(INDEX_LOOKUP.values())), mismatch)
+    print matched_against_index
 
 
 def approximate_matching(bcodes, given_bcodes, mismatch):
@@ -92,14 +102,6 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
 
     return matched_bc_grouping
 
-matched_bc_grouping = approximate_matching(bcodes, given_bcodes, mismatch)
-
-print
-print matched_bc_grouping
-
-matched_against_index = approximate_matching(bcodes, list(set(INDEX_LOOKUP.values())), mismatch)
-print matched_against_index
-
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-l", "--length", dest="length", default=6)
@@ -114,3 +116,4 @@ if __name__ == "__main__":
     else:
         print __doc__
         sys.exit()
+    main(fastq, run_info, options.verbose)
