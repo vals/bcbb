@@ -6,9 +6,45 @@ samplesheet file or with bar codes given in Illumina documentation.
 
 Usage:
     count_barcodes.py <fastq file> [<run info yaml file>]
-        -l, --length
-        -b, --back
-        -m, --mismatch
+        -o, --out_file <name of yaml file to be written (if not given, the out
+                        file will be named as the fastq file, though with
+                        .txt replaced by _barcodes.yaml)>
+        -l, --length <number of characters in the bar code (default is 6)>
+        -b, --back <number of steps back from the end of each line where the
+                    bar code ends, 1 for Illumina (defualt is 0).>
+        -m, --mismatch <number of erroneous characters to consider when
+                        matching bar codes (default is 1).>
+        -v, --verbose (sets the script to print out what is written to
+                        the file)
+
+Example:
+    count_barcodes.py 1_110106_FC70BUKAAXX_1_fastq.txt -v -b 1 -m 0
+    will create a file named "1_110106_FC70BUKAAXX_1_fastq_barcodes.yaml"
+    where the bar codes matched to bar codes in the Illumina documentation
+    will be listed. Every bar code node in the yaml has a field with count,
+    the number (of variations) of the bar code found; indexes, the names of
+    the Illumina bar codes. And a list of the variations of the bar code
+    considered to match the bar code.
+    The yaml will also have a node "unmatched", listing the bar codes which
+    could not be matched with the given mismatch setting, along with the count
+    of each of those bar codes.
+
+    Essentially, it looks somewhat like this:
+        TGACCA:
+          count: 902
+          indexes: [rpi4, INDEX4, IDX4, IN4, '4', R4, index4, r4, idx4, RPI4,
+          in4]
+          variants: [AGACCA, GGACCA, TCACCA, TGACCG, TAACCA, TGACCA, TGATCA,
+          TGACCC, TTACCA, TGACCT, TGCCCA]
+        TTAGGC:
+          count: 1066
+          indexes: [rpi3, IDX3, IN3, '3', R3, INDEX3, index3, r3, idx3, RPI3,
+          in3]
+          variants: [TTACGC, TTAAGC, TAAGGC, TTAGGC, TTAGGA, TTCGGC, TTAGAC,
+          CTAGGC, TTAGTC, TGAGGC, TTATGC, ATAGGC, TCAGGC]
+        unmatched: {AAAGTC: 1, AACAGT: 1, AATCAC: 1, ACAAGT: 1, ACACCA: 1,
+          ACAGGA: 1, ACAGGC: 2, ACATGC: 1, ACCGAG: 1, ACCGCG: 1, ACGATC: 2,
+          ACTCGG: 1, ACTCTC: 1}
 """
 import sys
 from Bio import pairwise2
@@ -18,7 +54,7 @@ import yaml
 from bcbio.solexa import INDEX_LOOKUP
 
 
-def main(fastq, run_info_file, length, offset, mismatch):
+def main(fastq, run_info_file, out_file, length, offset, mismatch, verbose):
     bcodes = {}  # collect counts for all observed barcodes
 
     mismatch = 1
@@ -44,18 +80,25 @@ def main(fastq, run_info_file, length, offset, mismatch):
             run_info = yaml.load(in_handle)
             given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
 
-        matched_bc_grouping = approximate_matching(bcodes, given_bcodes, mismatch)
+        matched_bc_grouping = approximate_matching(bcodes, \
+                                                        given_bcodes, mismatch)
 
     else:
-        matched_bc_grouping = approximate_matching(bcodes, list(set(INDEX_LOOKUP.values())), mismatch)
+        matched_bc_grouping = approximate_matching(bcodes, \
+                                    list(set(INDEX_LOOKUP.values())), mismatch)
 
-    print matched_bc_grouping
-    with open("dumped.yaml", "w") as out_handle:
+    if verbose:
+        print yaml.dump(matched_bc_grouping, width=70)
+
+    if not out_file:
+        out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
+
+    with open(out_file, "w+") as out_handle:
         yaml.dump(matched_bc_grouping, out_handle, width=70)
 
 
 def approximate_matching(bcodes, given_bcodes, mismatch):
-    """ Returns a dectionary with found barcodes along with info
+    """Returns a dectionary with matched barcodes along with info.
     """
     matched_bc_grouping = {}
     found_bcodes = set()
@@ -73,7 +116,8 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
 
             if cur_mismatch <= mismatch:
                 if bc_given not in matched_bc_grouping:
-                    matched_bc_grouping[bc_given] = {"variants": [], "count": 0}
+                    matched_bc_grouping[bc_given] = {"variants": [], \
+                                                        "count": 0}
                 matched_bc_grouping[bc_given]["variants"].append(bc)
                 matched_bc_grouping[bc_given]["count"] += count
                 found_bcodes.add(bc)
@@ -85,15 +129,18 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
                     matches["indexes"] = []
                 matches["indexes"].append(illumina_index)
 
-    matched_bc_grouping["unmatched"] = list(set(bcodes) - found_bcodes)
+    matched_bc_grouping["unmatched"] = \
+    dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
 
     return matched_bc_grouping
 
 if __name__ == "__main__":
     parser = OptionParser()
+    parser.add_option("-o", "--out_file", dest="out_file", default=None)
     parser.add_option("-l", "--length", dest="length", default=6)
     parser.add_option("-b", "--back", dest="offset", default=0)
     parser.add_option("-m", "--mismatch", dest="mismatch", default=1)
+    parser.add_option("-v", "--verbose", dest="verbose", default=False, action="store_true")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq, = args
@@ -103,5 +150,5 @@ if __name__ == "__main__":
     else:
         print __doc__
         sys.exit()
-    main(fastq, run_info, int(options.length), int(options.offset),
-                                                int(options.mismatch))
+    main(fastq, run_info, options.out_file, int(options.length), \
+        int(options.offset), int(options.mismatch), options.verbose)
