@@ -60,11 +60,8 @@ import yaml
 from bcbio.solexa import INDEX_LOOKUP
 
 
-def main(fastq, run_info_file, out_file, length, offset, mismatch, verbose):
+def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose):
     bcodes = {}  # collect counts for all observed barcodes
-
-    mismatch = 1
-    length = 6
 
     last_was_header = False
     for line in open(fastq):
@@ -81,10 +78,11 @@ def main(fastq, run_info_file, out_file, length, offset, mismatch, verbose):
         if last_was_header:
             last_was_header = False
 
+    given_bcodes = []
     if run_info_file != None:
         with open(run_info_file) as in_handle:
             run_info = yaml.load(in_handle)
-            given_bcodes = [bc["sequence"] for bc in run_info[0]["multiplex"]]
+            given_bcodes += [bc["sequence"] for bc in run_info[lane - 1]["multiplex"]]
 
         matched_bc_grouping = approximate_matching(bcodes, \
                                                         given_bcodes, mismatch)
@@ -109,6 +107,9 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
     matched_bc_grouping = {}
     found_bcodes = set()
 
+    number_matched = 0.
+    number_unmatched = 0.
+
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     for bc, count in bcodes.items():
         for bc_given in given_bcodes:
@@ -127,6 +128,9 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
                 matched_bc_grouping[bc_given]["variants"].append(bc)
                 matched_bc_grouping[bc_given]["count"] += count
                 found_bcodes.add(bc)
+                number_matched += 1.
+            else:
+                number_unmatched += 1.
 
     for bc, matches in matched_bc_grouping.items():
         for illumina_index, illumina_bc in INDEX_LOOKUP.items():
@@ -138,15 +142,18 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
     matched_bc_grouping["unmatched"] = \
     dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
 
+    print("Percentage matched: %f " % (100. * number_matched / (number_matched + number_unmatched)))
     return matched_bc_grouping
 
 if __name__ == "__main__":
     parser = OptionParser()
+    parser.add_option("--lane", dest="lane", default=0)
     parser.add_option("-o", "--out_file", dest="out_file", default=None)
     parser.add_option("-l", "--length", dest="length", default=6)
     parser.add_option("-b", "--back", dest="offset", default=0)
     parser.add_option("-m", "--mismatch", dest="mismatch", default=1)
-    parser.add_option("-v", "--verbose", dest="verbose", default=False, action="store_true")
+    parser.add_option("-v", "--verbose", dest="verbose", default=False, \
+                                                        action="store_true")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq, = args
@@ -156,5 +163,6 @@ if __name__ == "__main__":
     else:
         print __doc__
         sys.exit()
-    main(fastq, run_info, options.out_file, int(options.length), \
-        int(options.offset), int(options.mismatch), options.verbose)
+
+    main(fastq, run_info, int(options.lane), options.out_file, int(options.length), \
+            int(options.offset), int(options.mismatch), options.verbose)
