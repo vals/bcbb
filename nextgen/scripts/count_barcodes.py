@@ -62,7 +62,6 @@ from bcbio.solexa import INDEX_LOOKUP
 
 def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose):
     bcodes = {}  # collect counts for all observed barcodes
-
     last_was_header = False
     for line in open(fastq):
         if not last_was_header:
@@ -106,9 +105,7 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
     """
     matched_bc_grouping = {}
     found_bcodes = set()
-
-    number_matched = 0.
-    number_unmatched = 0.
+    number = dict(matched=0., unmatched=0.)
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     for bc, count in bcodes.items():
@@ -128,9 +125,7 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
                 matched_bc_grouping[bc_given]["variants"].append(bc)
                 matched_bc_grouping[bc_given]["count"] += count
                 found_bcodes.add(bc)
-                number_matched += 1.
-            else:
-                number_unmatched += 1.
+                number["matched"] += count
 
     for bc, matches in matched_bc_grouping.items():
         for illumina_index, illumina_bc in INDEX_LOOKUP.items():
@@ -141,8 +136,9 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
 
     matched_bc_grouping["unmatched"] = \
     dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
-
-    print("Percentage matched: %f " % (100. * number_matched / (number_matched + number_unmatched)))
+    number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
+    percentage = 100. * number["matched"] / sum(number.values())
+    print("Percentage matched: %.3f%%" % percentage)
     return matched_bc_grouping
 
 if __name__ == "__main__":
