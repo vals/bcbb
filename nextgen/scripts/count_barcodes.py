@@ -56,12 +56,16 @@ import sys
 from Bio import pairwise2
 from optparse import OptionParser
 import yaml
+from operator import itemgetter
 
 from bcbio.solexa import INDEX_LOOKUP
 
 
 def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose):
-    bcodes = {}  # collect counts for all observed barcodes
+    # TODO: Check run_info against INDEX_LOOKUP
+
+    # Collect counts for all observed barcodes
+    bcodes = {}
     last_was_header = False
     for line in open(fastq):
         if not last_was_header:
@@ -77,27 +81,46 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
         if last_was_header:
             last_was_header = False
 
-    given_bcodes = []
-    if run_info_file != None:
-        with open(run_info_file) as in_handle:
-            run_info = yaml.load(in_handle)
-            given_bcodes += [bc["sequence"] for bc in run_info[lane - 1]["multiplex"]]
+    # Seperate out the most common barcodes
+    total = sum(bcodes.itervalues())
+    bc_out = sorted(bcodes.iteritems(), key=itemgetter(1), reverse=True)
 
-        matched_bc_grouping = approximate_matching(bcodes, \
-                                                        given_bcodes, mismatch)
+    # Splitting away those with less than 2% seem like a reasonable thing to do
+    # (according to one single data point!)
 
-    else:
-        matched_bc_grouping = approximate_matching(bcodes, \
-                                    list(set(INDEX_LOOKUP.values())), mismatch)
+    # Check 1 mismatch against most common
 
-    if verbose:
-        print yaml.dump(matched_bc_grouping, width=70)
+    # Check 2 mismatch against most common
+
+    # ...
+
+    # if run_info_file != None:
+    #     matched_bc_grouping = \
+    #     match_against_run_info(bcodes, run_info_file, mismatch, lane)
+    # else:
+    #     matched_bc_grouping = approximate_matching(bcodes, \
+    #                                 list(set(INDEX_LOOKUP.values())), mismatch)
+
+    # if verbose:
+    #     print yaml.dump(matched_bc_grouping, width=70)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
 
     with open(out_file, "w+") as out_handle:
-        yaml.dump(matched_bc_grouping, out_handle, width=70)
+        out_handle.writelines("%s %f \n" % (bc, float(num) / float(total)) for bc, num in bc_out)
+        #yaml.dump(bc_out, out_handle, width=70)
+
+    print
+
+
+def match_against_run_info(bcodes, run_info_file, mismatch, lane):
+    given_bcodes = []
+    with open(run_info_file) as in_handle:
+        run_info = yaml.load(in_handle)
+        given_bcodes += [bc["sequence"] for bc in run_info[lane - 1]["multiplex"]]
+
+    return approximate_matching(bcodes, given_bcodes, mismatch)
 
 
 def approximate_matching(bcodes, given_bcodes, mismatch):
