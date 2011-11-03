@@ -88,6 +88,12 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
     # Splitting away those with less than 2% seem like a reasonable thing to do
     # (according to one single data point!)
 
+    bc_matched = []
+    for bc, num in bc_out:
+        if float(num) / float(total) < 0.02:
+            break
+        bc_matched.append(bc)
+
     # Check 1 mismatch against most common
 
     # Check 2 mismatch against most common
