@@ -19,7 +19,6 @@ information.
 
 import os
 import sys
-import copy
 from optparse import OptionParser
 
 import yaml
@@ -39,6 +38,7 @@ from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
 from bcbio.broad import BroadRunner
 from bcbio.ngsalign import bwa
 from bcbio.pipeline import lane
+from bcbio.pipeline.lane import _update_config_w_custom
 from bcbio.pipeline import sample
 from bcbio.pipeline.merge import organize_samples
 
@@ -88,19 +88,6 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
                for n, bam_files in sample_files)
     _run_parallel("process_sample", samples, dirs, config)
 
-# def _get_run_info(fc_name, fc_date, config, run_info_yaml):
-#     """Retrieve run information from a passed YAML file or the Galaxy API.
-#     """
-#     if run_info_yaml and os.path.exists(run_info_yaml):
-#         log.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
-#         with open(run_info_yaml) as in_handle:
-#             run_details = yaml.load(in_handle)
-#         return dict(details=run_details, run_id="")
-#     else:
-#         log.info("Fetching run details from Galaxy instance")
-#         #galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
-#         #return galaxy_api.run_details(fc_name, fc_date)
-
 
 def _run_parallel(fn_name, items, dirs, config):
     """Process a supplied function: single, multi-processor or distributed.
@@ -139,21 +126,6 @@ def _get_full_paths(config, config_file):
     config_dir = utils.add_full_path(os.path.dirname(config_file))
     galaxy_config_file = utils.add_full_path(config["galaxy_config"], config_dir)
     return os.path.dirname(galaxy_config_file), config_dir
-
-def _update_config_w_custom(config, lane_info):
-    """Update the configuration for this lane if a custom analysis is specified.
-    """
-    config = copy.deepcopy(config)
-    analysis_type = lane_info.get("analysis", "")
-    custom = config["custom_algorithms"].get(analysis_type, None)
-    if custom:
-        for key, val in custom.iteritems():
-            config["algorithm"][key] = val
-    # apply any algorithm details specified with the lane
-    for key, val in lane_info.get("algorithm", {}).iteritems():
-        config["algorithm"][key] = val
-    return config
-
 
 if __name__ == "__main__":
     parser = OptionParser()
