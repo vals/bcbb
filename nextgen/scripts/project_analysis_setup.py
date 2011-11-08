@@ -55,12 +55,11 @@ from bcbio.pipeline.config_loader import load_config
 from bcbio import utils
 
 
-def main(config_file, flowcell_id, project_id, fc_alias=None, project_desc=None, lanes=None):
+def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, project_desc=None, lanes=None):
     if project_desc is None and lanes is None:
         log.error("No project description or lanes provided: cannot deliver files without this information")
         sys.exit()
 
-    project_outdir = os.path.join(options.project_base_dir, project_id)
     config = load_config(config_file)
     ## Set log file in project output directory
     config.update(log_dir=os.path.join(project_dir, "log"))
@@ -74,9 +73,7 @@ def main(config_file, flowcell_id, project_id, fc_alias=None, project_desc=None,
         log.error("No lanes found with matching description %s: please check your flowcell run information" % project_desc)
         sys.exit()
 
-    dirs = dict(fc_dir=fc_dir, project_dir=project_outdir,
-                project_base_dir=options.project_base_dir
-                )
+    dirs = dict(fc_dir=fc_dir, project_dir=project_dir)
     fc_name, fc_date = get_flowcell_id(run_info, dirs['fc_dir'])
     config.update(fc_name = fc_name, fc_date = fc_date)
     config.update(fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
