@@ -96,9 +96,13 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
 
     # Check 1 mismatch against most common
 
+    matched_bc_grouping = approximate_matching(bcodes, bc_matched, 3)
+
     # Check 2 mismatch against most common
 
     # ...
+
+    # Until reaching certain percentage?
 
     # if run_info_file != None:
     #     matched_bc_grouping = \
@@ -114,10 +118,8 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
 
     with open(out_file, "w+") as out_handle:
-        out_handle.writelines("%s %f \n" % (bc, float(num) / float(total)) for bc, num in bc_out)
-        #yaml.dump(bc_out, out_handle, width=70)
-
-    print
+        #out_handle.writelines("%s %f \n" % (bc, float(num) / float(total)) for bc, num in bc_out)
+        yaml.dump(matched_bc_grouping, out_handle, width=70)
 
 
 def match_against_run_info(bcodes, run_info_file, mismatch, lane):
