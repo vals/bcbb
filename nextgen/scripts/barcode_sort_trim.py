@@ -165,6 +165,7 @@ def remove_barcode(seq1, qual1, seq2, qual2, match_seq, first_read, three_end):
         seq2, qual2 = _remove_from_end(seq2, qual2, match_seq, three_end)
     return seq1, qual1, seq2, qual2
 
+
 def _write_to_handles(name, seq, qual, fname, out_handles):
     try:
         out_handle = out_handles[fname]
@@ -172,6 +173,7 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
         out_handle = open(fname, "w")
         out_handles[fname] = out_handle
     out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
+
 
 def output_to_fastq(output_base):
     """Write a set of paired end reads as fastq, managing output handles.
@@ -183,6 +185,7 @@ def output_to_fastq(output_base):
         except OSError:
             assert os.path.isdir(work_dir)
     out_handles = dict()
+
     def write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2):
         read1name = output_base.replace("--r--", "1").replace("--b--", barcode)
         _write_to_handles(name1, seq1, qual1, read1name, out_handles)
@@ -191,6 +194,7 @@ def output_to_fastq(output_base):
             _write_to_handles(name2, seq2, qual2, read2name, out_handles)
     return write_reads
 
+
 def read_barcodes(fname):
     barcodes = {}
     with open(fname) as in_handle:
@@ -198,6 +202,7 @@ def read_barcodes(fname):
             name, seq = line.rstrip("\r\n").split()
             barcodes[seq] = name
     return barcodes
+
 
 def read_fastq(fname):
     """Provide read info from fastq file, potentially not existing.
@@ -210,14 +215,14 @@ def read_fastq(fname):
         for info in itertools.repeat((None, None, None)):
             yield info
 
+
 # --- Testing code: run with 'nosetests -v -s barcode_sort_trim.py'
 
 class BarcodeTest(unittest.TestCase):
     """Test identification and removal of barcodes with local alignments.
     """
     def setUp(self):
-        self.barcodes = {"CGATGT": "2", "CAGATC": "7",
-                         "TTAGGCATC" :"8"}
+        self.barcodes = {"CGATGT": "2", "CAGATC": "7", "TTAGGCATC": "8"}
 
     def test_1_end_generator(self):
         """Ensure the proper end is returned for sequences.
@@ -272,13 +277,13 @@ class BarcodeTest(unittest.TestCase):
         # Use the custom long barcode
         custom_barcode = dict((bc_seq, bc_id) for bc_id, bc_seq in self.barcodes.iteritems())
         # Simulate an arbitrary read, attach barcode and remove it from the 3' end
-        seq = "GATTACA"*5+custom_barcode["8"]
+        seq = "GATTACA" * 5 + custom_barcode["8"]
         (bc_id, bc_seq, match_seq) = best_match(end_generator(seq), self.barcodes, 1)
-        (removed, _, _, _) = remove_barcode(seq, "B"*9, seq, "g"*9, match_seq, True, True)
+        (removed, _, _, _) = remove_barcode(seq, "B" * 9, seq, "g" * 9, match_seq, True, True)
         # Was the barcode properly identified and removed with 1 mismatch allowed ?
         assert bc_id == "8"
         assert bc_seq == match_seq
-        assert removed == "GATTACA"*5
+        assert removed == "GATTACA" * 5
 
 if __name__ == "__main__":
     parser = OptionParser()

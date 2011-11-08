@@ -52,6 +52,7 @@ Example:
           ACAGGA: 1, ACAGGC: 2, ACATGC: 1, ACCGAG: 1, ACCGCG: 1, ACGATC: 2,
           ACTCGG: 1, ACTCTC: 1}
 """
+import os
 import sys
 from Bio import pairwise2
 from optparse import OptionParser
@@ -59,12 +60,14 @@ import yaml
 from operator import itemgetter
 
 from bcbio.solexa import INDEX_LOOKUP
+from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
 
 def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose):
     # TODO: Check run_info against INDEX_LOOKUP
 
     # Collect counts for all observed barcodes
+    # TODO: Refactor to use FastqGeneralIterator
     bcodes = {}
     last_was_header = False
     for line in open(fastq):
@@ -96,20 +99,25 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
 
     # Check 1 mismatch against most common
 
-    matched_bc_grouping = approximate_matching(bcodes, bc_matched, 3)
+    # TODO: Splitting - need some way to copy the entire name / sequence / quality
+    # three lines from where the barcode was collected in to a seperate file
+    # for each barcode.
 
-    # Check 2 mismatch against most common
-
-    # ...
-
-    # Until reaching certain percentage?
+    # Strategy:
+    # Count -> Sort -> Split -> Match all against most common with mistmatch
+    # We will have the barcode count after the split. So we don't need to
+    # count when matching. So in the matching step we could iterate over the file,
+    # storing the three relevant lines in memory before being written to the
+    # correct file.
+    # Use FastqGeneralIterator to get the name / sequence /quality triple!
+    matched_bc_grouping = approximate_matching(bcodes, bc_matched, 2)
 
     # if run_info_file != None:
     #     matched_bc_grouping = \
     #     match_against_run_info(bcodes, run_info_file, mismatch, lane)
     # else:
     #     matched_bc_grouping = approximate_matching(bcodes, \
-    #                                 list(set(INDEX_LOOKUP.values())), mismatch)
+    #                           list(set(INDEX_LOOKUP.values())), mismatch)
 
     # if verbose:
     #     print yaml.dump(matched_bc_grouping, width=70)
@@ -171,6 +179,35 @@ def approximate_matching(bcodes, given_bcodes, mismatch):
     percentage = 100. * number["matched"] / sum(number.values())
     print("Percentage matched: %.3f%%" % percentage)
     return matched_bc_grouping
+
+
+def _write_to_handles(name, seq, qual, fname, out_handles):
+    try:
+        out_handle = out_handles[fname]
+    except KeyError:
+        out_handle = open(fname, "w")
+        out_handles[fname] = out_handle
+    out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
+
+
+def output_to_fastq(output_base):
+    """Write a set of paired end reads as fastq, managing output handles.
+    """
+    work_dir = os.path.dirname(output_base)
+    if not os.path.exists(work_dir) and work_dir:
+        try:
+            os.makedirs(work_dir)
+        except OSError:
+            assert os.path.isdir(work_dir)
+    out_handles = dict()
+
+    def write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2):
+        read1name = output_base.replace("--r--", "1").replace("--b--", barcode)
+        _write_to_handles(name1, seq1, qual1, read1name, out_handles)
+        if name2:
+            read2name = output_base.replace("--r--", "2").replace("--b--", barcode)
+            _write_to_handles(name2, seq2, qual2, read2name, out_handles)
+    return write_reads
 
 if __name__ == "__main__":
     parser = OptionParser()
