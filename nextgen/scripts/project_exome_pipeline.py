@@ -19,6 +19,7 @@ information.
 
 import os
 import sys
+import copy
 from optparse import OptionParser
 
 import yaml
@@ -75,6 +76,7 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     lane_items = []
     for info in run_items:
         print info
+        config = _update_config_w_custom(config, info)
         lane_items.extend(make_lane_items(info, fc_date, fc_name, dirs, config))
 
     _run_parallel("process_alignment", lane_items, dirs, config)
@@ -137,6 +139,21 @@ def _get_full_paths(config, config_file):
     config_dir = utils.add_full_path(os.path.dirname(config_file))
     galaxy_config_file = utils.add_full_path(config["galaxy_config"], config_dir)
     return os.path.dirname(galaxy_config_file), config_dir
+
+def _update_config_w_custom(config, lane_info):
+    """Update the configuration for this lane if a custom analysis is specified.
+    """
+    config = copy.deepcopy(config)
+    analysis_type = lane_info.get("analysis", "")
+    custom = config["custom_algorithms"].get(analysis_type, None)
+    if custom:
+        for key, val in custom.iteritems():
+            config["algorithm"][key] = val
+    # apply any algorithm details specified with the lane
+    for key, val in lane_info.get("algorithm", {}).iteritems():
+        config["algorithm"][key] = val
+    return config
+
 
 if __name__ == "__main__":
     parser = OptionParser()
