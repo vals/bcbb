@@ -54,7 +54,6 @@ from bcbio.pipeline.fastq import get_single_fastq_files, get_barcoded_fastq_file
 from bcbio.pipeline.config_loader import load_config
 from bcbio import utils
 
-
 def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, project_desc=None, lanes=None):
     if project_desc is None and lanes is None:
         log.error("No project description or lanes provided: cannot deliver files without this information")
