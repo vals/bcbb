@@ -515,13 +515,6 @@ group data from different flowcells in project-based directories.
   Demultiplexed fastq files or analysis result files can be selected.
   Data selection is based on project descriptors.
 
-In addition, there are a couple of scripts for setting up a working
-environment that uses the [paver][ip3] python module:
-
-* `scripts/project_paver_init.py` -- installs a pavement file and sets
-  up various standard analysis directories, such as log and doc
-
-
 ### Running the pipeline on a subset of demultiplexed samples
 
 The analysis pipelines typically take raw sequencing data, demultiplex
@@ -533,8 +526,5 @@ modified scripts of the analysis pipeline scripts have to be used:
 * `scripts/project_exome_pipeline.py` -- performs the same analyses as
   automated_initial_analysis.py, but starts with demultiplexed data
 
-
-
 [ip1]: http://docutils.sourceforge.net/rst.html
 [ip2]: http://sphinx.pocoo.org
-[ip3]: http://paver.github.com/paver/
