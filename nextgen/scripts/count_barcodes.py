@@ -64,8 +64,10 @@ from bcbio.solexa import INDEX_LOOKUP
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
 
-def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose):
-    # TODO: Check run_info against INDEX_LOOKUP
+def main(fastq, run_info_file, lane, out_file,
+    length, offset, mismatch, verbose, cutoff):
+    if run_info_file:
+        compare_run_info_and_index_lookup(run_info_file)
 
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
@@ -76,18 +78,12 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
 
     # Seperate out the most common barcodes
     total = sum(bcodes.itervalues())
-    bc_out = sorted(bcodes.iteritems(), key=itemgetter(1), reverse=True)
-
-    # Splitting away those with less than 2% seem like a reasonable thing to do
-    # (according to one single data point!)
-
     bc_matched = []
-    for bc, num in bc_out:
-        if float(num) / float(total) < 0.02:
-            break
-        bc_matched.append(bc)
+    for bc, num in bcodes.iteritems():
+        if float(num) / float(total) >= cutoff:
+            bc_matched.append(bc)
 
-    # Check 1 mismatch against most common
+    # Check with mismatch against most common
 
     # TODO: Splitting - need some way to copy the entire name / sequence / quality
     # three lines from where the barcode was collected in to a seperate file
@@ -101,7 +97,8 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
     # storing the three relevant lines in memory before being written to the
     # correct file.
     # Use FastqGeneralIterator to get the name / sequence / quality triple!
-    matched_bc_grouping = approximate_matching(bcodes, bc_matched, 2)
+    matched_bc_grouping = approximate_matching(dict(bcodes), \
+                                                bc_matched, mismatch)
 
     # if run_info_file != None:
     #     matched_bc_grouping = \
@@ -117,7 +114,6 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
 
     with open(out_file, "w+") as out_handle:
-        #out_handle.writelines("%s %f \n" % (bc, float(num) / float(total)) for bc, num in bc_out)
         yaml.dump(matched_bc_grouping, out_handle, width=70)
 
 
@@ -200,6 +196,11 @@ def output_to_fastq(output_base):
             _write_to_handles(name2, seq2, qual2, read2name, out_handles)
     return write_reads
 
+
+def compare_run_info_and_index_lookup(run_info):
+    # TODO: Check run_info against INDEX_LOOKUP
+    pass
+
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("--lane", dest="lane", default=0)
@@ -209,6 +210,7 @@ if __name__ == "__main__":
     parser.add_option("-m", "--mismatch", dest="mismatch", default=1)
     parser.add_option("-v", "--verbose", dest="verbose", default=False, \
                                                         action="store_true")
+    parser.add_option("-c", "--cutoff", dest="cutoff", default=0.02)
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq, = args
@@ -219,5 +221,6 @@ if __name__ == "__main__":
         print __doc__
         sys.exit()
 
-    main(fastq, run_info, int(options.lane), options.out_file, int(options.length), \
-            int(options.offset), int(options.mismatch), options.verbose)
+    main(fastq, run_info, int(options.lane), options.out_file, \
+            int(options.length), int(options.offset), int(options.mismatch), \
+            options.verbose, float(options.cutoff))
