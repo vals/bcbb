@@ -58,6 +58,7 @@ from Bio import pairwise2
 from optparse import OptionParser
 import yaml
 from operator import itemgetter
+import collections
 
 from bcbio.solexa import INDEX_LOOKUP
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
@@ -67,22 +68,11 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
     # TODO: Check run_info against INDEX_LOOKUP
 
     # Collect counts for all observed barcodes
-    # TODO: Refactor to use FastqGeneralIterator
-    bcodes = {}
-    last_was_header = False
-    for line in open(fastq):
-        if not last_was_header:
-            if line[0] == "@":
-                last_was_header = True
-            continue
-
-        bcode = line[-(offset + 1 + length):-(offset + 1)].strip()
-        if bcode in bcodes:
+    bcodes = collections.defaultdict(int)
+    with open(fastq) as in_handle:
+        for _, sequence, _ in FastqGeneralIterator(in_handle):
+            bcode = sequence[-(offset + 1 + length):-(offset + 1)].strip()
             bcodes[bcode] += 1
-        else:
-            bcodes[bcode] = 1
-        if last_was_header:
-            last_was_header = False
 
     # Seperate out the most common barcodes
     total = sum(bcodes.itervalues())
@@ -105,11 +95,12 @@ def main(fastq, run_info_file, lane, out_file, length, offset, mismatch, verbose
 
     # Strategy:
     # Count -> Sort -> Split -> Match all against most common with mistmatch
+
     # We will have the barcode count after the split. So we don't need to
     # count when matching. So in the matching step we could iterate over the file,
     # storing the three relevant lines in memory before being written to the
     # correct file.
-    # Use FastqGeneralIterator to get the name / sequence /quality triple!
+    # Use FastqGeneralIterator to get the name / sequence / quality triple!
     matched_bc_grouping = approximate_matching(bcodes, bc_matched, 2)
 
     # if run_info_file != None:
