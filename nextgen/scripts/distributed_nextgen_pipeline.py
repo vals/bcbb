@@ -19,7 +19,7 @@ import math
 import yaml
 
 from bcbio.pipeline.run_info import get_run_info
-from bcbio.distributed import lsf, sge
+from bcbio.distributed import lsf, sge, slurm
 from bcbio.pipeline.config_loader import load_config
 
 
