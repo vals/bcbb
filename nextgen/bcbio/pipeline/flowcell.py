@@ -2,12 +2,15 @@
 
 import copy
 import re
+import os
+import glob
 
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.google import ( _to_unicode, _from_unicode )
+from bcbio.utils import UnicodeReader
 
 def format_project_name(unformated_name):
-    """Make the project name adhere to the formatting convention"""
+    """Make the project name adhere to a stricter formatting convention"""
     regexp = r'^(.+?)_(\d{2})_(\d{2})(.*)$'
     m = re.match(regexp,unformated_name)
     if not m or len(m.groups()) < 3:
@@ -27,9 +30,34 @@ def format_project_name(unformated_name):
     project_name = "%s_%s_%s%s" % (name,year,month,suffix)
     return project_name
 
+def get_barcode_metrics(workdir):
+    """Parse the [lane]_*_bc.metrics files in the *_barcode directories into a dictionary"""
+    
+    bc_files = []
+    if workdir is not None:
+        bc_files = glob.glob(os.path.join(workdir,"*_barcode","*_bc.metrics"))
+    if not len(bc_files) > 0:
+        return None
+    
+    bc_metrics = {}
+    for bc_file in bc_files:
+        m = re.match(r'^(\d+)\_',os.path.basename(bc_file))
+        if not m or len(m.groups()) != 1:
+            continue
+        lane = m.group(1)
+        bc_metrics[lane] = {}
+        with open(bc_file) as bcfh:
+            csvr = UnicodeReader(bcfh,dialect='excel-tab')
+            for row in csvr:
+                bc_metrics[lane][str(row[0])] = int(row[1])
+            
+    return bc_metrics
+
 def get_flowcell(fc_dir, run_info_yaml, config={}):
-    fc_name, fc_date, run_info = get_run_info(fc_dir,config,run_info_yaml)
-    return Flowcell(fc_name,fc_date,run_info)
+    # Just get the name of the flowcell directory minus the path
+    dirname = os.path.basename(os.path.normpath(fc_dir))
+    fc_name, fc_date, run_info = get_run_info(dirname,config,run_info_yaml)
+    return Flowcell(fc_name,fc_date,run_info,fc_dir)
 
 def get_project_name(description):
     """Parse out the project name from the lane description"""
@@ -49,10 +77,13 @@ def get_sample_name(barcode_name):
 class Flowcell:
     """A class for managing information about a flowcell"""
     
-    def __init__(self,fc_name,fc_date,data):
+    def __init__(self,fc_name,fc_date,data,fc_dir=None):
+        self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
         self.set_lanes(data.get("details",[]))
+        # Attempts to set the read counts on creation
+        self.set_read_counts()
         
     def collapse_on_sample(self):
         """Merge all data based on sample name, creating summarized read counts and concatenated lanes as necessary"""
@@ -68,6 +99,11 @@ class Flowcell:
         return self.fc_date
     def set_fc_date(self,fc_date):
         self.fc_date = fc_date
+        
+    def get_fc_dir(self):
+        return self.fc_dir
+    def set_fc_dir(self,fc_dir):
+        self.fc_dir = fc_dir
         
     def get_fc_name(self):
         return self.fc_name
@@ -88,11 +124,13 @@ class Flowcell:
         self.lanes = []
         for lane in lanes:
             self.add_lane(Lane(lane))
-    
+        
     def get_project_names(self):
         pnames = {}
         for lane in self.get_lanes():
             for pname in lane.get_project_names():
+                if pname is None:
+                    continue
                 pnames[pname] = 1
         return pnames.keys()
     
@@ -114,7 +152,17 @@ class Flowcell:
             fc = Flowcell(self.get_fc_name(),self.get_fc_date(),{"details": lanes})
         return fc
     
-    def set_read_counts(self,read_counts):
+    def set_read_counts(self,read_counts=None):
+        """Sets the read counts of the barcoded samples in the lanes of this flowcell.
+           Read counts can be supplied in a dictionary with lane number as key to a
+           dictionary with barcode indexes (or 'unmatched' or 'trim') as key and counts 
+           as values. If no read counts are supplied, attempts to parse the read counts 
+           from the flowcell directory, assuming that the read counts can be found using a glob
+           like [lane]_*_barcode/[lane]_*_bc.metrics
+        """
+        if read_counts is None:
+            read_counts = get_barcode_metrics(self.get_fc_dir()) or {}
+            
         for name in read_counts.keys():
             lane = self.get_lane_by_name(name)
             if not lane:

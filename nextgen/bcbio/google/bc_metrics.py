@@ -41,20 +41,6 @@ SEQUENCING_RESULT_HEADER = [
                  ['Pass','pass']
                 ]
   
-def _apply_filter(unfiltered,filter):
-    """Remove rows whose column contents does not match the non-null contents in the filter columns"""
-    filtered = []
-    for entry in unfiltered:
-        passed = True
-        for i,f in enumerate(filter):
-            if f and entry[i] != f:
-                passed = False
-                break
-        if passed:
-            filtered.append(entry)
-    
-    return filtered
-
 def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     """Get the barcode read distribution for a run and upload to google docs"""
     
@@ -85,9 +71,7 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
     #bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
-    fc = Flowcell(fc_name,fc_date,run_info)
-    read_counts = get_barcode_metrics(work_dir)
-    fc.set_read_counts(read_counts)
+    fc = Flowcell(fc_name,fc_date,run_info,work_dir)
     
     # Upload the data
     write_run_report_to_gdocs(fc,fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
@@ -99,83 +83,6 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     if projects_folder:
         write_project_report_to_gdocs(fc,fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
 
-
-def format_project_name(unformated_name):
-    """Make the project name adhere to the formatting convention"""
-    regexp = r'^(.+?)_(\d{2})_(\d{2})(.*)$'
-    m = re.match(regexp,unformated_name)
-    if not m or len(m.groups()) < 3:
-        return unformated_name
-    
-    name = m.group(1).strip()
-    year = m.group(2).strip()
-    month = m.group(3).strip()
-    suffix = m.group(4).strip()
-   
-    # Replace any non-period delimiters
-    delimiter = "_"
-    p = re.compile('(_)')
-    name = p.sub('.',name)
-    
-    # Format the name
-    project_name = "%s_%s_%s%s" % (name,year,month,suffix)
-    return project_name
-   
-def get_barcode_metrics(workdir):
-    """Parse the *_bc.metrics files in the *_barcode directories into a dictionary"""
-    
-    bc_metrics = {}
-    bc_files = glob.glob(os.path.join(workdir,"*_barcode","*_bc.metrics"))
-    for bc_file in bc_files:
-        lane = os.path.basename(bc_file)[0:1]
-        bc_metrics[lane] = {}
-        with open(bc_file) as bcfh:
-            csvr = UnicodeReader(bcfh,dialect='excel-tab')
-            for row in csvr:
-                bc_metrics[lane][str(row[0])] = int(row[1])
-            
-    return bc_metrics
-
-   
-def get_bc_stats(fc_date, fc_name, work_dir, run_info):
-    """Get a data structure with the run info coupled with the results from barcode demultiplexing"""
-    bc_stats = []
-    for lane_run_info in run_info.get("details",[]):
-        lane_bc_stats = {}
-        lane_id = str(lane_run_info['lane'])
-        bc_dir = os.path.join(work_dir,"%s_%s_%s_barcode" % (lane_id,fc_date,fc_name))
-        bc_file = os.path.join(bc_dir,"%s_%s_%s_bc.metrics" % (lane_id,fc_date,fc_name))
-        if os.path.exists(bc_file):
-            with open(bc_file) as bch:
-                csvr = UnicodeReader(bch,dialect='excel-tab')
-                for row in csvr:
-                    lane_bc_stats[str(row[0])] = int(row[1])
-        bc_stats.append(_merge_bc_stats(lane_run_info,lane_bc_stats,fc_date,fc_name))
-    
-    return bc_stats
-
-def get_project_name(description):
-    """Parse out the project name from the lane description"""
-    m = re.match(r'(?:.*\s+)?(\S+)',description,re.I)
-    if m and len(m.groups()) > 0:
-        return format_project_name(m.group(1).strip())
-    return "N/A"
-       
-def _get_unique_project_names(rows):
-    """Get the unique project names in a set of rows"""
-    names = {}
-    for row in rows:
-        names[row[0]] = 1
-    return names.keys()
-
-def get_sample_name(barcode_name):
-    """Extract the sample name by stripping the barcode index part of the sample description""" 
-    regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[\.\-_]?\d+$'
-    m = re.search(regexp,(barcode_name or ""),re.I)
-    if not m or len(m.groups()) == 0:
-        return barcode_name
-    return m.group(1)
-    
 def get_spreadsheet(ssheet_title,encoded_credentials):
     """Connect to Google docs and get a spreadsheet"""
     
@@ -197,116 +104,7 @@ def get_spreadsheet(ssheet_title,encoded_credentials):
     log.info("Found spreadsheet matching the supplied title: '%s'" % (ssheet.title.text))
     
     return (client,ssheet)
-
-def group_bc_stats(bc_metrics):
-    """Collapse the barcode statistics into a data structure where the number of reads per project and sample are aggregated"""
-    
-    projects = {}
-    for lane in bc_metrics:
-        lane_project_name = lane.get("project_name","N/A")
-        lane_name = str(lane.get("lane","N/A"))
-        
-        for bc in lane.get("multiplex",[]):
-            # If a project name is specified for the sample, use that instead of the lane project
-            project_name = bc.get("project_name",lane_project_name)
-            # Get the project data already stored on this project
-            project = projects.get(project_name,None)
-            if not project:
-                project = {}
-                project["project_name"] = project_name
-                project["samples"] = {}
-                projects[project_name] = project
-            samples = project["samples"]
-            
-            sample_count = bc.get("barcode_read_count",0)
-            sample_name = bc.get("sample_name","N/A")
-            # Get the sample info already stored
-            sample = samples.get(sample_name,None)
-            if not sample:
-                sample = {}
-                sample["sample_name"] = sample_name
-                sample["read_count"] = 0 
-                sample["lane"] = []
-                samples[sample_name] = sample
-            sample["lane"].append(lane_name)
-                
-            # Convert the count to int
-            try:
-                sample_count = int(sample_count)
-                # Add up the read counts
-                sample["read_count"] = sample["read_count"] + sample_count
-            except ValueError:
-                sample["read_count_na"] = 1
-    
-    # Reformat the data structure
-    data = projects.values()
-    for project in data:
-        samples = project["samples"].values()
-        for sample in samples:
-            lanes = dict.fromkeys(sample["lane"]).keys()
-            sample["lane"] = ",".join(lanes)
-            if "read_count_na" in sample:
-                sample["comment"] = unicode("Read count not available for some lanes")
-        project["samples"] = samples
-        
-    return data
-       
-def _merge_bc_stats(lane_run_info,lane_bc_stats,fc_date="N/A",fc_name="N/A"):
-    """Join the barcode statistics with the run meta data"""
-    
-    lane_info = dict(lane_run_info)
-    
-    # Parse the project name
-    lane_info['project_name'] = get_project_name(lane_info.get("description",""))
-    lane_info['date'] = lane_info.get("date",fc_date)
-    lane_info['flowcell_id'] = lane_info.get("flowcell_id",fc_name)
-    
-    # Add a multiplex section if none exists
-    if not 'multiplex' in lane_info:
-        lane_info['multiplex'] = []
-         
-    multiplex = lane_info['multiplex']
-    for bc in multiplex:
-        bc_index = str(bc['barcode_id'])
-        bc['sample_name'] = get_sample_name(bc['name'])
-        # set the project name based on the sample description or, if not present, the lane description
-        bc['project_name'] = get_project_name(bc.get('description',lane_info.get("description","")))
-        bc_count = lane_bc_stats.get(bc_index,None)
-        if bc_count:
-            bc['barcode_read_count'] = bc_count
-            del lane_bc_stats[bc_index]
-        else:
-            bc['barcode_read_count'] = "N.D."
-    
-    # Add entries for barcodes not specified in the configuration file
-    for bc_index, bc_count in lane_bc_stats.items():
-        bc = {'barcode_id': bc_index, 'barcode_read_count': bc_count}
-        # In case the barcode index is 'unmatched', use this as the sample name as well
-        if bc_index == 'unmatched':
-            bc['sample_name'] = 'Unmatched'
-        multiplex.append(bc)
-        
-    return lane_info
- 
-def _structure_to_list(structure):
-    """Flatten all entries in the metrics data structure into a list of entry rows"""
-    
-    metrics_list = []
-    for lane in structure:
-        row = [""]*len(BARCODE_STATS_HEADER)
-        for i in range(0,5):
-            row[i] = lane.get(BARCODE_STATS_HEADER[i][1],"")
-
-        for m in lane.get("multiplex",[]):
-            # use the sample-specific project names if present
-            row[0] = m.get(BARCODE_STATS_HEADER[0][1],row[0])
-            for i in range(5,len(BARCODE_STATS_HEADER)):
-                row[i] = m.get(BARCODE_STATS_HEADER[i][1],"")
-                
-            metrics_list.append(list(row))
-            
-    return metrics_list
-        
+               
 def write_project_report_to_gdocs(flowcell,encoded_credentials,gdocs_folder=""):
     """Upload the sample read distribution for a project to google docs"""
     
