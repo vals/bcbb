@@ -64,7 +64,7 @@ from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
 
 def main(fastq, run_info_file, lane, out_file,
-    length, offset, mismatch, verbose, cutoff, dry_run):
+    length, offset, mismatch, verbose, cutoff, dry_run, mode):
     if run_info_file:
         compare_run_info_and_index_lookup(run_info_file)
 
@@ -82,10 +82,12 @@ def main(fastq, run_info_file, lane, out_file,
         if float(num) / total >= cutoff:
             bc_matched.append(bc)
 
-    # Check with mismatch against most common
-
-    matched_bc_grouping = approximate_matching(fastq, dict(bcodes), \
-                                        bc_matched, mismatch, offset, length, dry_run)
+    if mode == "demultiplex":
+        # Check with mismatch against most common
+        matched_bc_grouping = match_and_split(fastq, dict(bcodes), \
+                                bc_matched, mismatch, offset, length, dry_run)
+    elif mode == "count":
+        pass
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
@@ -94,32 +96,39 @@ def main(fastq, run_info_file, lane, out_file,
         yaml.dump(matched_bc_grouping, out_handle, width=70)
 
 
-def match_against_run_info(bcodes, run_info_file, mismatch, lane):
-    given_bcodes = []
-    with open(run_info_file) as in_handle:
-        run_info = yaml.load(in_handle)
-        given_bcodes += [bc["sequence"] for \
-        bc in run_info[lane - 1]["multiplex"]]
+# def match_against_run_info(bcodes, run_info_file, mismatch, lane):
+#     given_bcodes = []
+#     with open(run_info_file) as in_handle:
+#         run_info = yaml.load(in_handle)
+#         given_bcodes += [bc["sequence"] for \
+#         bc in run_info[lane - 1]["multiplex"]]
 
-    return approximate_matching(bcodes, given_bcodes, mismatch)
+#     return approximate_matching(bcodes, given_bcodes, mismatch)
 
 
-def approximate_matching(fastq, bcodes, given_bcodes, \
-    mismatch, offset, length, dry_run):
-    """Returns a dectionary with matched barcodes along with info.
+def match_and_count(bcodes, given_bcodes, mismatch):
+    """Returns a dictionary with matched barcodes along with info.
     """
-    # TODO: Splitting - need some way to copy the entire
-    # name / sequence / quality
-    # three lines from where the barcode was collected in to a seperate file
-    # for each barcode.
+    matched_bc_grouping = dict()
 
-    # Strategy:
-    # Count -> Sort -> Split -> Match all against most common with mistmatch
+    assert mismatch >= 0, "Amount of mismatch cannot be negative."
+    for bc, count in bcodes.items():
+        for bc_given in given_bcodes:
+            current_mismatch = bc_mismatch(bc, bc_given)
+            if current_mismatch <= mismatch:
+                if bc_given not in matched_bc_grouping:
+                    matched_bc_grouping[bc_given] = {"variants": [], \
+                                                        "count": 0}
+                if bc not in matched_bc_grouping[bc_given]["variants"]:
+                    matched_bc_grouping[bc_given]["variants"].append(bc)
 
-    # We will have the barcode count after the split. So we don't need to
-    # count when matching. So in the matching step we could iterate over the
-    # file, storing the three relevant lines in memory before being written to
-    # the correct file.
+
+def match_and_split(fastq, bcodes, given_bcodes, \
+    mismatch, offset, length, dry_run):
+    """Matches barcodes in the fastq file 'fastq' and prints out the lines
+    corresponding to the matched barcode groupes in to seperate files.
+    When done it returns a dictionary with matched barcodes along with info.
+    """
     matched_bc_grouping = {}
     found_bcodes = set()
     number = dict(matched=0., unmatched=0.)
@@ -132,14 +141,7 @@ def approximate_matching(fastq, bcodes, given_bcodes, \
     #for bc, count in bcodes.items():
         bc = sequence[-(offset + 1 + length):-(offset + 1)].strip()
         for bc_given in given_bcodes:
-            aligns = pairwise2.align.globalms(bc, bc_given,
-                        5.0, -4.0, -9.0, -0.5, one_alignment_only=True)
-            bc_aligned, bc_g_aligned = aligns[0][:2]
-            matches = sum(1 for i, base in enumerate(bc_aligned) \
-                                                if base == bc_g_aligned[i])
-            gaps = bc_aligned.count("-")
-            cur_mismatch = len(bc) - matches + gaps
-
+            cur_mismatch = bc_mismatch(bc, bc_given)
             if cur_mismatch <= mismatch:
                 if bc_given not in matched_bc_grouping:
                     matched_bc_grouping[bc_given] = {"variants": [], \
@@ -170,7 +172,22 @@ def approximate_matching(fastq, bcodes, given_bcodes, \
     return matched_bc_grouping
 
 
+def bc_mismatch(bc, bc_given):
+    """Calculate and return the number of mismatches between two barcodes.
+    """
+    aligns = pairwise2.align.globalms(bc, bc_given,
+                5.0, -4.0, -9.0, -0.5, one_alignment_only=True)
+    bc_aligned, bc_g_aligned = aligns[0][:2]
+    matches = sum(1 for i, base in enumerate(bc_aligned) \
+                                        if base == bc_g_aligned[i])
+    gaps = bc_aligned.count("-")
+    cur_mismatch = len(bc) - matches + gaps
+    return cur_mismatch
+
+
 def _write_to_handles(name, seq, qual, fname, out_handles):
+    """Defines format and location to write the fastq triple.
+    """
     try:
         out_handle = out_handles[fname]
     except KeyError:
@@ -197,6 +214,7 @@ def output_to_fastq(output_base):
             read2name = \
             output_base.replace("--r--", "2").replace("--b--", barcode)
             _write_to_handles(name2, seq2, qual2, read2name, out_handles)
+
     return write_reads
 
 
@@ -232,4 +250,5 @@ if __name__ == "__main__":
 
     main(fastq, run_info, int(options.lane), options.out_file, \
             int(options.length), int(options.offset), int(options.mismatch), \
-            options.verbose, float(options.cutoff), options.dry_run)
+            options.verbose, float(options.cutoff), \
+            options.dry_run, options.mode)
