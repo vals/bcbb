@@ -150,10 +150,10 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             tag_size = tag_sizes[0]
             this_size = _get_fastq_size(xs[0], fastq_dir, fc_name)
             if this_size == expected_size:
-                x = xs[0]
-                x["barcode_id"] = "trim"
-                x["sequence"] = "N" * tag_size
-                xs = [x]
+                item["multiplex"] = [{"name" : item.get("name",
+                                      item["description"]),
+                                      "barcode_id": "trim",
+                                      "sequence" : "N" * tag_size}]
             else:
                 assert this_size == expected_size - tag_size, \
                        "Unexpected non-multiplex sequence"
