@@ -64,7 +64,7 @@ from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
 
 def main(fastq, run_info_file, lane, out_file,
-    length, offset, mismatch, verbose, cutoff):
+    length, offset, mismatch, verbose, cutoff, dry_run):
     if run_info_file:
         compare_run_info_and_index_lookup(run_info_file)
 
@@ -85,7 +85,7 @@ def main(fastq, run_info_file, lane, out_file,
     # Check with mismatch against most common
 
     matched_bc_grouping = approximate_matching(fastq, dict(bcodes), \
-                                                bc_matched, mismatch, offset, length)
+                                        bc_matched, mismatch, offset, length, dry_run)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
@@ -98,15 +98,18 @@ def match_against_run_info(bcodes, run_info_file, mismatch, lane):
     given_bcodes = []
     with open(run_info_file) as in_handle:
         run_info = yaml.load(in_handle)
-        given_bcodes += [bc["sequence"] for bc in run_info[lane - 1]["multiplex"]]
+        given_bcodes += [bc["sequence"] for \
+        bc in run_info[lane - 1]["multiplex"]]
 
     return approximate_matching(bcodes, given_bcodes, mismatch)
 
 
-def approximate_matching(fastq, bcodes, given_bcodes, mismatch, offset, length):
+def approximate_matching(fastq, bcodes, given_bcodes, \
+    mismatch, offset, length, dry_run):
     """Returns a dectionary with matched barcodes along with info.
     """
-    # TODO: Splitting - need some way to copy the entire name / sequence / quality
+    # TODO: Splitting - need some way to copy the entire
+    # name / sequence / quality
     # three lines from where the barcode was collected in to a seperate file
     # for each barcode.
 
@@ -114,14 +117,13 @@ def approximate_matching(fastq, bcodes, given_bcodes, mismatch, offset, length):
     # Count -> Sort -> Split -> Match all against most common with mistmatch
 
     # We will have the barcode count after the split. So we don't need to
-    # count when matching. So in the matching step we could iterate over the file,
-    # storing the three relevant lines in memory before being written to the
-    # correct file.
-    # Use FastqGeneralIterator to get the name / sequence / quality triple!
+    # count when matching. So in the matching step we could iterate over the
+    # file, storing the three relevant lines in memory before being written to
+    # the correct file.
     matched_bc_grouping = {}
     found_bcodes = set()
     number = dict(matched=0., unmatched=0.)
-    out_format = "out/out_--b--_--r--_fastq.txt"
+    out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
     out_writer = output_to_fastq(out_format)
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
@@ -150,7 +152,8 @@ def approximate_matching(fastq, bcodes, given_bcodes, mismatch, offset, length):
                 found_bcodes.add(bc)
                 number["matched"] += count
 
-                out_writer(bc, title, sequence, quality, None, None, None)
+                if not dry_run:
+                    out_writer(bc, title, sequence, quality, None, None, None)
 
     for bc, matches in matched_bc_grouping.items():
         for illumina_index, illumina_bc in INDEX_LOOKUP.items():
@@ -191,12 +194,16 @@ def output_to_fastq(output_base):
         read1name = output_base.replace("--r--", "1").replace("--b--", barcode)
         _write_to_handles(name1, seq1, qual1, read1name, out_handles)
         if name2:
-            read2name = output_base.replace("--r--", "2").replace("--b--", barcode)
+            read2name = \
+            output_base.replace("--r--", "2").replace("--b--", barcode)
             _write_to_handles(name2, seq2, qual2, read2name, out_handles)
     return write_reads
 
 
 def compare_run_info_and_index_lookup(run_info):
+    """A simple check to see that the barcodes in the given run_info matches
+    barcodes specified by Illumina documentation.
+    """
     # TODO: Check run_info against INDEX_LOOKUP
     pass
 
@@ -210,6 +217,9 @@ if __name__ == "__main__":
     parser.add_option("-v", "--verbose", dest="verbose", default=False, \
                                                         action="store_true")
     parser.add_option("-c", "--cutoff", dest="cutoff", default=0.02)
+    parser.add_option("-n", "--dryrun", dest="dry_run", default=False, \
+                                                        action="store_true")
+    parser.add_option("--mode", dest="mode", default="demultiplex")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq, = args
@@ -222,4 +232,4 @@ if __name__ == "__main__":
 
     main(fastq, run_info, int(options.lane), options.out_file, \
             int(options.length), int(options.offset), int(options.mismatch), \
-            options.verbose, float(options.cutoff))
+            options.verbose, float(options.cutoff), options.dry_run)
