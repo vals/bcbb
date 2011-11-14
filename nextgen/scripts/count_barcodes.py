@@ -83,11 +83,12 @@ def main(fastq, run_info_file, lane, out_file,
             bc_matched.append(bc)
 
     if mode == "demultiplex":
-        # Check with mismatch against most common
+        # Check with mismatch against most common, split fastq files.
         matched_bc_grouping = match_and_split(fastq, dict(bcodes), \
                                 bc_matched, mismatch, offset, length, dry_run)
     elif mode == "count":
-        pass
+        matched_bc_grouping = match_and_count(dict(bcodes), bc_matched, \
+                                mismatch)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
@@ -110,6 +111,8 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     """Returns a dictionary with matched barcodes along with info.
     """
     matched_bc_grouping = dict()
+    number = dict(matched=0., unmatched=0.)
+    found_bcodes = set()
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     for bc, count in bcodes.items():
@@ -121,6 +124,20 @@ def match_and_count(bcodes, given_bcodes, mismatch):
                                                         "count": 0}
                 if bc not in matched_bc_grouping[bc_given]["variants"]:
                     matched_bc_grouping[bc_given]["variants"].append(bc)
+
+                matched_bc_grouping[bc_given]["count"] += count
+                found_bcodes.add(bc)
+                number["matched"] += count
+
+    # Feels silly, would make more sense 'in place', let's make a class!
+    matched_bc_grouping = add_illumina_indexes(matched_bc_grouping)
+    matched_bc_grouping = add_unmatched_barcodes(matched_bc_grouping, bcodes, \
+                            found_bcodes)
+
+    number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
+    percentage = 100. * number["matched"] / sum(number.values())
+    print("Percentage matched: %.3f%%" % percentage)
+    return matched_bc_grouping
 
 
 def match_and_split(fastq, bcodes, given_bcodes, \
@@ -138,7 +155,6 @@ def match_and_split(fastq, bcodes, given_bcodes, \
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     handle = open(fastq)
     for title, sequence, quality in FastqGeneralIterator(handle):
-    #for bc, count in bcodes.items():
         bc = sequence[-(offset + 1 + length):-(offset + 1)].strip()
         for bc_given in given_bcodes:
             cur_mismatch = bc_mismatch(bc, bc_given)
@@ -157,19 +173,35 @@ def match_and_split(fastq, bcodes, given_bcodes, \
                 if not dry_run:
                     out_writer(bc, title, sequence, quality, None, None, None)
 
-    for bc, matches in matched_bc_grouping.items():
+    matched_bc_grouping = add_illumina_indexes(matched_bc_grouping)
+    matched_bc_grouping = add_unmatched_barcodes(matched_bc_grouping, bcodes, \
+                            found_bcodes)
+
+    number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
+    percentage = 100. * number["matched"] / sum(number.values())
+    print("Percentage matched: %.3f%%" % percentage)
+    return matched_bc_grouping
+
+
+def add_unmatched_barcodes(grouped_bc_dict, bcodes, found_bcodes):
+    """Appends a subdictionary with the barcodes not considered to match the
+    primary barcodes.
+    """
+    grouped_bc_dict["unmatched"] = \
+    dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
+    return grouped_bc_dict
+
+
+def add_illumina_indexes(grouped_bc_dict):
+    """Attaches matched illumina barcodes to barcode groups
+    """
+    for bc, matches in grouped_bc_dict.items():
         for illumina_index, illumina_bc in INDEX_LOOKUP.items():
             if illumina_bc == bc:
                 if "indexes" not in matches:
                     matches["indexes"] = []
                 matches["indexes"].append(illumina_index)
-
-    matched_bc_grouping["unmatched"] = \
-    dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
-    number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
-    percentage = 100. * number["matched"] / sum(number.values())
-    print("Percentage matched: %.3f%%" % percentage)
-    return matched_bc_grouping
+    return grouped_bc_dict
 
 
 def bc_mismatch(bc, bc_given):
