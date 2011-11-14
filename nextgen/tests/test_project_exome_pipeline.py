@@ -90,5 +90,4 @@ class SampleBasedAnalysisTest(unittest.TestCase):
                   os.path.join(self.fc_dir, "post_process.yaml"),
                   os.path.join(self.proj_dir, "intermediate", "nobackup", "110106_FC70BUKAAXX"),
                   os.path.join(self.proj_dir, "intermediate", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml")]
-
             subprocess.check_call(cl)
