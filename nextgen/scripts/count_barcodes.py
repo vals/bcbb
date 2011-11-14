@@ -136,6 +136,7 @@ def match_and_count(bcodes, given_bcodes, mismatch):
 
     number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
     percentage = 100. * number["matched"] / sum(number.values())
+    print number
     print("Percentage matched: %.3f%%" % percentage)
     return matched_bc_grouping
 
@@ -162,13 +163,12 @@ def match_and_split(fastq, bcodes, given_bcodes, \
                 if bc_given not in matched_bc_grouping:
                     matched_bc_grouping[bc_given] = {"variants": [], \
                                                         "count": 0}
-                count = bcodes[bc]
                 if bc not in matched_bc_grouping[bc_given]["variants"]:
                     matched_bc_grouping[bc_given]["variants"].append(bc)
 
-                matched_bc_grouping[bc_given]["count"] += count
+                matched_bc_grouping[bc_given]["count"] += 1
                 found_bcodes.add(bc)
-                number["matched"] += count
+                number["matched"] += 1
 
                 if not dry_run:
                     out_writer(bc, title, sequence, quality, None, None, None)
@@ -179,6 +179,7 @@ def match_and_split(fastq, bcodes, given_bcodes, \
 
     number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
     percentage = 100. * number["matched"] / sum(number.values())
+    print number
     print("Percentage matched: %.3f%%" % percentage)
     return matched_bc_grouping
 
