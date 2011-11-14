@@ -84,18 +84,42 @@ def main(fastq, run_info_file, lane, out_file,
 
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
-        matched_bc_grouping = match_and_split(fastq, dict(bcodes), \
+        bc_grouping = match_and_split(fastq, dict(bcodes), \
                                 bc_matched, mismatch, offset, length, dry_run)
     elif mode == "count":
-        matched_bc_grouping = match_and_count(dict(bcodes), bc_matched, \
+        bc_grouping = match_and_count(dict(bcodes), bc_matched, \
                                 mismatch)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
 
     with open(out_file, "w+") as out_handle:
-        yaml.dump(matched_bc_grouping, out_handle, width=70)
+        yaml.dump(bc_grouping.__dict__, out_handle, width=70)
 
+
+class BarcodeGrouping(object):
+    """Stores and represents the groupings of matched barcodes.
+    """
+    def __init__(self):
+        self.matched = dict()
+        self.unmatched = dict()
+
+    def add_illumina_indexes(self):
+        """Attaches matched illumina barcodes to barcode groups
+        """
+        for bc, matches in self.matched.items():
+            for illumina_index, illumina_bc in INDEX_LOOKUP.items():
+                if illumina_bc == bc:
+                    if "indexes" not in matches:
+                        matches["indexes"] = []
+                    matches["indexes"].append(illumina_index)
+
+    def add_unmatched_barcodes(self, bcodes, found_bcodes):
+        """Appends a subdictionary with the barcodes not considered to match the
+        primary barcodes.
+        """
+        self.unmatched = \
+        dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
 
 # def match_against_run_info(bcodes, run_info_file, mismatch, lane):
 #     given_bcodes = []
@@ -110,35 +134,46 @@ def main(fastq, run_info_file, lane, out_file,
 def match_and_count(bcodes, given_bcodes, mismatch):
     """Returns a dictionary with matched barcodes along with info.
     """
-    matched_bc_grouping = dict()
+    bc_grouping = BarcodeGrouping()
     number = dict(matched=0., unmatched=0.)
     found_bcodes = set()
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
-    for bc, count in bcodes.items():
-        for bc_given in given_bcodes:
-            current_mismatch = bc_mismatch(bc, bc_given)
-            if current_mismatch <= mismatch:
-                if bc_given not in matched_bc_grouping:
-                    matched_bc_grouping[bc_given] = {"variants": [], \
-                                                        "count": 0}
-                if bc not in matched_bc_grouping[bc_given]["variants"]:
-                    matched_bc_grouping[bc_given]["variants"].append(bc)
+    if mismatch == 0:
+        for bc, count in bcodes.items():
+            if bc in given_bcodes:
+                if bc not in bc_grouping.matched:
+                    bc_grouping.matched[bc] = {"variants": [], "count": 0}
+                    if bc not in bc_grouping.matched[bc]["variants"]:
+                        bc_grouping.matched[bc]["variants"].append(bc)
 
-                matched_bc_grouping[bc_given]["count"] += count
-                found_bcodes.add(bc)
-                number["matched"] += count
+                    bc_grouping.matched[bc]["count"] += count
+                    found_bcodes.add(bc)
+                    number["matched"] += count
 
-    # Feels silly, would make more sense 'in place', let's make a class!
-    matched_bc_grouping = add_illumina_indexes(matched_bc_grouping)
-    matched_bc_grouping = add_unmatched_barcodes(matched_bc_grouping, bcodes, \
-                            found_bcodes)
+    else:
+        for bc, count in bcodes.items():
+            for bc_given in given_bcodes:
+                current_mismatch = bc_mismatch(bc, bc_given)
+                if current_mismatch <= mismatch:
+                    if bc_given not in bc_grouping.matched:
+                        bc_grouping.matched[bc_given] = {"variants": [], \
+                                                            "count": 0}
+                    if bc not in bc_grouping.matched[bc_given]["variants"]:
+                        bc_grouping.matched[bc_given]["variants"].append(bc)
 
-    number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
+                    bc_grouping.matched[bc_given]["count"] += count
+                    found_bcodes.add(bc)
+                    number["matched"] += count
+
+    bc_grouping.add_illumina_indexes()
+    bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
+
+    number["unmatched"] = float(sum(bc_grouping.unmatched.values()))
     percentage = 100. * number["matched"] / sum(number.values())
     print number
     print("Percentage matched: %.3f%%" % percentage)
-    return matched_bc_grouping
+    return bc_grouping
 
 
 def match_and_split(fastq, bcodes, given_bcodes, \
@@ -147,7 +182,7 @@ def match_and_split(fastq, bcodes, given_bcodes, \
     corresponding to the matched barcode groupes in to seperate files.
     When done it returns a dictionary with matched barcodes along with info.
     """
-    matched_bc_grouping = {}
+    bc_grouping = BarcodeGrouping()
     found_bcodes = set()
     number = dict(matched=0., unmatched=0.)
     out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
@@ -160,49 +195,27 @@ def match_and_split(fastq, bcodes, given_bcodes, \
         for bc_given in given_bcodes:
             cur_mismatch = bc_mismatch(bc, bc_given)
             if cur_mismatch <= mismatch:
-                if bc_given not in matched_bc_grouping:
-                    matched_bc_grouping[bc_given] = {"variants": [], \
+                if bc_given not in bc_grouping.matched:
+                    bc_grouping.matched[bc_given] = {"variants": [], \
                                                         "count": 0}
-                if bc not in matched_bc_grouping[bc_given]["variants"]:
-                    matched_bc_grouping[bc_given]["variants"].append(bc)
+                if bc not in bc_grouping.matched[bc_given]["variants"]:
+                    bc_grouping.matched[bc_given]["variants"].append(bc)
 
-                matched_bc_grouping[bc_given]["count"] += 1
+                bc_grouping.matched[bc_given]["count"] += 1
                 found_bcodes.add(bc)
                 number["matched"] += 1
 
                 if not dry_run:
                     out_writer(bc, title, sequence, quality, None, None, None)
 
-    matched_bc_grouping = add_illumina_indexes(matched_bc_grouping)
-    matched_bc_grouping = add_unmatched_barcodes(matched_bc_grouping, bcodes, \
-                            found_bcodes)
+    bc_grouping.add_illumina_indexes()
+    bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
 
-    number["unmatched"] = float(sum(matched_bc_grouping["unmatched"].values()))
+    number["unmatched"] = float(sum(bc_grouping.unmatched.values()))
     percentage = 100. * number["matched"] / sum(number.values())
     print number
     print("Percentage matched: %.3f%%" % percentage)
-    return matched_bc_grouping
-
-
-def add_unmatched_barcodes(grouped_bc_dict, bcodes, found_bcodes):
-    """Appends a subdictionary with the barcodes not considered to match the
-    primary barcodes.
-    """
-    grouped_bc_dict["unmatched"] = \
-    dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
-    return grouped_bc_dict
-
-
-def add_illumina_indexes(grouped_bc_dict):
-    """Attaches matched illumina barcodes to barcode groups
-    """
-    for bc, matches in grouped_bc_dict.items():
-        for illumina_index, illumina_bc in INDEX_LOOKUP.items():
-            if illumina_bc == bc:
-                if "indexes" not in matches:
-                    matches["indexes"] = []
-                matches["indexes"].append(illumina_index)
-    return grouped_bc_dict
+    return bc_grouping
 
 
 def bc_mismatch(bc, bc_given):
@@ -281,7 +294,8 @@ if __name__ == "__main__":
         print __doc__
         sys.exit()
 
-    main(fastq, run_info, int(options.lane), options.out_file, \
-            int(options.length), int(options.offset), int(options.mismatch), \
-            options.verbose, float(options.cutoff), \
-            options.dry_run, options.mode)
+    import cProfile
+    cProfile.run("main(fastq, run_info, int(options.lane), options.out_file, \
+    int(options.length), int(options.offset), int(options.mismatch), \
+    options.verbose, float(options.cutoff), options.dry_run, options.mode)", \
+    sort='cumulative')
