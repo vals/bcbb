@@ -38,7 +38,6 @@ from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_unified_genotyper
 from bcbio.pipeline.config_loader import load_config
 from bcbio.google.bc_metrics import create_bc_report_on_gdocs
-from bcbio.pipeline.config_loader import load_config
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
