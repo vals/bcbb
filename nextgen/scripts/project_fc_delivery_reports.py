@@ -2,9 +2,9 @@
 """Make delivery notes for a flowcell
 
 Usage:
-     fc_delivery_reports.py <flowcell id> 
-                       [--archive_dir=<archive directory>
-                        --analysis_dir=<analysis directory>]
+     project_fc_delivery_reports.py <flowcell id> 
+                                    [--archive_dir=<archive directory>
+                                     --analysis_dir=<analysis directory>]
 
 Given a flowcell id, make delivery reports for all projects on that flowcell.
 This script relies on Illumina data being delivered to an archive directory, 
@@ -201,9 +201,9 @@ def generate_report(proj_conf):
 
 if __name__ == "__main__":
     usage = """
-    fc_delivery_reports.py <flowcell id>
-                           [--archive_dir=<archive directory> 
-                            --analysis_dir=<analysis directory>]
+    project_fc_delivery_reports.py <flowcell id>
+                                   [--archive_dir=<archive directory> 
+                                    --analysis_dir=<analysis directory>]
 
     For more extensive help type fc_delivery_reports.py
 """
