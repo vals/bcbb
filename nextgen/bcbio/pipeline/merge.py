@@ -10,7 +10,7 @@ import collections
 from bcbio import utils, broad
 from bcbio.pipeline.fastq import get_fastq_files
 
-def combine_fastq_files(in_files, work_dir):
+def combine_fastq_files(in_files, work_dir, config):
     if len(in_files) == 1:
         return in_files[0]
     else:
@@ -27,6 +27,10 @@ def combine_fastq_files(in_files, work_dir):
                 for (_, cur2) in in_files:
                     with open(cur2) as in_handle:
                         shutil.copyfileobj(in_handle, out_handle)
+        for f1, f2 in in_files:
+            utils.save_diskspace(f1, "fastq merged to %s" % out1, config)
+            if f2:
+                utils.save_diskspace(f2, "fastq merged to %s" % out2, config)
         return out1, out2
 
 def organize_samples(items, dirs, config_file):
@@ -57,6 +61,7 @@ def organize_samples(items, dirs, config_file):
 def merge_bam_files(bam_files, work_dir, config):
     """Merge multiple BAM files from a sample into a single BAM for processing.
     """
+    bam_files.sort()
     out_file = os.path.join(work_dir, os.path.basename(bam_files[0]))
     picard = broad.runner_from_config(config)
     picard.run_fn("picard_merge", bam_files, out_file)
