@@ -36,8 +36,12 @@ def cpmap(cores=1):
                 return func(self, timeout=timeout if timeout is not None else 1e100)
             return wrap
         IMapIterator.next = wrapper(IMapIterator.next)
-        pool = multiprocessing.Pool(int(cores))
-        yield pool.imap
+        # recycle threads on Python 2.7; remain compatible with Python 2.6
+        try:
+            pool = multiprocessing.Pool(int(cores), maxtasksperchild=5)
+        except TypeError:
+            pool = multiprocessing.Pool(int(cores))
+        yield pool.imap_unordered
         pool.terminate()
 
 def map_wrap(f):

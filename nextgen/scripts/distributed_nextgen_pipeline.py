@@ -19,7 +19,12 @@ def main(config_file, fc_dir, run_info_yaml=None, num_workers=None):
     assert config["algorithm"]["num_cores"] == "messaging", \
            "Use this script only with configured 'messaging' parallelization"
     if num_workers is None:
-        num_workers = _needed_workers(get_run_info(fc_dir, config, run_info_yaml)[-1])
+        if config["distributed"].get("num_workers", "") == "all":
+            cp = config["distributed"]["cluster_platform"]
+            cluster = __import__("bcbio.distributed.{0}".format(cp), fromlist=[cp])
+            num_workers = cluster.available_nodes(config["distributed"]["platform_args"]) - 1
+        if num_workers is None:
+            num_workers = _needed_workers(get_run_info(fc_dir, config, run_info_yaml)[-1])
     task_module = "bcbio.distributed.tasks"
     args = [config_file, fc_dir]
     if run_info_yaml:
@@ -32,7 +37,7 @@ def _needed_workers(run_info):
     names = []
     for xs in run_info["details"]:
         for x in xs:
-            names.append(lane.get("name", (lane["lane"], lane["barcode_id"])))
+            names.append(x.get("name", (x["lane"], x["barcode_id"])))
     return len(set(names))
 
 if __name__ == "__main__":
