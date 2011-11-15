@@ -1,7 +1,7 @@
 """High level entry point for processing a sample.
 
 Samples may include multiple lanes, or barcoded subsections of lanes,
-that should be processed together.
+processed together.
 """
 import os
 import subprocess
@@ -21,6 +21,36 @@ def process_sample(sample_name, fastq_files, info, bam_files, dirs,
     """Finalize processing for a sample, potentially multiplexed.
     """
     config = _update_config_w_custom(config, info)
+
+    if data["config"]["algorithm"]["screen_contaminants"]:
+        log.info("Screening for contaminants on sample %s with genome %s" % (str(data["name"]), str(data["genome_build"])))
+        screen_for_contamination(data["fastq"],
+                                 data["config"],
+                                 data["genome_build"])
+    
+    if data["config"]["algorithm"]["snpcall"]:
+        log.info("Finalizing variant calls %s with GATK" % str(data["name"]))
+        data["vrn_file"] = finalize_genotyper(data["vrn_file"],
+                                              data["sam_ref"],
+                                              data["config"])
+        log.info("Calculating variation effects for %s" % str(data["name"]))
+        ann_vrn_file, effects_file = variation_effects(data["vrn_file"],
+                                                       data["sam_ref"],
+                                                       data["genome_build"],
+                                                       data["config"])
+        if ann_vrn_file:
+            data["vrn_file"] = ann_vrn_file
+            data["effects_file"] = effects_file
+    if data["config"]["algorithm"].get("transcript_assemble", False):
+        data["tx_file"] = assemble_transcripts(data["work_bam"],
+                                               data["sam_ref"],
+                                               data["config"])
+    if data["sam_ref"] is not None:
+        log.info("Generating summary files: %s" % str(data["name"]))
+        generate_align_summary(data["work_bam"], data["fastq2"] is not None,
+                               data["sam_ref"],  data["name"],
+                               data["config"],   data["dirs"])
+    return [[data]]
 
     genome_build = info.get("genome_build", None)
     (_, sam_ref) = get_genome_ref(genome_build, config["algorithm"]["aligner"],

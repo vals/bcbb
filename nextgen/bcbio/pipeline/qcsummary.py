@@ -14,6 +14,7 @@ from bcbio.broad import runner_from_config
 from bcbio.broad.metrics import PicardMetrics, PicardMetricsParser
 from bcbio import utils
 
+
 # ## High level functions to generate summary PDF
 
 def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
@@ -27,6 +28,10 @@ def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
                                         tmp_dir, config)
         return _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                              dirs, config)
+
+def screen_for_contamination(fastq_file, config, genome_build):
+    with utils.chdir(dirs["work"]):
+        _run_fastq_screen(fastq_file, config, genome_build)
 
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                   dirs, config):
@@ -50,6 +55,7 @@ def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
     subprocess.check_call(cl)
     return "%s.pdf" % os.path.splitext(out_file)[0]
 
+
 def _graphs_and_summary(bam_file, sam_ref, is_paired, tmp_dir, config):
     """Prepare picard/FastQC graphs and summary details.
     """
@@ -66,6 +72,7 @@ def _graphs_and_summary(bam_file, sam_ref, is_paired, tmp_dir, config):
     summary_table = _update_summary_table(summary_table, sam_ref, fastqc_stats)
     return all_graphs, summary_table, fastqc_overrep
 
+
 def _update_summary_table(summary_table, ref_file, fastqc_stats):
     stats_want = []
     summary_table[0] = (summary_table[0][0], summary_table[0][1],
@@ -76,6 +83,7 @@ def _update_summary_table(summary_table, ref_file, fastqc_stats):
     summary_table.insert(0, ("Reference organism",
         ref_org.replace("_", " "), ""))
     return summary_table
+
 
 # ## Run and parse read information from FastQC
 
@@ -165,6 +173,15 @@ def _run_fastqc(bam_file, config):
         os.remove("%s.zip" % fastqc_out)
     return fastqc_out
 
+def _run_fastq_screen(fastq_file, config, genome_build):
+    """ Runs fastq_screen on a subset of a fastq file
+    """
+    out_base = "fastq_screen"
+    utils.safe_makedir(out_base)
+    if not os.path.exists(fastq_screen_out):
+        cl = [config.get("program", {}).get("fastq_screen", "fastq_screen"),
+              "--out-dir", out_base, "--subset", 2000000, fastq_file] 
+        subprocess.check_call(cl)
 
 # ## High level summary in YAML format for loading into Galaxy.
 
