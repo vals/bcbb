@@ -118,8 +118,8 @@ class BarcodeGrouping(object):
         """Appends a subdictionary with the barcodes not considered to match
         the primary barcodes.
         """
-        self.unmatched = \
-        dict((code, bcodes[code]) for code in set(bcodes) - found_bcodes)
+        self.unmatched = dict((code, dict(count=bcodes[code], \
+        variants=[code])) for code in set(bcodes) - found_bcodes)
 
 # def match_against_run_info(bcodes, run_info_file, mismatch, lane):
 #     given_bcodes = []
@@ -143,13 +143,11 @@ def match_and_count(bcodes, given_bcodes, mismatch):
         for bc, count in bcodes.items():
             if bc in given_bcodes:
                 if bc not in bc_grouping.matched:
-                    bc_grouping.matched[bc] = {"variants": [], "count": 0}
-                    if bc not in bc_grouping.matched[bc]["variants"]:
-                        bc_grouping.matched[bc]["variants"].append(bc)
+                    bc_grouping.matched[bc] = {"variants": [bc], "count": 0}
 
-                    bc_grouping.matched[bc]["count"] += count
-                    found_bcodes.add(bc)
-                    number["matched"] += count
+                bc_grouping.matched[bc]["count"] += count
+                found_bcodes.add(bc)
+                number["matched"] += count
 
     else:
         for bc, count in bcodes.items():
@@ -169,7 +167,8 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     bc_grouping.add_illumina_indexes()
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
 
-    number["unmatched"] = float(sum(bc_grouping.unmatched.values()))
+    number["unmatched"] = \
+    float(sum(value["count"] for value in bc_grouping.unmatched.values()))
     percentage = 100. * number["matched"] / sum(number.values())
     print number
     print("Percentage matched: %.3f%%" % percentage)

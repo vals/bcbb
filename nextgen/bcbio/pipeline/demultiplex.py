@@ -9,6 +9,7 @@ from Bio import SeqIO
 from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 
+
 def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     """Split a fastq file into multiplex pieces using barcode details.
     """
