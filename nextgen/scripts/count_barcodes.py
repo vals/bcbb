@@ -77,6 +77,7 @@ def main(fastq, run_info_file, lane, out_file,
 
     # Seperate out the most common barcodes
     total = float(sum(bcodes.itervalues()))
+    print("Total after read:\t" + str(total))
     bc_matched = []
     for bc, num in bcodes.iteritems():
         if float(num) / total >= cutoff:
@@ -87,8 +88,7 @@ def main(fastq, run_info_file, lane, out_file,
         bc_grouping = match_and_split(fastq, dict(bcodes), \
                                 bc_matched, mismatch, offset, length, dry_run)
     elif mode == "count":
-        bc_grouping = match_and_count(dict(bcodes), bc_matched, \
-                                mismatch)
+        bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
@@ -163,15 +163,20 @@ def match_and_count(bcodes, given_bcodes, mismatch):
                     bc_grouping.matched[bc_given]["count"] += count
                     found_bcodes.add(bc)
                     number["matched"] += count
+                    break
 
     bc_grouping.add_illumina_indexes()
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
 
+    total = sum(bcodes.values())
+
     number["unmatched"] = \
     float(sum(value["count"] for value in bc_grouping.unmatched.values()))
     percentage = 100. * number["matched"] / sum(number.values())
-    print number
-    print("Percentage matched: %.3f%%" % percentage)
+    print("Hard numbers:\t\t" + str(number))
+    print("Sum:\t\t\t" + str(sum(number.values())))
+    print("Total:\t\t\t" + str(total))
+    print("Percentage matched:\t%.3f%%" % percentage)
     return bc_grouping
 
 
@@ -230,7 +235,7 @@ def match_and_split(fastq, bcodes, given_bcodes, \
 
     number["unmatched"] = float(sum(bc_grouping.unmatched.values()))
     percentage = 100. * number["matched"] / sum(number.values())
-    print number
+    print("Hard numbers:" + number)
     print("Percentage matched: %.3f%%" % percentage)
     return bc_grouping
 
@@ -311,8 +316,11 @@ if __name__ == "__main__":
         print __doc__
         sys.exit()
 
-    import cProfile
-    cProfile.run("main(fastq, run_info, int(options.lane), options.out_file, \
+    # import cProfile
+    # cProfile.run("main(fastq, run_info, int(options.lane), options.out_file,\
+    # int(options.length), int(options.offset), int(options.mismatch), \
+    # options.verbose, float(options.cutoff), options.dry_run, options.mode)",\
+    # sort='cumulative')
+    main(fastq, run_info, int(options.lane), options.out_file, \
     int(options.length), int(options.offset), int(options.mismatch), \
-    options.verbose, float(options.cutoff), options.dry_run, options.mode)", \
-    sort='cumulative')
+    options.verbose, float(options.cutoff), options.dry_run, options.mode)
