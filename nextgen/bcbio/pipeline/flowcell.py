@@ -44,7 +44,7 @@ def get_barcode_metrics(workdir):
         m = re.match(r'^(\d+)\_',os.path.basename(bc_file))
         if not m or len(m.groups()) != 1:
             continue
-        lane = m.group(1)
+        lane = str(m.group(1))
         bc_metrics[lane] = {}
         with open(bc_file) as bcfh:
             csvr = UnicodeReader(bcfh,dialect='excel-tab')
@@ -57,7 +57,7 @@ def get_flowcell(fc_dir, run_info_yaml, config={}):
     # Just get the name of the flowcell directory minus the path
     dirname = os.path.basename(os.path.normpath(fc_dir))
     fc_name, fc_date, run_info = get_run_info(dirname,config,run_info_yaml)
-    return Flowcell(fc_name,fc_date,run_info,fc_dir)
+    return Flowcell(fc_name,fc_date,run_info.get("details",[]),fc_dir)
 
 def get_project_name(description):
     """Parse out the project name from the lane description"""
@@ -81,20 +81,10 @@ class Flowcell:
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
-        self.set_lanes(data.get("details",[]))
+        self.set_lanes(data)
         # Attempts to set the read counts on creation
         self.set_read_counts()
-        
-    def collapse_on_sample(self):
-        """Merge all data based on sample name, creating summarized read counts and concatenated lanes as necessary"""
-        samples = {}
-        for lane in self.get_lanes():
-            for sample in lane.get_samples():
-                if sample.get_name() in samples:
-                    samples[sample.get_name()].add_sample(sample)
-                else:
-                    samples[sample.get_name()] = BarcodedSample(sample.to_structure())
-        
+                
     def get_fc_date(self):
         return self.fc_date
     def set_fc_date(self,fc_date):
@@ -149,7 +139,7 @@ class Flowcell:
             if (l):
                 lanes.append(l.to_structure())
         if (len(lanes)):
-            fc = Flowcell(self.get_fc_name(),self.get_fc_date(),{"details": lanes})
+            fc = Flowcell(self.get_fc_name(),self.get_fc_date(),lanes)
         return fc
     
     def set_read_counts(self,read_counts=None):
@@ -169,6 +159,12 @@ class Flowcell:
                 lane = Lane({"lane": name, "description": "Unexpected lane"})
                 self.add_lane(lane)
             lane.set_read_counts(read_counts[name])
+    
+    @staticmethod
+    def columns():
+        cols = ["fc_date","fc_name"]
+        cols.extend(Lane.columns())
+        return cols
     
     def to_rows(self):
         rows = []
@@ -193,7 +189,7 @@ class Lane:
         self.set_description(data.get("description",None))
         self.set_name(data.get("lane",None))
         self.set_samples(data.get("multiplex",[]))
-        
+    
     def get_analysis(self):
         return self.data.get("analysis",None)
     
@@ -211,7 +207,7 @@ class Lane:
     def get_name(self):
         return _from_unicode(self.name)
     def set_name(self,name):
-        self.name = _to_unicode(name)
+        self.name = _to_unicode(str(name))
         
     def get_project_names(self):
         pnames = {}
@@ -268,7 +264,13 @@ class Lane:
             struct["description"] = "%s-pruned" % project
             lane = Lane(struct)
         return lane
-        
+    
+    @staticmethod
+    def columns():
+        cols = ["lane"]
+        cols.extend(BarcodedSample.columns())
+        return cols
+    
     def to_rows(self):
         rows = []
         for sample in self.get_samples():
@@ -292,22 +294,27 @@ class Lane:
 class Sample:
     """A class for managing information about a sample"""
      
-    def __init__(self,data,lane=Lane({})):
+    def __init__(self,data,lane=Lane({}),comment=None):
         self.set_analysis(data.get("analysis",lane.get_analysis()))
         self.set_genome_build(data.get("genome_build",lane.get_genome_build()))
         self.set_name(data.get("name",None))
         self.set_project(data.get("description",lane.get_description()))
         self.set_read_count(data.get("read_count",None))
+        self.set_lane(lane.get_name())
+        self.set_comment(comment)
         
-    def add_sample(self,other):
+    def add_sample(self,other,delim=', '):
         if (self.get_analysis() != other.get_analysis()):
-            self.set_analysis("%s, %s" % (self.get_analysis(),other.get_analysis()))
+            self.set_analysis("%s%s%s" % (self.get_analysis(),delim,other.get_analysis()))
         if (self.get_genome_build() != other.get_genome_build()):
-            self.set_genome_build("%s, %s" % (self.get_genome_build(),other.get_genome_build()))
+            self.set_genome_build("%s%s%s" % (self.get_genome_build(),delim,other.get_genome_build()))
         if (self.get_name() != other.get_name()):
-            self.set_name("%s, %s" % (self.get_name(),other.get_name()))
+            self.set_name("%s%s%s" % (self.get_name(),delim,other.get_name()))
         if (self.get_project() != other.get_project()):
-            self.set_project("%s, %s" % (self.get_project(),other.get_project()))
+            self.set_project("%s%s%s" % (self.get_project(),delim,other.get_project()))
+        if (self.get_lane() != other.get_lane()):
+            self.set_lane("%s%s%s" % (self.get_lane(),delim,other.get_lane()))
+            print self.get_lane()
         if (other.get_read_count() is not None):
             self.set_read_count((self.get_read_count() or 0) + other.get_read_count())
             
@@ -326,17 +333,34 @@ class Sample:
     def set_name(self,name):
         self.name = get_sample_name(_to_unicode(name))
         
+    def get_comment(self):
+        return self.comment
+    def set_comment(self,comment):
+        self.comment = comment
+        
+    def get_lane(self):
+        return self.lane
+    def set_lane(self,lane):
+        self.lane = lane
+        
     def get_project(self):
         return _from_unicode(self.project)
     def set_project(self,project):
         self.project = get_project_name(_to_unicode(project))
         
     def get_read_count(self):
-        return self.read_count
+        if self.read_count:
+            return int(self.read_count)
+        return None
     def get_rounded_read_count(self,unit=1000000,decimals=2):
-        return round(int((self.get_read_count() or 0))/float(unit),int(decimals))
+        return round((self.get_read_count() or 0)/float(unit),int(decimals))
     def set_read_count(self,read_count):
         self.read_count = read_count
+    
+    @staticmethod
+    def columns():
+        cols = ["project_name","sample_name","read_count","rounded_read_count"]
+        return cols
     
     def to_rows(self):
         rows = [self.get_project(),self.get_name(),self.get_read_count(),self.get_rounded_read_count()]
@@ -385,6 +409,12 @@ class BarcodedSample(Sample):
         return _from_unicode(self.barcode_type)
     def set_barcode_type(self,barcode_type):
         self.barcode_type = _to_unicode(barcode_type)
+    
+    @staticmethod
+    def columns():
+        cols = Sample.columns()
+        cols.extend(["bcbb_barcode_id","barcode_name","barcode_sequence","barcode_type"])
+        return cols
     
     def to_rows(self):
         rows = Sample.to_rows(self)
