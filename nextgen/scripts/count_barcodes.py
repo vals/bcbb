@@ -286,12 +286,20 @@ def output_to_fastq(output_base):
     return write_reads
 
 
-def compare_run_info_and_index_lookup(run_info):
+def compare_run_info_and_index_lookup(run_info_file):
     """A simple check to see that the barcodes in the given run_info matches
     barcodes specified by Illumina documentation.
     """
-    # TODO: Check run_info against INDEX_LOOKUP
-    pass
+    known = INDEX_LOOKUP.values()
+    unknown = set()
+    run_info = yaml.load(run_info_file)
+    for lanes in run_info:
+        for b_ids in lanes["multiplex"]:
+            bc = b_ids["sequence"]
+            if bc not in known:
+                unknown.add(bc)
+    
+    return unknown
 
 if __name__ == "__main__":
     parser = OptionParser()
