@@ -6,9 +6,9 @@ Usage:
                             [<YAML run information> --data_prefix=<data prefix>
                              --flowcell_alias=<flowcell alias>
                              --project_desc=<project_desc>
-                             --lanes=<lanes> --move_data
-                             --only_install_run_info --only_install_fastq
-                             --dry_run --verbose]
+                             --lanes=<lanes> --barcode_ids=<barcode_ids>
+                             --move_data --only_install_run_info
+                             --only_install_fastq --dry_run --verbose]
 
 
 Given a directory with demultiplexed flow cell data, and a project id
@@ -30,6 +30,8 @@ Options:
                                                 <flowcell_alias>.
   -y, --project_desc=<project_desc>             Project description in description field of run_info file, or ALL.
   -l, --lanes=<lanes>                           Comma-separated list of integers corresponding to lanes
+  -b, --barcode_ids=<barcode_ids>               Comma-separated list of integers corresponding to barcode ids.
+                                                Can only be used with one lane.
   -i, --only_install_run_info                   Only install pruned run_info file.
   -f, --only_install_fastq                      Only install fastq files.
   -m, --move_data                               Move data instead of copying
@@ -48,13 +50,13 @@ from itertools import izip
 
 from bcbio.log import create_log_handler
 from bcbio.pipeline import log
-from bcbio.pipeline.run_info import get_run_info, prune_run_info_by_description
+from bcbio.pipeline.run_info import get_run_info, prune_run_info
 from bcbio.pipeline.lane import get_flowcell_id
 from bcbio.pipeline.fastq import get_single_fastq_files, get_barcoded_fastq_files, convert_barcode_id_to_name, get_fastq_files
 from bcbio.pipeline.config_loader import load_config
 from bcbio import utils
 
-def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, project_desc=None, lanes=None):
+def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, project_desc=None, lanes=None, barcodes=None):
     if project_desc is None and lanes is None:
         log.error("No project description or lanes provided: cannot deliver files without this information")
         sys.exit()
@@ -67,10 +69,14 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
     fc_dir = os.path.normpath(fc_dir)
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
     with log_handler.applicationbound():
-        run_info = prune_run_info_by_description(run_info['details'], project_desc, lanes)
+        run_info = prune_run_info(run_info['details'], project_desc, lanes, barcodes)
     if len(run_info) == 0:
-        log.error("No lanes found with matching description %s: please check your flowcell run information" % project_desc)
-        sys.exit()
+        if not project_desc is None:
+            log.error("No lanes found with matching description %s: please check your flowcell run information" % project_desc)
+            sys.exit()
+        if not lanes  is None:
+            log.error("No lanes found with numbers %s: please check your flowcell run information" % " ".join(lanes))
+            sys.exit()
 
     dirs = dict(fc_dir=fc_dir, project_dir=project_dir)
     fc_name, fc_date = get_flowcell_id(run_info, dirs['fc_dir'])
@@ -181,8 +187,8 @@ if __name__ == "__main__":
                             [<YAML run information> --data_prefix=<data prefix>
                              --flowcell_alias=<flowcell alias>
                              --project_desc=<project_desc>
-                             --lanes=<lanes> --move_data
-                             --only_install_run_info --only_install_fastq
+                             --lanes=<lanes> --barcode_ids=<barcode_ids>
+                             --move_data --only_install_run_info --only_install_fastq
                              --dry_run --verbose]
 
     For more extensive help type project_analysis_setup.py
@@ -194,6 +200,7 @@ if __name__ == "__main__":
     parser.add_option("-a", "--flowcell_alias", dest="fc_alias")
     parser.add_option("-y", "--project_desc", dest="project_desc")
     parser.add_option("-l", "--lanes", dest="lanes")
+    parser.add_option("-b", "--barcodes", dest="barcodes")
 
     parser.add_option("-i", "--only_install_fastq", dest="only_fastq", action="store_true",
                       default=False)
@@ -212,6 +219,7 @@ if __name__ == "__main__":
     kwargs = dict(
         fc_alias = options.fc_alias,
         project_desc = options.project_desc,
-        lanes = options.lanes
+        lanes = options.lanes,
+        barcodes = options.barcodes
         )
     main(*args, **kwargs)

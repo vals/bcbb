@@ -89,7 +89,20 @@ class SampleDeliveryTest(unittest.TestCase):
               "--project_desc=%s" % "J.Doe_00_01"]
         subprocess.check_call(cl)
 
+
     def test_4_deliver_data(self):
+        """Test data delivery by selecting one lane and one barcode id"""
+        with make_workdir(link=False):
+            cl = ["project_analysis_setup.py",
+                  self.post_process,
+                  self.fc_dir,  self.proj_dir,
+                  self.run_info,
+                  "--data_prefix=nobackup",
+                  "--lanes=1", "--barcode_ids=1"]
+            subprocess.check_call(cl)
+
+
+    def test_5_deliver_data(self):
         """Test data delivery by moving"""
         with make_workdir(link=False):
             cl = ["project_analysis_setup.py",
@@ -99,4 +112,3 @@ class SampleDeliveryTest(unittest.TestCase):
                   "--data_prefix=nobackup",
                   "--project_desc=%s" % "J.Doe_00_01", "--move_data"]
             subprocess.check_call(cl)
-
