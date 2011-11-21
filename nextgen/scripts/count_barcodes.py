@@ -52,15 +52,16 @@ Example:
           ACAGGA: 1, ACAGGC: 2, ACATGC: 1, ACCGAG: 1, ACCGCG: 1, ACGATC: 2,
           ACTCGG: 1, ACTCTC: 1}
 """
+from __future__ import with_statement
 import os
 import sys
-from Bio import pairwise2
 from optparse import OptionParser
 import yaml
 import collections
 
-from bcbio.solexa import INDEX_LOOKUP
+from Bio import pairwise2
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
+from bcbio.solexa import INDEX_LOOKUP
 
 
 def main(fastq, run_info_file, lane, out_file,
@@ -71,8 +72,12 @@ def main(fastq, run_info_file, lane, out_file,
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
     in_handle = open(fastq)
+    if offset == 0:
+        minus_offset = None
+    else:
+        minus_offset = -offset
     for _, sequence, _ in FastqGeneralIterator(in_handle):
-        bcode = sequence[-(offset + 1 + length):-(offset + 1)].strip()
+        bcode = sequence[-(offset + length):minus_offset].strip()
         bcodes[bcode] += 1
 
     # Seperate out the most common barcodes
@@ -120,6 +125,14 @@ class BarcodeGrouping(object):
         """
         self.unmatched = dict((code, dict(count=bcodes[code], \
         variants=[code])) for code in set(bcodes) - found_bcodes)
+
+    def load_from_yaml(self, yaml_file):
+        """Loads the matched and unmatched elements from the given yaml file.
+        """
+        with open(yaml_file, "r") as in_handle:
+            bc_grouping_dict = yaml.load(in_handle)
+            self.matched = bc_grouping_dict["matched"]
+            self.unmatched = bc_grouping_dict["unmatched"]
 
 # def match_against_run_info(bcodes, run_info_file, mismatch, lane):
 #     given_bcodes = []
