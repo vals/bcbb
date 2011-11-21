@@ -38,6 +38,7 @@ from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
 from bcbio.broad import BroadRunner
 from bcbio.ngsalign import bwa
 from bcbio.pipeline import lane
+from bcbio.pipeline.lane import _update_config_w_custom
 from bcbio.pipeline import sample
 from bcbio.pipeline.merge import organize_samples
 
@@ -74,9 +75,8 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     run_items = run_info['details']
     lane_items = []
     for info in run_items:
-        print info
+        config = _update_config_w_custom(config, info)
         lane_items.extend(make_lane_items(info, fc_date, fc_name, dirs, config))
-
     _run_parallel("process_alignment", lane_items, dirs, config)
     
     # Process samples
@@ -85,19 +85,6 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     samples = ((n, sample_fastq[n], sample_info[n], bam_files, dirs, config, config_file)
                for n, bam_files in sample_files)
     _run_parallel("process_sample", samples, dirs, config)
-
-# def _get_run_info(fc_name, fc_date, config, run_info_yaml):
-#     """Retrieve run information from a passed YAML file or the Galaxy API.
-#     """
-#     if run_info_yaml and os.path.exists(run_info_yaml):
-#         log.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
-#         with open(run_info_yaml) as in_handle:
-#             run_details = yaml.load(in_handle)
-#         return dict(details=run_details, run_id="")
-#     else:
-#         log.info("Fetching run details from Galaxy instance")
-#         #galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
-#         #return galaxy_api.run_details(fc_name, fc_date)
 
 
 def _run_parallel(fn_name, items, dirs, config):
