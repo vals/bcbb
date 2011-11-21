@@ -304,7 +304,8 @@ to ease your development needs using the following script:
 ### Optional software for generating report graphs
 
 * R with ggplot2, plyr, sqldf libraries.
-* [rpy2][11]. Build R with shared libraries available: `./configure --enable-R-shlib`.
+* [rpy2][11]. Your R needs to be built with shared libraries
+  available: `./configure --enable-R-shlib`.
 
 ### Python modules installed with the package
 
@@ -508,35 +509,6 @@ the read count per project and sample can be summarized and written to a spreads
 spreadsheet will be tagged with the project name and placed under the folder specified via the 'gdocs_projects_folder' configuration
 option.
 
-<<<<<<< HEAD
-## Getting v 0.3 a working
-
-There is some required software which need be installed locally.
-
-* snpEff 2.0.2
-
-Version 2.0.3 is not compatible with GATK, make sure it is 2.0.2.
-Also get the following data for snpEff 2.0.2
-
-* GRCH37.63
-* NCBIM37.73
-* athalianaTair10
-
-All for snpEff 2.0.2! It is all available on the snpEff download page.
-
-Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
-
-    export LC_ALL=en_US.utf-8
-
-Only changing LC_NUMERIC or LC_MONETARY does not work.
-
-Also make sure to use
-
-* tophat 1.3.0
-
-or later.
-      
-=======
 ## Project based analyses 
 
 Grouping samples according to projects is inherent to core facility
@@ -574,6 +546,13 @@ group data from different flowcells in project-based directories.
   Demultiplexed fastq files or analysis result files can be selected.
   Data selection is based on project descriptors.
 
+In addition, there are a couple of scripts for setting up a working
+environment that uses the [paver][ip3] python module:
+
+* `scripts/project_paver_init.py` -- installs a pavement file and sets
+  up various standard analysis directories, such as log and doc
+
+
 ### Running the pipeline on a subset of demultiplexed samples
 
 The analysis pipelines typically take raw sequencing data, demultiplex
@@ -585,6 +564,27 @@ modified scripts of the analysis pipeline scripts have to be used:
 * `scripts/project_exome_pipeline.py` -- performs the same analyses as
   automated_initial_analysis.py, but starts with demultiplexed data
 
+## Getting v 0.3a working
+
+There is some required software which need be installed locally.
+
+* snpEff 2.0.2
+
+Version 2.0.3 is not compatible with GATK, make sure it is 2.0.2.
+Also get the following data for snpEff 2.0.2
+
+* GRCH37.63
+* NCBIM37.73
+* athalianaTair10
+
+All for snpEff 2.0.2! It is all available on the snpEff download page.
+
+Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
+
+    export LC_ALL=en_US.utf-8
+
+
+
 [ip1]: http://docutils.sourceforge.net/rst.html
 [ip2]: http://sphinx.pocoo.org
->>>>>>> e90e3ed074a6cff8a3872755303868fe78ef10a8
+[ip3]: http://paver.github.com/paver/

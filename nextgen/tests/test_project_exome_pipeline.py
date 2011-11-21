@@ -12,6 +12,7 @@ import glob
 import yaml
 from bcbio.pipeline.config_loader import load_config
 
+
 @contextlib.contextmanager
 def make_workdir():
     dirname = os.path.join(os.path.dirname(__file__), "projects", "j_doe_00_01", "intermediate", "nobackup", "110106_FC70BUKAAXX")
@@ -28,6 +29,7 @@ def make_workdir():
     finally:
         os.chdir(orig_dir)
 
+
 def init_flowcell_dir():
     dirname = os.path.join(os.path.dirname(__file__), "110106_FC70BUKAAXX")
     fcdir = os.path.join(os.path.dirname(__file__), "test_automated_output")
@@ -37,7 +39,7 @@ def init_flowcell_dir():
         else:
             shutil.rmtree(dirname)
     os.symlink(fcdir, dirname)
-    
+
 
 class SampleBasedAnalysisTest(unittest.TestCase):
     """Setup a sample based scilife analysis
@@ -77,10 +79,7 @@ class SampleBasedAnalysisTest(unittest.TestCase):
               self.run_info,
               "--data_prefix=intermediate/nobackup",
               "--project_desc=%s" % "J.Doe_00_01",
-<<<<<<< HEAD:nextgen/tests/test_exome_pipeline.py
               "--project_base_dir=%s" % self.proj_dir,
-=======
->>>>>>> e90e3ed074a6cff8a3872755303868fe78ef10a8:nextgen/tests/test_project_exome_pipeline.py
               "--flowcell_alias=20000101A_hiseq2000"]
         subprocess.check_call(cl)
         print "Finished delivering data..."
@@ -90,17 +89,9 @@ class SampleBasedAnalysisTest(unittest.TestCase):
         with make_workdir():
             print "Going to deliver data"
             self._deliver_data()
-<<<<<<< HEAD:nextgen/tests/test_exome_pipeline.py
             cl = ["exome_pipeline.py",
                   os.path.join(self.analysis_base_dir, self.fcid, "post_process.yaml"),
                   os.path.join(self.proj_dir, "j_doe_00_01", "intermediate", "nobackup", "110106_FC70BUKAAXX"),
                   os.path.join(self.proj_dir, "j_doe_00_01", "data", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml"),
                   "--project_dir=%s" % (self.proj_dir)]
-=======
-            cl = ["project_exome_pipeline.py",
-                  os.path.join(self.fc_dir, "post_process.yaml"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "110106_FC70BUKAAXX"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml")]
-
->>>>>>> e90e3ed074a6cff8a3872755303868fe78ef10a8:nextgen/tests/test_project_exome_pipeline.py
             subprocess.check_call(cl)

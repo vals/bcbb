@@ -35,7 +35,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         """
         DlInfo = collections.namedtuple("DlInfo", "fname dirname version")
         download_data = [DlInfo("110106_FC70BUKAAXX.tar.gz", None, None),
-                         DlInfo("genomes_automated_test.tar.gz", "genomes", 2),
+                         DlInfo("genomes_automated_test.tar.gz", "genomes", 3),
                          DlInfo("110907_ERP000591.tar.gz", None, None),
                          DlInfo("100326_FC6107FAAXX.tar.gz", None, 1)]
         for dl in download_data:
@@ -82,7 +82,8 @@ class AutomatedAnalysisTest(unittest.TestCase):
         with make_workdir():
             cl = ["automated_initial_analysis.py",
                   os.path.join(self.data_dir, "post_process.yaml"),
-                  os.path.join(self.data_dir, os.pardir, "110221_empty_FC12345AAXX"),
+                  os.path.join(self.data_dir, os.pardir, \
+                  "110221_empty_FC12345AAXX"),
                   os.path.join(self.data_dir, "run_info-empty.yaml")]
             subprocess.check_call(cl)
 
