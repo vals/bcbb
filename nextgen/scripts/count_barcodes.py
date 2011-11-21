@@ -134,6 +134,23 @@ class BarcodeGrouping(object):
             self.matched = bc_grouping_dict["matched"]
             self.unmatched = bc_grouping_dict["unmatched"]
 
+    def handle_Ns(self):
+        """Goes through the matched barcodes, looking which ones contains 'N' and
+        tries to replace that with a matched barcode which does not contain 'N'.
+        If that is not possible, the barcode will be moved to the unmatched
+        catergory.
+        """
+        for barcode, info in self.matched.items():
+            if 'N' in barcode:
+                for matched_barcode in info["variants"]:
+                    if 'N' not in matched_barcode:
+                        self.matched[matched_barcode] = info
+                        break
+                else:
+                    self.unmatched[barcode] = info
+
+                del self.matched[barcode]
+
 # def match_against_run_info(bcodes, run_info_file, mismatch, lane):
 #     given_bcodes = []
 #     with open(run_info_file) as in_handle:
@@ -243,8 +260,9 @@ def match_and_split(fastq, bcodes, given_bcodes, \
                         out_writer(bc, title, sequence, quality, \
                         None, None, None)
 
-    bc_grouping.add_illumina_indexes()
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
+    bc_grouping.handle_Ns()
+    bc_grouping.add_illumina_indexes()
 
     number["unmatched"] = float(sum(bc_grouping.unmatched.values()))
     percentage = 100. * number["matched"] / sum(number.values())

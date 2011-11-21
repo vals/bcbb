@@ -142,4 +142,3 @@ def _get_fastq_size(item, fastq_dir, fc_name):
         except StopIteration:
             size = 0
     return size
-
