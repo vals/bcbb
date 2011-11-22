@@ -49,6 +49,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     out_files = [(b, n, f1, f2) for (b, n, f1, f2) in out_files if os.path.exists(f1)]
     return out_files
 
+
 def _make_tag_file(barcodes):
     tag_file = "%s-barcodes.cfg" % barcodes[0].get("barcode_type", "barcode")
     barcodes = _adjust_illumina_tags(barcodes)
@@ -56,6 +57,7 @@ def _make_tag_file(barcodes):
         for bc in barcodes:
             out_handle.write("%s %s\n" % (bc["barcode_id"], bc["sequence"]))
     return tag_file
+
 
 def _adjust_illumina_tags(barcodes):
     """Handle additional trailing A in Illumina barocdes.
@@ -107,7 +109,8 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     # discard 0 sizes to handle the case where lane(s) are empty or failed
     try:
         fastq_sizes.remove(0)
-    except ValueError: pass
+    except ValueError:
+        pass
 
     tag_sizes = list(set(tag_sizes))
     final_items = []
@@ -121,15 +124,16 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             tag_size = tag_sizes[0]
             this_size = _get_fastq_size(item, fastq_dir, fc_name)
             if this_size == expected_size:
-                item["multiplex"] = [{"name" : item.get("name",
+                item["multiplex"] = [{"name": item.get("name",
                                       item["description"]),
                                       "barcode_id": "trim",
-                                      "sequence" : "N" * tag_size}]
+                                      "sequence": "N" * tag_size}]
             else:
                 assert this_size == expected_size - tag_size, \
                        "Unexpected non-multiplex sequence"
         final_items.append(item)
     return final_items
+
 
 def _get_fastq_size(item, fastq_dir, fc_name):
     """Retrieve the size of reads from the first flowcell sequence.

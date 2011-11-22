@@ -69,6 +69,9 @@ def main(fastq, run_info_file, lane, out_file,
     if run_info_file:
         compare_run_info_and_index_lookup(run_info_file)
 
+    out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
+    out_writer = output_to_fastq(out_format)
+
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
     in_handle = open(fastq)
@@ -76,8 +79,9 @@ def main(fastq, run_info_file, lane, out_file,
         minus_offset = None
     else:
         minus_offset = -offset
-    for _, sequence, _ in FastqGeneralIterator(in_handle):
+    for title, sequence, quality in FastqGeneralIterator(in_handle):
         bcode = sequence[-(offset + length):minus_offset].strip()
+        out_writer(bcode, title, sequence, quality, None, None, None)
         bcodes[bcode] += 1
 
     # Seperate out the most common barcodes
@@ -195,8 +199,9 @@ def match_and_count(bcodes, given_bcodes, mismatch):
                     number["matched"] += count
                     break
 
-    bc_grouping.add_illumina_indexes()
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
+    bc_grouping.handle_Ns()
+    bc_grouping.add_illumina_indexes()
 
     total = sum(bcodes.values())
 

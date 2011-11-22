@@ -53,6 +53,7 @@ def process_lane(info, fc_name, fc_date, dirs, config):
 
     return lane_items
 
+
 def process_alignment(fastq1, fastq2, genome_build, lane_name, sample, dirs, config):
     """Do an alignment of fastq files, preparing a sorted BAM output file.
     """

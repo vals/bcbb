@@ -58,7 +58,8 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     config_file = os.path.join(config_dir, os.path.basename(config_file))
     dirs = {"fastq": fastq_dir, "galaxy": galaxy_dir, "align": align_dir,
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
-    run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
+    run_items = \
+    add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
 
     # process each flowcell lane
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
@@ -73,9 +74,10 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     # process samples, potentially multiplexed across multiple lanes
     sample_files, sample_fastq, sample_info = \
             organize_samples(dirs, fc_name, fc_date, run_items, align_items)
-    samples = ((n, sample_fastq[n], sample_info[n], bam_files, dirs, config, config_file)
-               for n, bam_files in sample_files)
-    sample_items = _run_parallel("process_sample", samples, dirs, config, config_file)
+    samples = ((n, sample_fastq[n], sample_info[n], bam_files, \
+                dirs, config, config_file) for n, bam_files in sample_files)
+    sample_items = \
+    _run_parallel("process_sample", samples, dirs, config, config_file)
 
     write_metrics(run_info, fc_name, fc_date, dirs)
 
