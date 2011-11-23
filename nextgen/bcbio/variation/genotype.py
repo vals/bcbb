@@ -17,6 +17,7 @@ from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
 from bcbio.distributed.split import parallel_split_combine
 from bcbio.pipeline.shared import (split_bam_by_chromosome, configured_ref_file)
+from bcbio.variation.realign import has_aligned_reads
 
 # ## GATK Genotype calling
 
@@ -35,28 +36,34 @@ def unified_genotyper(align_bam, ref_file, config, dbsnp=None,
     if out_file is None:
         out_file = "%s-variants.vcf" % os.path.splitext(align_bam)[0]
     if not file_exists(out_file):
-        with file_transaction(out_file) as tx_out_file:
-            params = ["-T", "UnifiedGenotyper",
-                      "-I", align_bam,
-                      "-R", ref_file,
-                      "-o", tx_out_file,
-                      "--annotation", "QualByDepth",
-                      "--annotation", "HaplotypeScore",
-                      "--annotation", "MappingQualityRankSumTest",
-                      "--annotation", "ReadPosRankSumTest",
-                      "--annotation", "FisherStrand",
-                      "--annotation", "RMSMappingQuality",
-                      "--annotation", "DepthOfCoverage",
-                      "--genotype_likelihoods_model", "BOTH",
-                      "--standard_min_confidence_threshold_for_calling", confidence,
-                      "--standard_min_confidence_threshold_for_emitting", confidence,
-                      "-l", "INFO",
-                      ]
-            if dbsnp:
-                params += ["--dbsnp", dbsnp]
-            if region:
-                params += ["-L", region]
-            broad_runner.run_gatk(params)
+        if has_aligned_reads(align_bam, region):
+            with file_transaction(out_file) as tx_out_file:
+                params = ["-T", "UnifiedGenotyper",
+                          "-I", align_bam,
+                          "-R", ref_file,
+                          "-o", tx_out_file,
+                          "--annotation", "QualByDepth",
+                          "--annotation", "HaplotypeScore",
+                          "--annotation", "MappingQualityRankSumTest",
+                          "--annotation", "ReadPosRankSumTest",
+                          "--annotation", "FisherStrand",
+                          "--annotation", "RMSMappingQuality",
+                          "--annotation", "DepthOfCoverage",
+                          "--genotype_likelihoods_model", "BOTH",
+                          "--standard_min_confidence_threshold_for_calling", confidence,
+                          "--standard_min_confidence_threshold_for_emitting", confidence,
+                          "-l", "INFO",
+                          ]
+                if dbsnp:
+                    params += ["--dbsnp", dbsnp]
+                if region:
+                    params += ["-L", region]
+                broad_runner.run_gatk(params)
+        else:
+            with open(out_file, "w") as out_handle:
+                out_handle.write("##fileformat=VCFv4.1\n"
+                                 "## No variants; no reads aligned in region\n"
+                                 "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
     return out_file
 
 # ## Utility functions for dealing with VCF files
@@ -328,9 +335,35 @@ def variant_eval(vcf_in, ref_file, dbsnp, target_intervals, picard):
                       "-l", "INFO"
                       ]
             if target_intervals:
-                params.extend(["-L", target_intervals])
+                # BED file target intervals are explicit with GATK 1.3
+                # http://getsatisfaction.com/gsa/topics/
+                # gatk_v1_3_and_bed_interval_file_must_be_parsed_through_tribble
+                if _is_bed_file(target_intervals):
+                    flag = "-L:bed"
+                else:
+                    flag = "-L"
+                params.extend([flag, target_intervals])
             picard.run_gatk(params)
     return out_file
+
+def _is_bed_file(fname):
+    """Simple check if a file is in BED format.
+    """
+    if fname.lower().endswith(".bed"):
+        return True
+    with open(fname) as in_handle:
+        for line in in_handle:
+            if not line.startswith("#"):
+                parts = line.split("\t")
+                if len(parts) > 3:
+                    try:
+                        int(parts[1])
+                        int(parts[2])
+                        return True
+                    except ValueError:
+                        pass
+                break
+    return False
 
 # ## High level functionality to run genotyping in parallel
 
