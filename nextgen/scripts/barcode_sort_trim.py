@@ -54,7 +54,7 @@ def main(barcode_file, out_format, in1, in2, mismatch, bc_offset,
         bc_name, bc_seq, match_seq = best_match(end_gen, barcodes, mismatch,
                                                 allow_indels)
         seq1, qual1, seq2, qual2 = remove_barcode(seq1, qual1, seq2, qual2,
-                match_seq, first_read, three_end)
+                match_seq, first_read, three_end, bc_offset)
         out_writer(bc_name, name1, seq1, qual1, name2, seq2, qual2)
         stats[bc_name] += 1
 
@@ -135,26 +135,26 @@ def end_generator(seq1, seq2=None, first_read=True, three_end=True, bc_offset=0)
             return seq[bc_offset:size+bc_offset]
     return _get_end
 
-def _remove_from_end(seq, qual, match_seq, three_end):
+def _remove_from_end(seq, qual, match_seq, three_end, bc_offset):
     if match_seq:
         if three_end:
-            assert seq[-len(match_seq):] == match_seq
-            seq = seq[:-len(match_seq)]
-            qual = qual[:-len(match_seq)]
+            assert seq[-len(match_seq)-bc_offset:len(seq)-bc_offset] == match_seq
+            seq = seq[:-len(match_seq)-bc_offset]
+            qual = qual[:-len(match_seq)-bc_offset]
         else:
-            assert seq[:len(match_seq)] == match_seq
-            seq = seq[len(match_seq):]
-            qual = qual[len(match_seq):]
+            assert seq[bc_offset:len(match_seq)+bc_offset] == match_seq
+            seq = seq[len(match_seq)+bc_offset:]
+            qual = qual[len(match_seq)+bc_offset:]
     return seq, qual
 
-def remove_barcode(seq1, qual1, seq2, qual2, match_seq, first_read, three_end):
+def remove_barcode(seq1, qual1, seq2, qual2, match_seq, first_read, three_end, bc_offset=0):
     """Trim found barcode from the appropriate sequence end.
     """
     if first_read:
-        seq1, qual1 = _remove_from_end(seq1, qual1, match_seq, three_end)
+        seq1, qual1 = _remove_from_end(seq1, qual1, match_seq, three_end, bc_offset)
     else:
         assert seq2 and qual2
-        seq2, qual2 = _remove_from_end(seq2, qual2, match_seq, three_end)
+        seq2, qual2 = _remove_from_end(seq2, qual2, match_seq, three_end, bc_offset)
     return seq1, qual1, seq2, qual2
 
 def _write_to_handles(name, seq, qual, fname, out_handles):
@@ -224,6 +224,15 @@ class BarcodeTest(unittest.TestCase):
         assert end_gen(3) == "CCC"
         end_gen = end_generator(seq1, seq2, False, False)
         assert end_gen(3) == "GGG"
+        end_gen = end_generator(seq1, seq2, True, True, 1)
+        assert end_gen(3) == "ATT"
+        end_gen = end_generator(seq1, seq2, True, False, 1)
+        assert end_gen(3) == "AAT"
+        assert end_gen(4) == "AATT"
+        end_gen = end_generator(seq1, seq2, False, True, 1)
+        assert end_gen(3) == "GCC"
+        end_gen = end_generator(seq1, seq2, False, False, 1)
+        assert end_gen(3) == "GGC"
 
     def test_2_identical_match(self):
         """Ensure we can identify identical barcode matches.
