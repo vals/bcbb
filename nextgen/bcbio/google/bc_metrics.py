@@ -85,7 +85,7 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     fc = Flowcell(fc_name,fc_date,run_info.get("details",[]),work_dir)
     
     # Upload the data
-    #write_run_report_to_gdocs(fc,fc_date,fc_name,gdocs_spreadsheet,encoded_credentials)
+    write_run_report_to_gdocs(fc,fc_date,fc_name,gdocs_spreadsheet,encoded_credentials)
     
     # Get the projects parent folder
     projects_folder = gdocs.get("gdocs_projects_folder",None)
