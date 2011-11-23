@@ -26,7 +26,8 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
         bc_file2 = fq_fname("2") if fastq2 else None
         out_files.append((info["barcode_id"], info["name"], bc_file1, bc_file2))
     with utils.chdir(bc_dir):
-        if not os.path.exists(nomatch_file) and not os.path.exists(metrics_file):
+        if not os.path.exists(nomatch_file) \
+        and not os.path.exists(metrics_file):
             tag_file = _make_tag_file(multiplex)
             cl = [config["program"]["barcode"], tag_file,
                   "%s_--b--_--r--_fastq.txt" % base_name,

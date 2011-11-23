@@ -141,10 +141,10 @@ class BarcodeGrouping(object):
             self.unmatched = bc_grouping_dict["unmatched"]
 
     def handle_Ns(self):
-        """Goes through the matched barcodes, looking which ones contains 'N' and
-        tries to replace that with a matched barcode which does not contain 'N'.
-        If that is not possible, the barcode will be moved to the unmatched
-        catergory.
+        """Goes through the matched barcodes, looking which ones contains 'N'
+        and tries to replace that with a matched barcode which does not
+        contain 'N'. If that is not possible, the barcode will be moved to the
+        unmatched catergory.
         """
         for barcode, info in self.matched.items():
             if 'N' in barcode:
@@ -252,11 +252,13 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
                     bc_grouping.matched[bc_given]["count"] += count
                     found_bcodes.add(bc)
                     number["matched"] += count
-                    
+
                     if current_mismatch >= 1:
                         merge_matched_files(bc_given, bc, format, merger)
-                    
+
                     break
+            else:
+                merge_matched_files("unmatched", bc, format, merger)
 
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
     bc_grouping.handle_Ns()
@@ -280,8 +282,6 @@ def merge_matched_files(primary_bc, matched_bc, format, merger):
     """
     matched_file = format.replace("--r--", "1").replace("--b--", matched_bc)
     primary_file = format.replace("--r--", "1").replace("--b--", primary_bc)
-
-    print primary_bc, matched_bc
 
     merger(matched_file, primary_file)
 
