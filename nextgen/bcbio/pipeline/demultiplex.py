@@ -61,22 +61,36 @@ def _make_tag_file(barcodes,config):
 def _adjust_illumina_tags(barcodes,config):
     """Handle additional trailing A in Illumina barocdes.
 
-    For now, this is handled by specifying an offset parameter to barcode_sort_trim.py
-    since the trailing A should not be considered part of the barcode. This method will
-    set the offset parameter in the config and trim the trailing A if it is present in 
-    the samplesheet.
+    Illumina barcodes are listed as 6bp sequences but have an additional
+    A base when coming off on the sequencer. This checks for this case and
+    adjusts the sequences appropriately if needed. In case the 
+    bc_illumina_no_trailing configuration option is set to true, this method
+    will instead make sure that the barcodes do not include the trailing A
+    and that demultiplexing will not attempt to match it.
     """
-    illumina_size = 6
-    barcodes_copy = copy.deepcopy(barcodes)
-    for bc in barcodes:
-        # Only do this in case all barcodes are illumina
-        if bc.get("barcode_type", "illumina").lower().find("illumina") == -1:
-            return barcodes_copy
-        bc["sequence"] = bc["sequence"][:illumina_size]
     
-    config["algorithm"]["bc_offset"] = 1
+    skip_a = config["algorithm"].get("bc_illumina_no_trailing",False)
+    # Set the bc_offset parameter if we're skipping the trailing A
+    if skip_a:
+        config["algorithm"]["bc_offset"] = 1
+    illumina_size = 7
+    all_illumina = True
+    need_a = False
+    for bc in barcodes:
+        # Will only process in case all barcodes are illumina
+        if bc.get("barcode_type", "illumina").lower().find("illumina") == -1:
+            return barcodes
+    new_bc = copy.deepcopy(barcodes)
+    for bc in new_bc:
+        if (not skip_a and (
+            not bc["sequence"].upper().endswith("A") or
+            len(bc["sequence"]) < illumina_size)):
+            bc["sequence"] = "%sA" % bc["sequence"]
+        elif (skip_a and bc["sequence"].upper().endswith("A") and
+              len(bc["sequence"]) == illumina_size):
+            bc["sequence"] = bc["sequence"][:illumina_size-1]
+    barcodes = new_bc
     return barcodes
-
 
 def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     """Add multiplex information to control and non-multiplexed lanes.
