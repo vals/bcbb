@@ -55,6 +55,7 @@ Example:
 from __future__ import with_statement
 import os
 import sys
+import shutil
 from optparse import OptionParser
 import yaml
 import collections
@@ -97,7 +98,8 @@ def main(fastq, run_info_file, lane, out_file,
         bc_grouping = match_and_split(fastq, dict(bcodes), \
                                 bc_matched, mismatch, offset, length, dry_run)
     elif mode == "count":
-        bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
+        # bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
+        bc_grouping = match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
@@ -215,6 +217,77 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     return bc_grouping
 
 
+def match_and_merge(bcodes, given_bcodes, mismatch, format):
+    """Matches barcodes and merges the corresponding splitted fastq files in to
+    the large fastq files.
+    Returns a dictionary with matched barcodes along with info.
+    """
+    bc_grouping = BarcodeGrouping()
+    number = dict(matched=0., unmatched=0.)
+    found_bcodes = set()
+    merger = file_merger()
+
+    assert mismatch >= 0, "Amount of mismatch cannot be negative."
+    if mismatch == 0:
+        for bc, count in bcodes.items():
+            if bc in given_bcodes:
+                if bc not in bc_grouping.matched:
+                    bc_grouping.matched[bc] = {"variants": [bc], "count": 0}
+
+                bc_grouping.matched[bc]["count"] += count
+                found_bcodes.add(bc)
+                number["matched"] += count
+
+    else:
+        for bc, count in bcodes.items():
+            for bc_given in given_bcodes:
+                current_mismatch = bc_mismatch(bc, bc_given)
+                if current_mismatch <= mismatch:
+                    if bc_given not in bc_grouping.matched:
+                        bc_grouping.matched[bc_given] = {"variants": [], \
+                                                            "count": 0}
+                    if bc not in bc_grouping.matched[bc_given]["variants"]:
+                        bc_grouping.matched[bc_given]["variants"].append(bc)
+
+                    bc_grouping.matched[bc_given]["count"] += count
+                    found_bcodes.add(bc)
+                    number["matched"] += count
+                    
+                    if current_mismatch >= 1:
+                        merge_matched_files(bc_given, bc, format, merger)
+                    
+                    break
+
+    bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
+    bc_grouping.handle_Ns()
+    bc_grouping.add_illumina_indexes()
+
+    total = sum(bcodes.values())
+
+    number["unmatched"] = \
+    float(sum(value["count"] for value in bc_grouping.unmatched.values()))
+    percentage = 100. * number["matched"] / sum(number.values())
+    print("Hard numbers:\t\t" + str(number))
+    print("Sum:\t\t\t" + str(sum(number.values())))
+    print("Total:\t\t\t" + str(total))
+    print("Percentage matched:\t%.3f%%" % percentage)
+    return bc_grouping
+
+
+def merge_matched_files(primary_bc, matched_bc, format, merger):
+    """Merges the fastq file corresponding to matched_bc in to the fastq file
+    corresponding to primary_bc.
+    """
+    matched_file = format.replace("--r--", "1").replace("--b--", matched_bc)
+    primary_file = format.replace("--r--", "1").replace("--b--", primary_bc)
+
+    print primary_bc, matched_bc
+
+    merger(matched_file, primary_file)
+
+    os.remove(matched_file)
+
+
 def match_and_split(fastq, bcodes, given_bcodes, \
     mismatch, offset, length, dry_run):
     """Matches barcodes in the fastq file 'fastq' and prints out the lines
@@ -289,6 +362,32 @@ def bc_mismatch(bc, bc_given):
     return cur_mismatch
 
 
+def _append_to_handles(source_file, target_file, target_handles):
+    """Appends the contents of source_file to the target_file, storing file
+    objects in the target_handles dictionary to speed up IO.
+    """
+    try:
+        out_handle = target_handles[target_file]
+    except KeyError:
+        out_handle = open(target_file, "a")
+        target_handles[target_file] = out_handle
+
+    in_handle = open(source_file, "r")
+    shutil.copyfileobj(in_handle, out_handle)
+    in_handle.close()
+
+
+def file_merger():
+    """Returns a function with an internal dictionary which saves file handles.
+    """
+    target_handles = dict()
+
+    def append_files(source_file, target_file):
+        _append_to_handles(source_file, target_file, target_handles)
+
+    return append_files
+
+
 def _write_to_handles(name, seq, qual, fname, out_handles):
     """Defines format and location to write the fastq triple.
     """
@@ -297,6 +396,7 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
     except KeyError:
         out_handle = open(fname, "w")
         out_handles[fname] = out_handle
+
     out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
 
 
@@ -334,7 +434,7 @@ def compare_run_info_and_index_lookup(run_info_file):
             bc = b_ids["sequence"]
             if bc not in known:
                 unknown.add(bc)
-    
+
     return unknown
 
 if __name__ == "__main__":
