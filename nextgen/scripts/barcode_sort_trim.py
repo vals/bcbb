@@ -8,6 +8,7 @@ allowed and barcode position within the reads can be specified.
 Usage:
     barcode_sort_trim.py <barcode file> <out format> <in file> [<pair file>]
         --mismatch=n (number of allowed mismatches, default 1)
+        --bc_offset=n (an offset into the read where the barcode starts (5' barcode) or ends (3' barcode))
         --second (barcode is on the second read, defaults to first)
         --five (barcode is on the 5' end of the sequence, default to 3')
         --noindel (disallow insertion/deletions on barcode matches)
@@ -41,7 +42,7 @@ from optparse import OptionParser
 from Bio import pairwise2
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
-def main(barcode_file, out_format, in1, in2, mismatch,
+def main(barcode_file, out_format, in1, in2, mismatch, bc_offset,
          first_read, three_end, allow_indels,
          metrics_file, verbose):
     barcodes = read_barcodes(barcode_file)
@@ -49,7 +50,7 @@ def main(barcode_file, out_format, in1, in2, mismatch,
     out_writer = output_to_fastq(out_format)
     for (name1, seq1, qual1), (name2, seq2, qual2) in itertools.izip(
             read_fastq(in1), read_fastq(in2)):
-        end_gen = end_generator(seq1, seq2, first_read, three_end)
+        end_gen = end_generator(seq1, seq2, first_read, three_end, bc_offset)
         bc_name, bc_seq, match_seq = best_match(end_gen, barcodes, mismatch,
                                                 allow_indels)
         seq1, qual1, seq2, qual2 = remove_barcode(seq1, qual1, seq2, qual2,
@@ -118,7 +119,7 @@ def best_match(end_gen, barcodes, mismatch, allow_indels=True):
     else:
         return "unmatched", "", ""
 
-def end_generator(seq1, seq2=None, first_read=True, three_end=True):
+def end_generator(seq1, seq2=None, first_read=True, three_end=True, bc_offset=0):
     """Function which pulls a barcode of a provided size from paired seqs.
 
     This respects the provided details about location of the barcode, returning
@@ -129,9 +130,9 @@ def end_generator(seq1, seq2=None, first_read=True, three_end=True):
     def _get_end(size):
         assert size > 0
         if three_end:
-            return seq[-size:]
+            return seq[-size-bc_offset:len(seq)-bc_offset]
         else:
-            return seq[:size]
+            return seq[bc_offset:size+bc_offset]
     return _get_end
 
 def _remove_from_end(seq, qual, match_seq, three_end):
@@ -282,6 +283,7 @@ if __name__ == "__main__":
     parser.add_option("-q", "--quiet", dest="verbose",
                       action="store_false", default=True)
     parser.add_option("-m", "--mismatch", dest="mismatch", default=1)
+    parser.add_option("-b", "--bc_offset", dest="bc_offset", default=0)
     parser.add_option("-o", "--metrics", dest="metrics_file", default=None)
     options, args = parser.parse_args()
     if len(args) == 3:
@@ -292,6 +294,6 @@ if __name__ == "__main__":
     else:
         print __doc__
         sys.exit()
-    main(barcode_file, out_format, in1, in2, int(options.mismatch),
+    main(barcode_file, out_format, in1, in2, int(options.mismatch), int(options.bc_offset),
          options.first_read, options.three_end, options.indels,
          options.metrics_file, options.verbose)

@@ -26,7 +26,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
         out_files.append((info["barcode_id"], info["name"], bc_file1, bc_file2))
     with utils.chdir(bc_dir):
         if not os.path.exists(nomatch_file) and not os.path.exists(metrics_file):
-            tag_file = _make_tag_file(multiplex)
+            tag_file = _make_tag_file(multiplex,config)
             cl = [config["program"]["barcode"], tag_file,
                   "%s_--b--_--r--_fastq.txt" % base_name,
                   fastq1]
@@ -40,6 +40,8 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                 cl.append("--five")
             if config["algorithm"].get("bc_allow_indels", True) is False:
                 cl.append("--noindel")
+            if "bc_offset" in config["algorithm"]:
+                cl.append("--bc_offset=%s" % config["algorithm"]["bc_offset"])
             with utils.file_transaction(out_files + [nomatch_file, metrics_file]):
                 cl = [os.path.expandvars(command) for command in cl]
                 subprocess.check_call(cl)
@@ -48,37 +50,31 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     out_files = [(b, n, f1, f2) for (b, n, f1, f2) in out_files if os.path.exists(f1)]
     return out_files
 
-def _make_tag_file(barcodes):
+def _make_tag_file(barcodes,config):
     tag_file = "%s-barcodes.cfg" % barcodes[0].get("barcode_type", "barcode")
-    barcodes = _adjust_illumina_tags(barcodes)
+    barcodes = _adjust_illumina_tags(barcodes,config)
     with open(tag_file, "w") as out_handle:
         for bc in barcodes:
             out_handle.write("%s %s\n" % (bc["barcode_id"], bc["sequence"]))
     return tag_file
 
-def _adjust_illumina_tags(barcodes):
+def _adjust_illumina_tags(barcodes,config):
     """Handle additional trailing A in Illumina barocdes.
 
-    Illumina barcodes are listed as 6bp sequences but have an additional
-    A base when coming off on the sequencer. This checks for this case and
-    adjusts the sequences appropriately if needed.
+    For now, this is handled by specifying an offset parameter to barcode_sort_trim.py
+    since the trailing A should not be considered part of the barcode. This method will
+    set the offset parameter in the config and trim the trailing A if it is present in 
+    the samplesheet.
     """
-    illumina_size = 7
-    all_illumina = True
-    need_a = False
+    illumina_size = 6
+    barcodes_copy = copy.deepcopy(barcodes)
     for bc in barcodes:
+        # Only do this in case all barcodes are illumina
         if bc.get("barcode_type", "illumina").lower().find("illumina") == -1:
-            all_illumina = False
-        if (not bc["sequence"].upper().endswith("A") or
-            len(bc["sequence"]) < illumina_size):
-            need_a = True
-    if all_illumina and need_a:
-        new = []
-        for bc in barcodes:
-            new_bc = copy.deepcopy(bc)
-            new_bc["sequence"] = "%sA" % new_bc["sequence"]
-            new.append(new_bc)
-        barcodes = new
+            return barcodes_copy
+        bc["sequence"] = bc["sequence"][:illumina_size]
+    
+    config["algorithm"]["bc_offset"] = 1
     return barcodes
 
 
