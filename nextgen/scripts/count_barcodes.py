@@ -95,11 +95,11 @@ def main(fastq, run_info_file, lane, out_file,
 
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
-        bc_grouping = match_and_split(fastq, dict(bcodes), \
-                                bc_matched, mismatch, offset, length, dry_run)
-    elif mode == "count":
-        # bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
-        bc_grouping = match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
+        bc_grouping = \
+        match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
+  
+   elif mode == "count":
+        bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
 
     if not out_file:
         out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
@@ -286,67 +286,6 @@ def merge_matched_files(primary_bc, matched_bc, format, merger):
     merger(matched_file, primary_file)
 
     os.remove(matched_file)
-
-
-def match_and_split(fastq, bcodes, given_bcodes, \
-    mismatch, offset, length, dry_run):
-    """Matches barcodes in the fastq file 'fastq' and prints out the lines
-    corresponding to the matched barcode groupes in to seperate files.
-    When done it returns a dictionary with matched barcodes along with info.
-    """
-    bc_grouping = BarcodeGrouping()
-    found_bcodes = set()
-    number = dict(matched=0., unmatched=0.)
-    out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
-    out_writer = output_to_fastq(out_format)
-
-    assert mismatch >= 0, "Amount of mismatch cannot be negative."
-    handle = open(fastq)
-    if mismatch == 0:
-        for title, sequence, quality in FastqGeneralIterator(handle):
-            bc = sequence[-(offset + 1 + length):-(offset + 1)].strip()
-            if bc in given_bcodes:
-                if bc not in bc_grouping.matched:
-                    bc_grouping.matched[bc] = {"variants": [], "count": 0}
-                    if bc not in bc_grouping.matched[bc]["variants"]:
-                        bc_grouping.matched[bc]["variants"].append(bc)
-
-                    bc_grouping.matched[bc]["count"] += 1
-                    found_bcodes.add(bc)
-                    number["matched"] += 1
-
-                    if not dry_run:
-                        out_writer(bc, title, sequence, quality, \
-                        None, None, None)
-    else:
-        for title, sequence, quality in FastqGeneralIterator(handle):
-            bc = sequence[-(offset + 1 + length):-(offset + 1)].strip()
-            for bc_given in given_bcodes:
-                cur_mismatch = bc_mismatch(bc, bc_given)
-                if cur_mismatch <= mismatch:
-                    if bc_given not in bc_grouping.matched:
-                        bc_grouping.matched[bc_given] = {"variants": [], \
-                                                            "count": 0}
-                    if bc not in bc_grouping.matched[bc_given]["variants"]:
-                        bc_grouping.matched[bc_given]["variants"].append(bc)
-
-                    bc_grouping.matched[bc_given]["count"] += 1
-                    found_bcodes.add(bc)
-                    number["matched"] += 1
-
-                    if not dry_run:
-                        out_writer(bc, title, sequence, quality, \
-                        None, None, None)
-
-    bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
-    bc_grouping.handle_Ns()
-    bc_grouping.add_illumina_indexes()
-
-    number["unmatched"] = float(sum(bc_grouping.unmatched.values()))
-    percentage = 100. * number["matched"] / sum(number.values())
-    print("Hard numbers:" + number)
-    print("Percentage matched: %.3f%%" % percentage)
-    return bc_grouping
 
 
 def bc_mismatch(bc, bc_given):
