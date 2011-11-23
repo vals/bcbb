@@ -588,4 +588,3 @@ Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
 [ip1]: http://docutils.sourceforge.net/rst.html
 [ip2]: http://sphinx.pocoo.org
 [ip3]: http://paver.github.com/paver/
-

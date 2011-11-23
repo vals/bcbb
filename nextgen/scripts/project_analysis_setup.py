@@ -52,7 +52,6 @@ from bcbio.pipeline.run_info import get_run_info, prune_run_info_by_description
 from bcbio.pipeline.lane import get_flowcell_id
 from bcbio.pipeline.fastq import get_single_fastq_files, get_barcoded_fastq_files, convert_barcode_id_to_name, get_fastq_files
 from bcbio.pipeline.config_loader import load_config
-
 from bcbio import utils
 
 def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, project_desc=None, lanes=None):
@@ -76,7 +75,6 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
 
     dirs = {"fc_dir":fc_dir, "project_dir":project_dir,
             "project_base_dir" : os.path.join(project_dir, os.path.pardir)}
-
     config.update(fc_name = fc_name, fc_date = fc_date)
     config.update(fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
     dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, config['fc_alias'] ))
@@ -102,6 +100,8 @@ def process_lane(info, config, dirs):
     fq = get_barcoded_fastq_files(multiplex, info, dirs['fc_dir'], config['fc_name'], config['fc_date'])
     
     ## Move data along with fastq files
+    fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
+    _make_dir(fc_bc_dir, "fastq.txt barcode directory")
     if not options.only_fastq:
         fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
         _make_dir(fc_bc_dir, "fastq.txt barcode directory")
