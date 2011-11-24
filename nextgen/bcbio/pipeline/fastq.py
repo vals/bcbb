@@ -10,7 +10,7 @@ def get_fastq_files(directory, item, fc_name, bc_name=None, glob_ext="_fastq.txt
     """
     if item.has_key("files") and bc_name is None:
         names = item["files"]
-        if isinstance(names, str):
+        if isinstance(names, basestring):
             names = [names]
         files = [os.path.join(directory, x) for x in names]
    
