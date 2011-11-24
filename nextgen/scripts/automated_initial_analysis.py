@@ -39,7 +39,6 @@ from bcbio.variation.genotype import parallel_unified_genotyper
 from bcbio.pipeline.config_loader import load_config
 from bcbio.google.bc_metrics import create_bc_report_on_gdocs
 
-
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
     log_handler = create_log_handler(config, log.name)
