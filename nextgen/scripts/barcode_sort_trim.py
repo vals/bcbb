@@ -139,7 +139,6 @@ def end_generator(seq1, seq2=None, first_read=True, three_end=True, bc_offset=0)
             return seq[bc_offset:size+bc_offset]
     return _get_end
 
-
 def _remove_from_end(seq, qual, match_seq, three_end, bc_offset):
     if match_seq:
         if three_end:
@@ -151,7 +150,6 @@ def _remove_from_end(seq, qual, match_seq, three_end, bc_offset):
             seq = seq[len(match_seq)+bc_offset:]
             qual = qual[len(match_seq)+bc_offset:]
     return seq, qual
-
 
 def remove_barcode(seq1, qual1, seq2, qual2, match_seq, first_read, three_end, bc_offset=0):
     """Trim found barcode from the appropriate sequence end.
@@ -235,6 +233,7 @@ class BarcodeTest(unittest.TestCase):
         assert end_gen(3) == "CCC"
         end_gen = end_generator(seq1, seq2, False, False)
         assert end_gen(3) == "GGG"
+        # Test end generation with an offset
         end_gen = end_generator(seq1, seq2, True, True,1)
         assert end_gen(3) == "ATT"
         end_gen = end_generator(seq1, seq2, True, False,1)
@@ -243,7 +242,6 @@ class BarcodeTest(unittest.TestCase):
         end_gen = end_generator(seq1, seq2, False, True,1)
         assert end_gen(3) == "GCC"
         end_gen = end_generator(seq1, seq2, False, False,1)
-        assert end_gen(3) == "GGC"
 
     def test_2_identical_match(self):
         """Ensure we can identify identical barcode matches.
@@ -289,6 +287,23 @@ class BarcodeTest(unittest.TestCase):
         (removed, _, _, _) = remove_barcode(seq, "B" * 9, seq, "g" * 9, match_seq, True, True)
         # Was the barcode properly identified and removed with 1 mismatch allowed ?
         assert bc_id == "8"
+        assert bc_seq == match_seq
+        assert removed == "GATTACA" * 5
+
+    def test_5_illumina_barcodes(self):
+        """ Test that Illumina reads with a trailing A are demultiplexed correctly
+        """
+        # Use the first barcode
+        for bc_seq, bc_id in self.barcodes.items():
+            if bc_id == "2":
+                break
+            
+        # Simulate an arbitrary read, attach barcode and add a trailing A
+        seq = "GATTACA" * 5 + bc_seq + "A"
+        (bc_id, bc_seq, match_seq) = best_match(end_generator(seq,None,True,True,1), self.barcodes, 1)
+        (removed, _, _, _) = remove_barcode(seq, "B" * 9, seq, "g" * 9, match_seq, True, True, 1)
+        # Was the barcode properly identified and removed with 1 mismatch allowed ?
+        assert bc_id == "2"
         assert bc_seq == match_seq
         assert removed == "GATTACA" * 5
 

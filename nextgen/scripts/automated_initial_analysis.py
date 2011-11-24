@@ -44,7 +44,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
     log_handler = create_log_handler(config, log.name)
     with log_handler.applicationbound():
-        run_main(config, config_file, fc_dir, run_info_yaml)
+        run_main(config, config_file, os.path.normpath(fc_dir), run_info_yaml)
 
 
 def run_main(config, config_file, fc_dir, run_info_yaml):

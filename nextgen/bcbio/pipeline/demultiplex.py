@@ -126,7 +126,6 @@ def _adjust_illumina_tags(barcodes,config):
     barcodes = new_bc
     return barcodes
 
-
 def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     """Add multiplex information to control and non-multiplexed lanes.
 
