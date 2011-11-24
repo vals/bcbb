@@ -307,23 +307,6 @@ class BarcodeTest(unittest.TestCase):
         assert bc_seq == match_seq
         assert removed == "GATTACA" * 5
 
-    def test_5_illumina_barcodes(self):
-        """ Test that Illumina reads with a trailing A are demultiplexed correctly
-        """
-        # Use the first barcode
-        for bc_seq, bc_id in self.barcodes.items():
-            if bc_id == "2":
-                break
-            
-        # Simulate an arbitrary read, attach barcode and add a trailing A
-        seq = "GATTACA" * 5 + bc_seq + "A"
-        (bc_id, bc_seq, match_seq) = best_match(end_generator(seq,None,True,True,1), self.barcodes, 1)
-        (removed, _, _, _) = remove_barcode(seq, "B" * 9, seq, "g" * 9, match_seq, True, True, 1)
-        # Was the barcode properly identified and removed with 1 mismatch allowed ?
-        assert bc_id == "2"
-        assert bc_seq == match_seq
-        assert removed == "GATTACA" * 5
-
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-s", "--second", dest="first_read",
