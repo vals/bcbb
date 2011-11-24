@@ -12,7 +12,7 @@ from bcbio.distributed.transaction import file_transaction
 from bcbio.pipeline.lane import _update_config_w_custom
 from bcbio.pipeline import log
 from bcbio.pipeline.merge import (combine_fastq_files, merge_bam_files)
-from bcbio.pipeline.qcsummary import generate_align_summary
+from bcbio.pipeline.qcsummary import generate_align_summary, screen_for_contamination
 from bcbio.pipeline.variation import (recalibrate_quality, finalize_genotyper,
                                       variation_effects)
 from bcbio.rnaseq.cufflinks import assemble_transcripts
@@ -57,7 +57,8 @@ def process_sample(data):
 
     if data["config"]["algorithm"]["screen_contaminants"]:
         log.info("Screening for contaminants on sample %s with genome %s" % (str(data["name"]), str(data["genome_build"])))
-        screen_for_contamination(data["fastq"],
+        screen_for_contamination(data["fastq1"],
+                                 data["fastq2"],
                                  data["config"],
                                  data["genome_build"])
     
