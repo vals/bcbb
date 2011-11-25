@@ -311,7 +311,7 @@ def bc_mismatched(bc, bc_given, mismatch):
 
 
 class FileMerger(dict):
-    """Returns a function with an internal dictionary which saves file handles.
+    """Returns an object which handles merging files.
     """
     def __call__(self, source_file, target_file):
         self.append_to_handles(source_file, target_file)
