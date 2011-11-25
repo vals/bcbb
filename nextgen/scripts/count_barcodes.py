@@ -120,8 +120,8 @@ class BarcodeGrouping(object):
     def add_illumina_indexes(self):
         """Attaches matched illumina barcodes to barcode groups
         """
-        for bc, matches in self.matched.items():
-            for illumina_index, illumina_bc in INDEX_LOOKUP.items():
+        for bc, matches in self.matched.iteritems():
+            for illumina_index, illumina_bc in INDEX_LOOKUP.iteritems():
                 if illumina_bc == bc:
                     if "indexes" not in matches:
                         matches["indexes"] = []
@@ -178,7 +178,7 @@ def match_and_count(bcodes, given_bcodes, mismatch):
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     if mismatch == 0:
-        for bc, count in bcodes.items():
+        for bc, count in bcodes.iteritems():
             if bc in given_bcodes:
                 if bc not in bc_grouping.matched:
                     bc_grouping.matched[bc] = {"variants": [bc], "count": 0}
@@ -188,7 +188,7 @@ def match_and_count(bcodes, given_bcodes, mismatch):
                 number["matched"] += count
 
     else:
-        for bc, count in bcodes.items():
+        for bc, count in bcodes.iteritems():
             for bc_given in given_bcodes:
                 current_mismatch = bc_mismatched(bc, bc_given, mismatch)
 
@@ -208,10 +208,10 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     bc_grouping.handle_Ns()
     bc_grouping.add_illumina_indexes()
 
-    total = sum(bcodes.values())
+    total = sum(bcodes.itervalues())
 
     number["unmatched"] = \
-    float(sum(value["count"] for value in bc_grouping.unmatched.values()))
+    float(sum(value["count"] for value in bc_grouping.unmatched.itervalues()))
     percentage = 100. * number["matched"] / sum(number.values())
     print("Hard numbers:\t\t" + str(number))
     print("Sum:\t\t\t" + str(sum(number.values())))
@@ -228,11 +228,11 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
     bc_grouping = BarcodeGrouping()
     number = dict(matched=0., unmatched=0.)
     found_bcodes = set()
-    merger = file_merger()
+    merger = FileMerger()
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     if mismatch == 0:
-        for bc, count in bcodes.items():
+        for bc, count in bcodes.iteritems():
             if bc in given_bcodes:
                 if bc not in bc_grouping.matched:
                     bc_grouping.matched[bc] = {"variants": [bc], "count": 0}
@@ -242,7 +242,7 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
                 number["matched"] += count
 
     else:
-        for bc, count in bcodes.items():
+        for bc, count in bcodes.iteritems():
             for bc_given in given_bcodes:
                 current_mismatch = bc_mismatched(bc, bc_given, mismatch)
 
@@ -264,14 +264,16 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
             else:
                 merge_matched_files("unmatched", bc, format, merger)
 
+    merger.close()
+
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
     bc_grouping.handle_Ns()
     bc_grouping.add_illumina_indexes()
 
-    total = sum(bcodes.values())
+    total = sum(bcodes.itervalues())
 
     number["unmatched"] = \
-    float(sum(value["count"] for value in bc_grouping.unmatched.values()))
+    float(sum(value["count"] for value in bc_grouping.unmatched.itervalues()))
     percentage = 100. * number["matched"] / sum(number.values())
     print("Hard numbers:\t\t" + str(number))
     print("Sum:\t\t\t" + str(sum(number.values())))
@@ -308,30 +310,31 @@ def bc_mismatched(bc, bc_given, mismatch):
     return current_mismatch
 
 
-def _append_to_handles(source_file, target_file, target_handles):
-    """Appends the contents of source_file to the target_file, storing file
-    objects in the target_handles dictionary to speed up IO.
-    """
-    try:
-        out_handle = target_handles[target_file]
-    except KeyError:
-        out_handle = open(target_file, "a")
-        target_handles[target_file] = out_handle
-
-    in_handle = open(source_file, "r")
-    shutil.copyfileobj(in_handle, out_handle)
-    in_handle.close()
-
-
-def file_merger():
+class FileMerger(dict):
     """Returns a function with an internal dictionary which saves file handles.
     """
-    target_handles = dict()
+    def __call__(self, source_file, target_file):
+        self.append_to_handles(source_file, target_file)
 
-    def append_files(source_file, target_file):
-        _append_to_handles(source_file, target_file, target_handles)
+    def append_to_handles(self, source_file, target_file):
+        """Appends the contents of source_file to the target_file, storing
+        file objects in the target_handles dictionary to speed up IO.
+        """
+        try:
+            out_handle = self[target_file]
+        except KeyError:
+            out_handle = open(target_file, "a")
+            self[target_file] = out_handle
 
-    return append_files
+        in_handle = open(source_file, "r")
+        shutil.copyfileobj(in_handle, out_handle)
+        in_handle.close()
+
+    def close(self):
+        """Close all the opened files.
+        """
+        for handle in self.itervalues():
+            handle.close()
 
 
 def _write_to_handles(name, seq, qual, fname, out_handles):
