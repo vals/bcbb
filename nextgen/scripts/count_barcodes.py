@@ -53,12 +53,13 @@ Example:
           ACTCGG: 1, ACTCTC: 1}
 """
 from __future__ import with_statement
+import collections
+from itertools import izip
 import os
+from optparse import OptionParser
 import sys
 import shutil
-from optparse import OptionParser
 import yaml
-import collections
 
 from Bio import pairwise2
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
@@ -84,6 +85,7 @@ def main(fastq, run_info_file, lane, out_file,
         bcode = sequence[-(offset + length):minus_offset].strip()
         out_writer(bcode, title, sequence, quality, None, None, None)
         bcodes[bcode] += 1
+        # Count number not A in the last one
 
     # Seperate out the most common barcodes
     total = float(sum(bcodes.itervalues()))
@@ -97,8 +99,8 @@ def main(fastq, run_info_file, lane, out_file,
         # Check with mismatch against most common, split fastq files.
         bc_grouping = \
         match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
-  
-   elif mode == "count":
+
+    elif mode == "count":
         bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
 
     if not out_file:
@@ -188,7 +190,8 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     else:
         for bc, count in bcodes.items():
             for bc_given in given_bcodes:
-                current_mismatch = bc_mismatch(bc, bc_given)
+                current_mismatch = bc_mismatched(bc, bc_given, mismatch)
+
                 if current_mismatch <= mismatch:
                     if bc_given not in bc_grouping.matched:
                         bc_grouping.matched[bc_given] = {"variants": [], \
@@ -241,7 +244,8 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
     else:
         for bc, count in bcodes.items():
             for bc_given in given_bcodes:
-                current_mismatch = bc_mismatch(bc, bc_given)
+                current_mismatch = bc_mismatched(bc, bc_given, mismatch)
+
                 if current_mismatch <= mismatch:
                     if bc_given not in bc_grouping.matched:
                         bc_grouping.matched[bc_given] = {"variants": [], \
@@ -288,17 +292,20 @@ def merge_matched_files(primary_bc, matched_bc, format, merger):
     os.remove(matched_file)
 
 
-def bc_mismatch(bc, bc_given):
-    """Calculate and return the number of mismatches between two barcodes.
+def bc_mismatched(bc, bc_given, mismatch):
+    """Calculate the number of mismatches between two barcodes until
+    the given mismatch allowance is reached.
+    Return number of mismatches if there are less than the allowance, otherwise
+    return (mismatch + 1).
     """
-    aligns = pairwise2.align.globalms(bc, bc_given,
-                5.0, -4.0, -9.0, -0.5, one_alignment_only=True)
-    bc_aligned, bc_g_aligned = aligns[0][:2]
-    matches = sum(1 for i, base in enumerate(bc_aligned) \
-                                        if base == bc_g_aligned[i])
-    gaps = bc_aligned.count("-")
-    cur_mismatch = len(bc) - matches + gaps
-    return cur_mismatch
+    current_mismatch = 0
+    for c1, c2 in izip(bc, bc_given):
+        if c1 != c2:
+            current_mismatch += 1
+            if current_mismatch > mismatch:
+                break
+
+    return current_mismatch
 
 
 def _append_to_handles(source_file, target_file, target_handles):
