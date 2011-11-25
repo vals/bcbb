@@ -566,19 +566,6 @@ modified scripts of the analysis pipeline scripts have to be used:
 
 ## Getting v 0.3 a working
 
-There is some required software which need be installed locally.
-
-* snpEff 2.0.2
-
-Version 2.0.3 is not compatible with GATK, make sure it is 2.0.2.
-Also get the following data for snpEff 2.0.2
-
-* GRCH37.63
-* NCBIM37.73
-* athalianaTair10
-
-All for snpEff 2.0.2! It is all available on the snpEff download page.
-
 Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
 
     export LC_ALL=en_US.utf-8
