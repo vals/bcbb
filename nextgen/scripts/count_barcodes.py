@@ -242,6 +242,10 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
                 number["matched"] += count
 
     else:
+        old_unmatched = \
+        format.replace("--r--", "1").replace("--b--", "unmatched")
+        if os.path.exists(old_unmatched):
+            os.remove(old_unmatched)
         for bc, count in bcodes.iteritems():
             for bc_given in given_bcodes:
                 current_mismatch = bc_mismatched(bc, bc_given, mismatch)
@@ -311,7 +315,7 @@ def bc_mismatched(bc, bc_given, mismatch):
 
 
 class FileMerger(dict):
-    """Returns a function with an internal dictionary which saves file handles.
+    """Returns an object which handles merging files.
     """
     def __call__(self, source_file, target_file):
         self.append_to_handles(source_file, target_file)
