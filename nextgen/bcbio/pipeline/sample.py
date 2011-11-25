@@ -62,6 +62,8 @@ def process_sample(data):
                                  data["config"],
                                  data["genome_build"])
     
+    _filter_out_genomes(data)
+    
     if data["config"]["algorithm"]["snpcall"]:
         log.info("Finalizing variant calls %s with GATK" % str(data["name"]))
         data["vrn_file"] = finalize_genotyper(data["vrn_file"],
@@ -100,3 +102,14 @@ def generate_bigwig(data):
             subprocess.check_call(cl)
     data["bigwig_file"] = wig_file
     return [[data]]
+
+
+def _filter_out_genomes(data):
+    """ Filters out genomes found in run_info.yaml
+    """
+    print data
+    import sys
+    sys.exit(0)
+    log.info("Removing genome %s from sample %s" % str(data["filter_out_genomes"]), str(data["name"]))
+    if data["filter_out_genomes"]:
+        _bowtie_remove()
