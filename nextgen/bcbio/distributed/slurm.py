@@ -21,8 +21,9 @@ def submit_job(scheduler_args, command):
     return match.groups("jobid")[0]
 
 def stop_job(jobid):
-    cl = ["scancel", jobid]
-    subprocess.check_call(cl)
+    if exists(jobid):
+        cl = ["scancel", jobid]
+        subprocess.check_call(cl)
 
 def are_running(jobids):
     """Check if all of the submitted job IDs are running.
@@ -36,3 +37,14 @@ def are_running(jobids):
                 running.append(pid)
     want_running = set(running).intersection(set(jobids))
     return len(want_running) == len(jobids)
+
+def exists(jobid):
+    """Check if the job IDs exist.
+    """
+    run_info = subprocess.check_output(["squeue"])
+    for parts in (l.split() for l in run_info.split("\n") if l.strip()):
+        if len(parts) >= 5:
+            pid, _, _, _, status = parts[:5]
+            if (pid == jobid and status.upper() not in ["CG"]):
+                return True
+    return False

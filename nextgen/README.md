@@ -564,7 +564,7 @@ modified scripts of the analysis pipeline scripts have to be used:
 * `scripts/project_exome_pipeline.py` -- performs the same analyses as
   automated_initial_analysis.py, but starts with demultiplexed data
 
-## Getting v 0.3 a working
+## Getting v 0.3a working
 
 Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
 
@@ -575,4 +575,3 @@ Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
 [ip1]: http://docutils.sourceforge.net/rst.html
 [ip2]: http://sphinx.pocoo.org
 [ip3]: http://paver.github.com/paver/
-
