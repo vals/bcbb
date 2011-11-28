@@ -36,6 +36,8 @@ Example:
     of each of those bar codes.
 
     Essentially, it looks somewhat like this:
+
+    matched:
         TGACCA:
           count: 902
           indexes: [rpi4, INDEX4, IDX4, IN4, '4', R4, index4, r4, idx4, RPI4,
@@ -48,9 +50,19 @@ Example:
           in3]
           variants: [TTACGC, TTAAGC, TAAGGC, TTAGGC, TTAGGA, TTCGGC, TTAGAC,
           CTAGGC, TTAGTC, TGAGGC, TTATGC, ATAGGC, TCAGGC]
-        unmatched: {AAAGTC: 1, AACAGT: 1, AATCAC: 1, ACAAGT: 1, ACACCA: 1,
-          ACAGGA: 1, ACAGGC: 2, ACATGC: 1, ACCGAG: 1, ACCGCG: 1, ACGATC: 2,
-          ACTCGG: 1, ACTCTC: 1}
+    unmatched:
+        AAAAAA:
+            count: 3
+            variants: [AAAAAA]
+        AAAAAC:
+            count: 1
+            variants: [AAAAAC]
+        AAAAAG:
+            count: 2
+            variants: [AAAAAG]
+        AAAAAT:
+            count: 1
+            variants: [AAAAAT]
 """
 from __future__ import with_statement
 import collections
