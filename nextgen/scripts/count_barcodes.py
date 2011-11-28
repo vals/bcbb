@@ -61,7 +61,6 @@ import sys
 import shutil
 import yaml
 
-from Bio import pairwise2
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio.solexa import INDEX_LOOKUP
 
