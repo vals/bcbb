@@ -237,7 +237,6 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
     Returns a dictionary with matched barcodes along with info.
     """
     bc_grouping = BarcodeGrouping()
-    number = dict(matched=0., unmatched=0.)
     found_bcodes = set()
     merger = FileMerger()
 
@@ -250,7 +249,6 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
 
                 bc_grouping.matched[bc]["count"] += count
                 found_bcodes.add(bc)
-                number["matched"] += count
 
     else:
         old_unmatched = \
@@ -270,7 +268,6 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
 
                     bc_grouping.matched[bc_given]["count"] += count
                     found_bcodes.add(bc)
-                    number["matched"] += count
 
                     if current_mismatch >= 1:
                         merge_matched_files(bc_given, bc, format, merger)
@@ -287,6 +284,9 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
 
     total = sum(bcodes.itervalues())
 
+    number = dict(matched=0., unmatched=0.)
+    number["matched"] = \
+    float(sum(value["count"] for value in bc_grouping.matched.itervalues()))
     number["unmatched"] = \
     float(sum(value["count"] for value in bc_grouping.unmatched.itervalues()))
     percentage = 100. * number["matched"] / sum(number.values())
