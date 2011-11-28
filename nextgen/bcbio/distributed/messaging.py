@@ -9,6 +9,7 @@ import time
 import contextlib
 import multiprocessing, logging
 import subprocess
+import itertools
 logger = multiprocessing.log_to_stderr()
 logger.setLevel(multiprocessing.SUBDEBUG)
 
@@ -32,10 +33,14 @@ def parallel_runner(module, dirs, config, config_file):
                                     fromlist=["multitasks"]),
                          fn_name)
             cores = cores_including_resources(int(parallel), metadata, config)
-            with utils.cpmap(cores) as cpmap:
-                for data in cpmap(fn, items):
-                    if data:
-                        out.extend(data)
+            # group items in blocks; multiprocessing seems to lose processors
+            # over time so this keeps refreshing the pool
+            n = cores * 5
+            for group_items in itertools.izip_longest(*[iter(items)]*n):
+                with utils.cpmap(cores) as cpmap:
+                    for data in cpmap(fn, filter(lambda x: x is not None, group_items)):
+                        if data:
+                            out.extend(data)
         return out
     return run_parallel
 

@@ -67,7 +67,7 @@ def picard_fastq_to_bam(picard, fastq_one, fastq_two, out_dir,
             qual_format = qual_formats[platform.lower()]
         except KeyError:
             raise ValueError("Need to specify quality format for %s" % platform)
-    out_bam = os.path.join(out_dir, "%s.bam" %
+    out_bam = os.path.join(out_dir, "%s-fastq.bam" %
                            os.path.splitext(os.path.basename(fastq_one))[0])
     if not file_exists(out_bam):
         with curdir_tmpdir() as tmp_dir:
@@ -101,6 +101,18 @@ def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file,
                         ("PAIRED_RUN", ("true" if is_paired else "false")),
                         ]
                 picard.run("MergeBamAlignment", opts)
+    return out_bam
+
+def picard_formatconverter(picard, align_sam):
+    """Convert aligned SAM file to BAM format.
+    """
+    out_bam = "%s.bam" % os.path.splitext(align_sam)[0]
+    if not file_exists(out_bam):
+        with curdir_tmpdir() as tmp_dir:
+            with file_transaction(out_bam) as tx_out_bam:
+                opts = [("INPUT", align_sam),
+                        ("OUTPUT", tx_out_bam)]
+                picard.run("SamFormatConverter", opts)
     return out_bam
 
 def picard_mark_duplicates(picard, align_bam):

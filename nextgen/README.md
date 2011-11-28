@@ -304,7 +304,8 @@ to ease your development needs using the following script:
 ### Optional software for generating report graphs
 
 * R with ggplot2, plyr, sqldf libraries.
-* [rpy2][11]. Build R with shared libraries available: `./configure --enable-R-shlib`.
+* [rpy2][11]. Your R needs to be built with shared libraries
+  available: `./configure --enable-R-shlib`.
 
 ### Python modules installed with the package
 
@@ -545,6 +546,13 @@ group data from different flowcells in project-based directories.
   Demultiplexed fastq files or analysis result files can be selected.
   Data selection is based on project descriptors.
 
+In addition, there are a couple of scripts for setting up a working
+environment that uses the [paver][ip3] python module:
+
+* `scripts/project_paver_init.py` -- installs a pavement file and sets
+  up various standard analysis directories, such as log and doc
+
+
 ### Running the pipeline on a subset of demultiplexed samples
 
 The analysis pipelines typically take raw sequencing data, demultiplex
@@ -556,8 +564,18 @@ modified scripts of the analysis pipeline scripts have to be used:
 * `scripts/project_exome_pipeline.py` -- performs the same analyses as
   automated_initial_analysis.py, but starts with demultiplexed data
 
+
 [ip1]: http://docutils.sourceforge.net/rst.html
 [ip2]: http://sphinx.pocoo.org
+[ip3]: http://paver.github.com/paver/
+
+## Getting v 0.3a working
+
+Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
+
+    export LC_ALL=en_US.utf-8
+
+<<<<<<< HEAD
 
 ## Getting v 0.3 a working
 
@@ -585,5 +603,3 @@ Also make sure to use
 * tophat 1.3.0
 
 or later.
-      
-
