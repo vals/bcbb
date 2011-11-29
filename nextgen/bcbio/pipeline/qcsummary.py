@@ -179,7 +179,7 @@ def _run_fastq_screen(fastq1, fastq2, config, genome_build):
     utils.safe_makedir(out_base)
     program = config.get("program", {}).get("fastq_screen", "fastq_screen")
     
-    if os.path.exists(fastq2):
+    if utils.file_exists(fastq2):
     # paired end
         cl = [program, "--outdir", out_base, "--subset", "2000000", "--multilib", fastq1, "--paired", fastq2]
     else:
