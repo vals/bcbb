@@ -100,11 +100,18 @@ def main(fastq, run_info_file, lane, out_file,
 
     # Seperate out the most common barcodes
     total = float(sum(bcodes.itervalues()))
-    print("Total after read:\t" + str(total))
+    print("Total after read:\t%.0f" % (total,))
     bc_matched = []
+    bcm_nums = []
+    bcm_parts = []
     for bc, num in bcodes.iteritems():
-        if float(num) / total >= cutoff:
+        part = float(num) / total
+        if part >= cutoff:
             bc_matched.append(bc)
+            bcm_nums.append(num)
+            bcm_parts.append(part)
+
+    # TODO: Match matched bcs against each other.
 
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
@@ -137,6 +144,12 @@ class BarcodeGrouping(object):
                     if "indexes" not in matches:
                         matches["indexes"] = []
                     matches["indexes"].append(illumina_index)
+
+    def add_given_matched_barcodes(self, given_bcodes):
+        """Appends the barcodes we wish to match against, with count 0.
+        """
+        for bcode in given_bcodes:
+            self.matched[bcode] = dict(count=0, variants=[bcode])
 
     def add_unmatched_barcodes(self, bcodes, found_bcodes):
         """Appends a subdictionary with the barcodes not considered to match
@@ -237,8 +250,14 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
     Returns a dictionary with matched barcodes along with info.
     """
     bc_grouping = BarcodeGrouping()
+    bc_grouping.add_given_matched_barcodes(given_bcodes)
     found_bcodes = set()
     merger = FileMerger()
+
+    old_unmatched = \
+    format.replace("--r--", "1").replace("--b--", "unmatched")
+    if os.path.exists(old_unmatched):
+        os.remove(old_unmatched)
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
     if mismatch == 0:
@@ -250,19 +269,14 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
                 bc_grouping.matched[bc]["count"] += count
                 found_bcodes.add(bc)
 
+        # TODO: Add merging of unmatched in to a single file.
+
     else:
-        old_unmatched = \
-        format.replace("--r--", "1").replace("--b--", "unmatched")
-        if os.path.exists(old_unmatched):
-            os.remove(old_unmatched)
         for bc, count in bcodes.iteritems():
             for bc_given in given_bcodes:
                 current_mismatch = bc_mismatched(bc, bc_given, mismatch)
 
                 if current_mismatch <= mismatch:
-                    if bc_given not in bc_grouping.matched:
-                        bc_grouping.matched[bc_given] = {"variants": [], \
-                                                            "count": 0}
                     if bc not in bc_grouping.matched[bc_given]["variants"]:
                         bc_grouping.matched[bc_given]["variants"].append(bc)
 
@@ -291,8 +305,8 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
     float(sum(value["count"] for value in bc_grouping.unmatched.itervalues()))
     percentage = 100. * number["matched"] / sum(number.values())
     print("Hard numbers:\t\t" + str(number))
-    print("Sum:\t\t\t" + str(sum(number.values())))
-    print("Total:\t\t\t" + str(total))
+    print("Sum:\t\t\t%.0f" % (sum(number.values()),))
+    print("Total:\t\t\t%d" % (total,))
     print("Percentage matched:\t%.3f%%" % percentage)
     return bc_grouping
 
