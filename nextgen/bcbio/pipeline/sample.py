@@ -107,9 +107,21 @@ def generate_bigwig(data):
 def _filter_out_genomes(data):
     """ Filters out genomes found in run_info.yaml
     """
+    print "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     print data
-    import sys
-    sys.exit(0)
-    log.info("Removing genome %s from sample %s" % str(data["filter_out_genomes"]), str(data["name"]))
-    if data["filter_out_genomes"]:
-        _bowtie_remove()
+    #genome_build, sam_ref = ref_genome_info(data["info"], config, data["dirs"])
+    sam_ref = data["sam_ref"]
+    
+    log.info("Removing genome from sample %s" % str(data["name"]))
+    try:
+        # not data ! should reach run_info.yaml somehow from here
+        if data["filter_out_genomes"]:
+            for genome in data["filter_out_genomes"].split(","):
+                (out_file, ext) = os.path.splitext(os.path.basename(fastq1))
+                out_file = out_file+"-stripped-"+genome+ext
+                cl = ["bowtie", "--solexa1.3-quals", "--un", out_file, sam_ref, "-1", data["fastq1"], "-2", data["fastq2"], "/dev/null"]
+                log.info("Running %s" % cl)
+                subprocess.check_call(cl)
+    except KeyError:
+        log.error("Not removing genomes, directive filter_out_genomes undefined in run_info.yaml")
+        pass
