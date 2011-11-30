@@ -29,8 +29,10 @@ def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
         return _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                              dirs, config)
 
+
 def screen_for_contamination(fastq1, fastq2, config, genome_build):
     _run_fastq_screen(fastq1, fastq2, config, genome_build)
+
 
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                   dirs, config):
@@ -159,6 +161,7 @@ class FastQCParser:
             to_fix = to_fix.replace(char, "\\%s" % char)
         return to_fix
 
+
 def _run_fastqc(bam_file, config):
     out_base = "fastqc"
     utils.safe_makedir(out_base)
@@ -172,20 +175,22 @@ def _run_fastqc(bam_file, config):
         os.remove("%s.zip" % fastqc_out)
     return fastqc_out
 
+
 def _run_fastq_screen(fastq1, fastq2, config, genome_build):
     """ Runs fastq_screen on a subset of a fastq file
     """
     out_base = "fastq_screen"
     utils.safe_makedir(out_base)
     program = config.get("program", {}).get("fastq_screen", "fastq_screen")
-    
+
     if utils.file_exists(fastq2):
     # paired end
         cl = [program, "--outdir", out_base, "--subset", "2000000", "--multilib", fastq1, "--paired", fastq2]
     else:
         cl = [program, "--outdir", out_base, "--subset", "2000000", "--multilib", fastq1]
-    
+
     subprocess.check_call(cl)
+
 
 # ## High level summary in YAML format for loading into Galaxy.
 
