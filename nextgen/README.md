@@ -575,8 +575,6 @@ Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
 
     export LC_ALL=en_US.utf-8
 
-<<<<<<< HEAD
-
 ## Getting v 0.3 a working
 
 There is some required software which need be installed locally.
