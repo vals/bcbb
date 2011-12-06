@@ -12,8 +12,17 @@ from bcbio.pipeline.demultiplex import split_by_barcode
 from bcbio.pipeline.alignment import align_to_sort_bam
 from bcbio.solexa.flowcell import get_flowcell_info
 
+
 def process_lane(info, fc_name, fc_date, dirs, config):
     """Prepare lanes, potentially splitting based on barcodes.
+
+    Parameters
+    ----------
+    info : dict
+    fc_name : str
+    fc_date : str
+    dirs : dict
+    config : dict
     """
     config = _update_config_w_custom(config, info)
 
@@ -31,7 +40,7 @@ def process_lane(info, fc_name, fc_date, dirs, config):
     if multiplex:
         log.debug("Sample %s is multiplexed as: %s" % (sample_name, multiplex))
 
-    full_fastq1, full_fastq2 = get_fastq_files(dirs["fastq"], info['lane'], fc_name)
+    full_fastq1, full_fastq2 = get_fastq_files(dirs["fastq"], info, fc_name)
     lane_name = "%s_%s_%s" % (info['lane'], fc_date, fc_name)
     lane_items = []
     for mname, msample, fastq1, fastq2 in split_by_barcode(full_fastq1,
@@ -41,17 +50,21 @@ def process_lane(info, fc_name, fc_date, dirs, config):
             msample = "%s---%s" % (sample_name, mname)
         lane_items.append((fastq1, fastq2, genome_build, mlane_name, msample,
                            dirs, config))
-     
+
     return lane_items
+
 
 def process_alignment(fastq1, fastq2, genome_build, lane_name, sample, dirs, config):
     """Do an alignment of fastq files, preparing a sorted BAM output file.
     """
     aligner = config["algorithm"].get("aligner", None)
+    out_bam = ""
     if os.path.exists(fastq1) and aligner:
         log.info("Aligning lane %s with %s aligner" % (lane_name, aligner))
-        align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
-                          lane_name, sample, dirs, config)
+        out_bam = align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
+                                    lane_name, sample, dirs, config)
+    return [{"sample": sample, "fastq": [fastq1, fastq2], "out_bam": out_bam,
+            "lane": lane_name}]
 
 def _update_config_w_custom(config, lane_info):
     """Update the configuration for this lane if a custom analysis is specified.
@@ -62,6 +75,9 @@ def _update_config_w_custom(config, lane_info):
     if custom:
         for key, val in custom.iteritems():
             config["algorithm"][key] = val
+    # apply any algorithm details specified with the lane
+    for key, val in lane_info.get("algorithm", {}).iteritems():
+        config["algorithm"][key] = val
     return config
 
 def make_lane_items(info, fc_date, fc_name, dirs, config):

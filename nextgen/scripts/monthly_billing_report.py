@@ -22,6 +22,7 @@ import yaml
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.pipeline.config_loader import load_config
 
+
 def main(config_file, month, year):
     config = load_config(config_file)
     galaxy_api = GalaxyApiAccess(config["galaxy_url"],
