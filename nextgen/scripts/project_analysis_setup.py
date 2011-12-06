@@ -59,8 +59,7 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
         log.error("No project description or lanes provided: cannot deliver files without this information")
         sys.exit()
 
-    with open(config_file) as in_handle:
-        config = yaml.load(in_handle)
+    config = load_config(config_file)
     ## Set log file in project output directory
     config.update(log_dir=os.path.join(project_dir, "log"))
     log_handler = create_log_handler(config, log.name)
@@ -73,8 +72,8 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
         log.error("No lanes found with matching description %s: please check your flowcell run information" % project_desc)
         sys.exit()
 
-    dirs = {"fc_dir":fc_dir, "project_dir":project_dir,
-            "project_base_dir" : os.path.join(project_dir, os.path.pardir)}
+    dirs = dict(fc_dir=fc_dir, project_dir=project_dir)
+    fc_name, fc_date = get_flowcell_id(run_info, dirs['fc_dir'])
     config.update(fc_name = fc_name, fc_date = fc_date)
     config.update(fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
     dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, config['fc_alias'] ))
@@ -103,8 +102,6 @@ def process_lane(info, config, dirs):
     fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
     _make_dir(fc_bc_dir, "fastq.txt barcode directory")
     if not options.only_fastq:
-        fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
-        _make_dir(fc_bc_dir, "fastq.txt barcode directory")
         data, fastqc = _get_analysis_results(config, dirs, info['lane'])
         _deliver_data(data, fastqc, config['data_delivery_dir'])
 

@@ -50,7 +50,7 @@ class SampleBasedAnalysisTest(unittest.TestCase):
         self.proj_dir = os.path.join(self.file_dir, "projects", "j_doe_00_01")
         ##self.fcdir = os.path.join(os.path.dirname(__file__), "test_automated_output")
         self.run_info = os.path.join(self.fc_dir, "run_info.yaml")
-        self.archive_base_dir = os.path.join(self.file_dir)
+        self.archive_base_dir  = os.path.join(self.file_dir)
         self.analysis_base_dir = os.path.join(self.file_dir)
 
         # Remove fcdir if exists and setup new link
@@ -79,6 +79,7 @@ class SampleBasedAnalysisTest(unittest.TestCase):
               self.run_info,
               "--data_prefix=intermediate/nobackup",
               "--project_desc=%s" % "J.Doe_00_01",
+              "--project_base_dir=%s" % self.proj_dir,
               "--flowcell_alias=20000101A_hiseq2000"]
         subprocess.check_call(cl)
         print "Finished delivering data..."
@@ -88,9 +89,9 @@ class SampleBasedAnalysisTest(unittest.TestCase):
         with make_workdir():
             print "Going to deliver data"
             self._deliver_data()
-            cl = ["project_exome_pipeline.py",
-                  os.path.join(self.fc_dir, "post_process.yaml"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "110106_FC70BUKAAXX"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml")]
-
+            cl = ["exome_pipeline.py",
+                  os.path.join(self.analysis_base_dir, self.fcid, "post_process.yaml"),
+                  os.path.join(self.proj_dir, "j_doe_00_01", "intermediate", "nobackup", "110106_FC70BUKAAXX"),
+                  os.path.join(self.proj_dir, "j_doe_00_01", "data", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml"),
+                  "--project_dir=%s" % (self.proj_dir)]
             subprocess.check_call(cl)
