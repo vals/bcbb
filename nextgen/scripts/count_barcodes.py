@@ -236,7 +236,7 @@ def _match_barcodes(bcode,given_bcodes,mismatch,masked=False):
     # First check for perfect matches
     matched = ""
     if bcode in given_bcodes:
-        matched = bc    
+        matched = bcode    
     # If a perfect match could not be found, do a finer matching but only if we allow mismatches or the given barcodes contain masked positions
     elif mismatch > 0 or masked:
         for gbc in given_bcodes:
