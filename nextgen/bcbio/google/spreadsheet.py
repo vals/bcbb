@@ -96,23 +96,11 @@ def get_column(client, ssheet, wsheet, column, constraint={}):
     except ValueError:
         column = get_column_index(client,ssheet,wsheet,column)
     
-    # Create a filter mask based on the supplied constraints
-    filter = [True]*row_count(wsheet)
-    for con_name, con_value in constraint.items():
-        con_column = get_column(client,ssheet,wsheet,con_name)
-        for i,value in enumerate(con_column):
-            filter[i] &= (_to_unicode(value) == _to_unicode(con_value))
+    # Get the rows matching the constraint
+    rows = get_rows_with_constraint(client,ssheet,wsheet,constraint)
     
-    # Get the content of the specified column index
-    content_2d = get_cell_content(client, ssheet, wsheet, 0, column, 0, column)
-    
-    # Loop over the content and keep only the rows that have passed the constraint filters
-    content = []
-    for i,row in enumerate(content_2d):
-        if filter[i]:
-            content.append(row[0])
-            
-    return content
+    # Return an array with the specified column contents of the rows
+    return [row[column-1] for row in rows]
     
 def get_column_index(client,ssheet,wsheet,name):
     """Get the index of the column with the specified name, or 0 if no column matches"""
@@ -152,6 +140,27 @@ def get_row(client, ssheet, wsheet, row):
     
     content = (get_cell_content(client, ssheet, wsheet, row, 0, row, 0) or [[]])
     return content[0]
+
+def get_rows_with_constraint(client, ssheet, wsheet, constraint={}):
+    """Get the content of the rows filtered by some column values"""
+    
+    # Create a filter mask based on the supplied constraints
+    filter = [True]*row_count(wsheet)
+    for con_name, con_value in constraint.items():
+        con_column = get_column(client,ssheet,wsheet,con_name)
+        for i,value in enumerate(con_column):
+            filter[i] &= (_to_unicode(value) == _to_unicode(con_value))
+    
+    # Get the content of the entire worksheet
+    content_2d = get_cell_content(client, ssheet, wsheet)
+    
+    # Loop over the content and keep only the rows that have passed the constraint filters
+    content = []
+    for i,row in enumerate(content_2d):
+        if filter[i]:
+            content.append(row)
+            
+    return content
     
 def get_spreadsheet(client,title):
     """Get an exact match for a spreadsheet"""
