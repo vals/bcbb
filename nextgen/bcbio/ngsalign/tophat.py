@@ -15,7 +15,7 @@ from bcbio.utils import safe_makedir, file_transaction
 
 galaxy_location_file = "bowtie_indices.loc"
 
-_out_fnames = ["accepted_hits.sam", "junctions.bed", "insertions.bed", "deletions.bed"]
+_out_fnames = ["accepted_hits.bam", "junctions.bed", "insertions.bed", "deletions.bed"]
 
 def align(fastq_file, pair_file, ref_file, out_base, align_dir, config):
     qual_format = config["algorithm"].get("quality_format", None)
