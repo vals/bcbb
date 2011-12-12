@@ -7,6 +7,7 @@
     barcode_type: Illumina
     name: BAC11
     sequence: ATCACG
+    filter_out_genomes: 'phix'
   - barcode_id: '2'
     barcode_type: Illumina
     name: BAC22
