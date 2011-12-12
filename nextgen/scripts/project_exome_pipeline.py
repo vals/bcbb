@@ -52,7 +52,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
 def run_main(config, config_file, fc_dir, run_info_yaml):
     # Working directory has to be identical to where (demultiplexed) fastq files are located
     fc_dir = os.path.normpath(fc_dir)
-    work_dir = os.getcwd()
+    work_dir = fc_dir # os.getcwd()
     align_dir = os.path.join(work_dir, "alignments")
 
     #(_, fastq_dir_label) = os.path.split(work_dir)
