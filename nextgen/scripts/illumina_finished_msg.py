@@ -78,6 +78,8 @@ def search_for_new(config, config_file, post_config_file,
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       process_msg, store_msg)
+                # Re-read the reported database to make sure it hasn't changed while processing
+                reported = _read_reported(config["msg_db"])
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
                       process_msg, store_msg):
