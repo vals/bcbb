@@ -43,7 +43,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
     log_handler = create_log_handler(config, log.name)
     with log_handler.applicationbound():
-        run_main(config, config_file, fc_dir, run_info_yaml)
+        run_main(config, config_file, os.path.normpath(fc_dir), run_info_yaml)
 
 
 def run_main(config, config_file, fc_dir, run_info_yaml):
@@ -70,6 +70,7 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
+    samples = run_parallel("screen_sample_contaminants", samples)
     samples = run_parallel("recalibrate_sample", samples)
     samples = parallel_realign_sample(samples, run_parallel)
     samples = parallel_unified_genotyper(samples, run_parallel)

@@ -29,8 +29,8 @@ def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
         return _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                              dirs, config)
 
-def screen_for_contamination(fastq1, fastq2, config, genome_build):
-    _run_fastq_screen(fastq1, fastq2, config, genome_build)
+def screen_for_contamination(fastq1, fastq2, config):
+    _run_fastq_screen(fastq1, fastq2, config)
 
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                   dirs, config):
@@ -172,7 +172,7 @@ def _run_fastqc(bam_file, config):
         os.remove("%s.zip" % fastqc_out)
     return fastqc_out
 
-def _run_fastq_screen(fastq1, fastq2, config, genome_build):
+def _run_fastq_screen(fastq1, fastq2, config):
     """ Runs fastq_screen on a subset of a fastq file
     """
     out_base = "fastq_screen"

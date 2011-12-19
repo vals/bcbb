@@ -78,6 +78,8 @@ def search_for_new(config, config_file, post_config_file,
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       process_msg, store_msg)
+                # Re-read the reported database to make sure it hasn't changed while processing
+                reported = _read_reported(config["msg_db"])
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
                       process_msg, store_msg):
@@ -156,7 +158,7 @@ def _generate_qseq(bc_dir, config):
         bcl2qseq_log = os.path.join(config["log_dir"], "setupBclToQseq.log")
         cmd = os.path.join(config["program"]["olb"], "bin", "setupBclToQseq.py")
         cl = [cmd, "-L", bcl2qseq_log, "-o", bc_dir, "--in-place", "--overwrite",
-              "--ignore-missing-stats"]
+              "--ignore-missing-stats","--ignore-missing-control"]
         # in OLB version 1.9, the -i flag changed to intensities instead of input
         version_cl = [cmd, "-v"]
         p = subprocess.Popen(version_cl, stdout=subprocess.PIPE)

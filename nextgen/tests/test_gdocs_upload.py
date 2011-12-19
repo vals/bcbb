@@ -77,6 +77,10 @@ class GDocsUploadTest(unittest.TestCase):
         config_file = os.path.join(self.data_dir, "post_process.yaml")
         self.config = load_config(config_file)
 
+        # Assert that the gdocs_upload section exists
+        if not 'gdocs_upload' in self.config:
+            raise Exception("'gdocs_upload' section is missing from %s, the results cannot be uploaded to Google Docs account" % config_file) 
+        
         # Loop over the runs
         for name in self.runname:
             print "\nProcessing %s" % name
