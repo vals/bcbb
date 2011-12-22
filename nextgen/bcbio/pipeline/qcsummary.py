@@ -30,8 +30,8 @@ def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
                              dirs, config)
 
 
-def screen_for_contamination(fastq1, fastq2, config, genome_build):
-    _run_fastq_screen(fastq1, fastq2, config, genome_build)
+def screen_for_contamination(fastq1, fastq2, config):
+    _run_fastq_screen(fastq1, fastq2, config)
 
 
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
@@ -176,7 +176,7 @@ def _run_fastqc(bam_file, config):
     return fastqc_out
 
 
-def _run_fastq_screen(fastq1, fastq2, config, genome_build):
+def _run_fastq_screen(fastq1, fastq2, config):
     """ Runs fastq_screen on a subset of a fastq file
     """
     out_base = "fastq_screen"
@@ -195,6 +195,9 @@ def _run_fastq_screen(fastq1, fastq2, config, genome_build):
         cl = [program, "--outdir", out_base, "--subset", "2000000", \
         "--multilib", fastq1]
 
+    if config["algorithm"].get("quality_format","").lower() == 'illumina':
+        cl.insert(1,"--illumina")
+         
     subprocess.check_call(cl)
 
 

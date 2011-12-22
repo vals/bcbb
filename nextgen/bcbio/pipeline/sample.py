@@ -26,20 +26,21 @@ def process_sample(sample_name, fastq_files, info, bam_files, dirs,
     config = _update_config_w_custom(config, info)
 
     genome_build = info.get("genome_build", None)
-    (_, sam_ref) = get_genome_ref(genome_build, config["algorithm"]["aligner"],
-                                  dirs["galaxy"])
     fastq1, fastq2 = combine_fastq_files(fastq_files, dirs["work"])
-    log.info("Combining and preparing wig file %s" % str(sample_name))
-    sort_bam = merge_bam_files(bam_files, dirs["work"], config)
-    (gatk_bam, vrn_file, effects_file) = ("", "", "")
     if config["algorithm"]["screen_contaminants"]:
         log.info("Screening for contaminants on sample %s with genome %s" % \
         (str(sample_name), str(genome_build)))
-        screen_for_contamination(fastq1, fastq2, config, genome_build)
+        screen_for_contamination(fastq1, fastq2, config)
 
     # _filter_out_genomes(data)
 
-    if config["algorithm"]["recalibrate"]:
+    (_, sam_ref) = get_genome_ref(genome_build, config["algorithm"]["aligner"],
+                                  dirs["galaxy"])
+    log.info("Combining and preparing wig file %s" % str(sample_name))
+    sort_bam = merge_bam_files(bam_files, dirs["work"], config)
+    (gatk_bam, vrn_file, effects_file) = ("", "", "")
+
+    if config["algorithm"]["recalibrate"] and os.path.exists(sort_bam):
         log.info("Recalibrating %s with GATK" % str(sample_name))
         gatk_bam = recalibrate_quality(sort_bam, fastq1, fastq2, sam_ref,
                                        dirs, config)
@@ -49,14 +50,16 @@ def process_sample(sample_name, fastq_files, info, bam_files, dirs,
             log.info("Calculating variation effects for %s" % str(sample_name))
             effects_file = variation_effects(vrn_file, genome_build, config)
 
-    if config["algorithm"].get("transcript_assemble", False):
+    if config["algorithm"].get("transcript_assemble", False) and os.path.exists(sort_bam):
         tx_file = assemble_transcripts(sort_bam, sam_ref, config)
 
-    if sam_ref is not None:
+    if sam_ref is not None and os.path.exists(sort_bam):
         log.info("Generating summary files: %s" % str(sample_name))
         generate_align_summary(sort_bam, fastq2 is not None, sam_ref,
                                sample_name, config, dirs)
-    bam_to_wig(sort_bam, config, config_file)
+    
+    if os.path.exists(sort_bam):
+        bam_to_wig(sort_bam, config, config_file)
 
     return [sample_name, fastq_files, info, sort_bam, gatk_bam, vrn_file,
             effects_file]
