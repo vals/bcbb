@@ -56,30 +56,19 @@ def _create_header(header,columns):
 def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     """Get the barcode read distribution for a run and upload to google docs"""
     
+    encoded_credentials = get_credentials(config)
+    if not encoded_credentials:
+        log.warn("Could not find Google Docs account credentials. No demultiplex report was written")
+        return
+    
     # Get the required parameters from the post_process.yaml configuration file
     gdocs = config.get("gdocs_upload",None)
-    if not gdocs:
-        log.info("No GDocs upload section specified in config file, will not upload demultiplex data")
-        return
     
     # Get the GDocs demultiplex result file title
     gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
     if not gdocs_spreadsheet:
         log.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
         return
-    
-    # Get the account credentials
-    encoded_credentials = ""
-    encoded_credentials_file = gdocs.get("gdocs_credentials",None)
-    if not encoded_credentials_file:
-        log.warn("Could not find Google Docs account credentials. No demultiplex report was written")
-        return
-    # Check if the credentials file exists
-    if not os.path.exists(encoded_credentials_file):
-        log.warn("The Google Docs credentials file could not be found. No demultiplex data was written")
-        return
-    with open(encoded_credentials_file) as fh:
-        encoded_credentials = fh.read().strip()
     
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
     fc = Flowcell(fc_name,fc_date,run_info.get("details",[]),work_dir)
