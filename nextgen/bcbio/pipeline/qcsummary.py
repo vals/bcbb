@@ -195,6 +195,9 @@ def _run_fastq_screen(fastq1, fastq2, config):
         cl = [program, "--outdir", out_base, "--subset", "2000000", \
         "--multilib", fastq1]
 
+    if config["algorithm"].get("quality_format","").lower() == 'illumina':
+        cl.insert(1,"--illumina")
+         
     subprocess.check_call(cl)
 
 
