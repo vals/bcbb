@@ -8,7 +8,7 @@ from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
-from bcbio.google import (_from_unicode,_to_unicode)
+from bcbio.google import (_from_unicode,_to_unicode,get_credentials)
 from bcbio.pipeline import log
 
 
