@@ -45,7 +45,8 @@ def _copy_from_sequencer(remote_info, config):
     else:
         log.debug("Remote host information: %s" % remote_info)
         c_host_str = _config_hosts(config)
-        with fabric.settings(host_string=c_host_str):
+        c_keyfile = config["analysis"].get("copy_keyfile",None)
+        with fabric.settings(host_string=c_host_str, key_filename=c_keyfile):
             base_dir = config["store_dir"]
             try:
                 protocol = config["transfer_protocol"]

@@ -49,19 +49,23 @@ def recalibrate_sample(data):
     return [[data]]
 
 
+def screen_sample_contaminants(data):
+    """Screen the sample fastq files for contaminants
+    """
+    
+    if data["config"]["algorithm"]["screen_contaminants"]:
+        log.info("Screening for contaminants on sample %s with genome %s" % (str(data["name"]), str(data["genome_build"])))
+        screen_for_contamination(data["fastq1"],
+                                 data["fastq2"],
+                                 data["config"])
+    
+
 # ## General processing
 
 def process_sample(data):
     """Finalize processing for a sample, potentially multiplexed.
     """
 
-    if data["config"]["algorithm"]["screen_contaminants"]:
-        log.info("Screening for contaminants on sample %s with genome %s" % (str(data["name"]), str(data["genome_build"])))
-        screen_for_contamination(data["fastq1"],
-                                 data["fastq2"],
-                                 data["config"],
-                                 data["genome_build"])
-    
     if data["config"]["algorithm"]["snpcall"]:
         log.info("Finalizing variant calls %s with GATK" % str(data["name"]))
         data["vrn_file"] = finalize_genotyper(data["vrn_file"],
