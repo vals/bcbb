@@ -79,12 +79,12 @@ from bcbio.solexa import INDEX_LOOKUP
 
 def main(fastq, run_info_file, lane, out_file,
     length, offset, mismatch, verbose, cutoff, dry_run, mode):
-    
+
     bc_matched = []
     if run_info_file:
-        bc_matched = _get_run_info_barcodes(run_info_file,lane)
+        bc_matched = _get_run_info_barcodes(run_info_file, lane)
         compare_run_info_and_index_lookup(bc_matched)
-        
+
     out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
     if mode == "demultiplex":
         out_writer = output_to_fastq(out_format)
@@ -105,11 +105,11 @@ def main(fastq, run_info_file, lane, out_file,
 
     # Automatically determine which barcodes to use unless a run_info file was specified
     if not run_info_file:
-        bc_matched = _get_common_barcodes(bcodes,cutoff)
-        
+        bc_matched = _get_common_barcodes(bcodes, cutoff)
+
     # Get the barcode statistics
     # bcm_nums, bcm_parts = _get_barcode_statistics(bc_matched,bcodes)
-    
+
     # TODO: Match matched bcs against each other.
 
     if mode == "demultiplex":
@@ -126,20 +126,22 @@ def main(fastq, run_info_file, lane, out_file,
     with open(out_file, "w+") as out_handle:
         yaml.dump(bc_grouping.__dict__, out_handle, width=70)
 
-def _get_barcode_statistics(exp_barcodes,obs_barcodes):
+
+def _get_barcode_statistics(exp_barcodes, obs_barcodes):
     """Get the prevalence of a particular barcode, as a number and a frequency"""
     total = float(sum(obs_barcodes.itervalues()))
     print("Total after read:\t%.0f" % (total,))
     bcm_nums = []
     bcm_parts = []
     for bc in exp_barcodes:
-        num = obs_barcodes.get(bc,0)
-        part = float(num)/total
+        num = obs_barcodes.get(bc, 0)
+        part = float(num) / total
         bcm_nums.append(num)
         bcm_parts.append(part)
-    return (bcm_nums,bcm_parts)
- 
-def _get_common_barcodes(bcodes,cutoff):
+    return (bcm_nums, bcm_parts)
+
+
+def _get_common_barcodes(bcodes, cutoff):
     """Get the barcodes that occur at a frequency above cutoff"""
     # Seperate out the most common barcodes
     total = float(sum(bcodes.itervalues()))
@@ -148,20 +150,21 @@ def _get_common_barcodes(bcodes,cutoff):
         part = float(num) / total
         if part >= cutoff:
             bc_matched.append(bc)
-            
+
     return bc_matched
 
-def _get_run_info_barcodes(run_info_file,lane=0):
+
+def _get_run_info_barcodes(run_info_file, lane=0):
     """Extract the barcodes to demultiplex against from run_info file"""
 
     barcodes = {}
     with open(run_info_file) as fh:
         run_info = yaml.load(fh)
         for lane_info in run_info:
-            if (lane != 0 and int(lane_info.get("lane",0)) != lane):
+            if (lane != 0 and int(lane_info.get("lane", 0)) != lane):
                 continue
-            for bc in lane_info.get("multiplex",{}):
-                barcodes[bc.get("sequence","")] = 1
+            for bc in lane_info.get("multiplex", {}):
+                barcodes[bc.get("sequence", "")] = 1
     return barcodes.keys()
 
 
@@ -230,21 +233,22 @@ class BarcodeGrouping(object):
 #     return approximate_matching(bcodes, given_bcodes, mismatch)
 
 
-def _match_barcodes(bcode,given_bcodes,mismatch,masked=False):
+def _match_barcodes(bcode, given_bcodes, mismatch, masked=False):
     """Logic for matching a barcode against the given barcodes"""
-    
+
     # First check for perfect matches
     matched = ""
     if bcode in given_bcodes:
-        matched = bcode    
+        matched = bcode
     # If a perfect match could not be found, do a finer matching but only if we allow mismatches or the given barcodes contain masked positions
     elif mismatch > 0 or masked:
         for gbc in given_bcodes:
-            current_mismatch = bc_mismatched(bcode,gbc,mismatch)
+            current_mismatch = bc_mismatched(bcode, gbc, mismatch)
             if current_mismatch <= mismatch:
                 matched = gbc
                 break
     return matched
+
 
 def match_and_count(bcodes, given_bcodes, mismatch):
     """Returns a dictionary with matched barcodes along with info.
@@ -260,19 +264,19 @@ def match_and_count(bcodes, given_bcodes, mismatch):
         if 'N' in gbc:
             masked = True
             break
-        
+
     for bc, count in bcodes.iteritems():
-        match = _match_barcodes(bc,given_bcodes,mismatch,masked)
+        match = _match_barcodes(bc, given_bcodes, mismatch, masked)
         if len(match) > 0:
             if match not in bc_grouping.matched:
-                bc_grouping.matched[match] = {"variants": [], "count": 0}                                      
+                bc_grouping.matched[match] = {"variants": [], "count": 0}
             if bc not in bc_grouping.matched[match]["variants"]:
                 bc_grouping.matched[match]["variants"].append(bc)
 
             bc_grouping.matched[match]["count"] += count
             found_bcodes.add(bc)
             number["matched"] += count
-    
+
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
     bc_grouping.handle_Ns()
     bc_grouping.add_illumina_indexes()
@@ -305,31 +309,30 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
         os.remove(old_unmatched)
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
-    
+
     # Set a flag indicating whether the given barcodes contain masked nucleotides
     masked = False
     for gbc in given_bcodes:
         if 'N' in gbc:
             masked = True
             break
-    
+
     for bc, count in bcodes.iteritems():
-        match = _match_barcodes(bc,given_bcodes,mismatch,masked)
+        match = _match_barcodes(bc, given_bcodes, mismatch, masked)
         if len(match) > 0:
             if match not in bc_grouping.matched:
-                bc_grouping.matched[match] = {"variants": [], "count": 0}                                      
+                bc_grouping.matched[match] = {"variants": [], "count": 0}
             if bc not in bc_grouping.matched[match]["variants"]:
                 bc_grouping.matched[match]["variants"].append(bc)
 
             bc_grouping.matched[match]["count"] += count
             found_bcodes.add(bc)
-            number["matched"] += count
-    
+
             if match != bc:
-                merge_matched_files(match,bc,format,merger)
+                merge_matched_files(match, bc, format, merger)
         else:
-            merge_matched_files("unmatched",bc,format,merger)
-    
+            merge_matched_files("unmatched", bc, format, merger)
+
     merger.close()
 
     bc_grouping.add_unmatched_barcodes(bcodes, found_bcodes)
@@ -412,8 +415,12 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
     try:
         out_handle = out_handles[fname]
     except KeyError:
-        out_handle = open(fname, "w")
-        out_handles[fname] = out_handle
+        try:
+            out_handle = open(fname, "w")
+            out_handles[fname] = out_handle
+        except IOError as e:
+            print("Number of open files: %i" % (len(out_handles),))
+            raise e
 
     out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
 
