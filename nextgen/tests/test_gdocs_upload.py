@@ -55,20 +55,20 @@ class GDocsUploadTest(unittest.TestCase):
             
             # Create, or if it exists, append to the bc_metrics file
             bc_file = os.path.join(bc_dir,"%s_%s_%s_bc.metrics" % (lane_name,fc_date,fc_name))
-            with open(bc_file, "a") as fh:
-                bcw = UnicodeWriter(fh, dialect='excel-tab')
-
+            with open(bc_file,"a") as fh:
+                bcw = UnicodeWriter(fh,dialect='excel-tab')
+                
                 # Loop over the barcodes and generate random read counts
-                bcs = lane.get("multiplex", [])
+                bcs = lane.get("multiplex",[])
                 for bc in bcs:
                     bc_id = str(bc['barcode_id'])
-                    bc_count = random.randint(1, 10000000)
-                    bcw.writerow([bc_id, bc_count])
+                    bc_count = random.randint(1,10000000)
+                    bcw.writerow([bc_id,bc_count])
                 # Lastly write some unmatched counts, or in case no multiplex data was given, a 'trim' entry
                 if len(bcs):
-                    bcw.writerow(['unmatched', random.randint(1, 10000000)])
+                    bcw.writerow(['unmatched',random.randint(1,10000000)])
                 else:
-                    bcw.writerow(['trim', random.randint(1, 100000000)])
+                    bcw.writerow(['trim',random.randint(1,100000000)])
 
     def test_create_bc_report(self):
         """Create a demultiplex report and upload it to gdocs
@@ -79,8 +79,9 @@ class GDocsUploadTest(unittest.TestCase):
 
         # Assert that the gdocs_upload section exists
         if not 'gdocs_upload' in self.config:
-            raise Exception("'gdocs_upload' section is missing from %s, the results cannot be uploaded to Google Docs account" % config_file)
-
+            print "WARNING: 'gdocs_upload' section is missing from %s, the results cannot be uploaded to Google Docs account" % config_file
+            return
+        
         # Loop over the runs
         for name in self.runname:
             print "\nProcessing %s" % name
