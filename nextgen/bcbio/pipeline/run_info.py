@@ -12,7 +12,7 @@ import collections
 
 import yaml
 
-from bcbio.pipeline import log
+from bcbio.log import logger
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_flowcell_info
 
@@ -21,10 +21,10 @@ def get_run_info(fc_dir, config, run_info_yaml):
     """Retrieve run information from a passed YAML file or the Galaxy API.
     """
     if run_info_yaml and os.path.exists(run_info_yaml):
-        log.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
+        logger.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
         fc_name, fc_date, run_info = _run_info_from_yaml(fc_dir, run_info_yaml)
     else:
-        log.info("Fetching run details from Galaxy instance")
+        logger.info("Fetching run details from Galaxy instance")
         fc_name, fc_date = get_flowcell_info(fc_dir)
         galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
         run_info = galaxy_api.run_details(fc_name, fc_date)
@@ -83,10 +83,13 @@ def _run_info_from_yaml(fc_dir, run_info_yaml):
         fc_name, fc_date = get_flowcell_info(fc_dir)
     except ValueError:
         pass
+    global_config = {}
     if isinstance(loaded, dict):
         if loaded.has_key("fc_name") and loaded.has_key("fc_date"):
             fc_name = loaded["fc_name"].replace(" ", "_")
             fc_date = str(loaded["fc_date"]).replace(" ", "_")
+            global_config = copy.deepcopy(loaded)
+            del global_config["details"]
         loaded = loaded["details"]
     if fc_name is None:
         fc_name, fc_date = _unique_flowcell_info()
@@ -96,6 +99,7 @@ def _run_info_from_yaml(fc_dir, run_info_yaml):
             item["lane"] = _generate_lane(item["files"], i)
         if not item.has_key("description"):
             item["description"] = str(item["lane"])
+        item["description_filenames"] = global_config.get("description_filenames", False)
         run_details.append(item)
     run_info = dict(details=run_details, run_id="")
     return fc_name, fc_date, run_info
