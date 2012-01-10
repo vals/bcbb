@@ -34,7 +34,7 @@ import yaml
 import logbook
 
 from bcbio.solexa import samplesheet
-from bcbio.log import create_log_handler
+from bcbio.log import create_log_handler, logger2
 from bcbio import utils
 from bcbio.distributed import messaging
 from bcbio.solexa.flowcell import (get_flowcell_info, get_fastq_dir, get_qseq_dir)
@@ -47,7 +47,7 @@ log = logbook.Logger(LOG_NAME)
 def main(local_config, post_config_file=None,
          process_msg=True, store_msg=True, qseq=True, fastq=True):
     config = load_config(local_config)
-    log_handler = create_log_handler(config, LOG_NAME)
+    log_handler = create_log_handler(config)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
@@ -65,15 +65,15 @@ def search_for_new(config, config_file, post_config_file,
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
                 with logbook.Processor(lambda record: record.extra.__setitem__('run', os.path.basename(dname))):
-                    log.info("The instrument has finished dumping on directory %s" % dname)
+                    logger2.info("The instrument has finished dumping on directory %s" % dname)
                     _update_reported(config["msg_db"], dname)
                     _process_samplesheets(dname, config)
                     if qseq:
-                        log.info("Generating qseq files for %s" % dname)
+                        logger2.info("Generating qseq files for %s" % dname)
                         _generate_qseq(get_qseq_dir(dname), config)
                     fastq_dir = None
                     if fastq:
-                        log.info("Generating fastq files for %s" % dname)
+                        logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
@@ -105,11 +105,15 @@ def analyze_locally(dname, post_config_file, fastq_dir):
     """
     assert fastq_dir is not None
     post_config = load_config(post_config_file)
-    run_yaml = os.path.join(dname, "run_info.yaml")
     analysis_dir = os.path.join(fastq_dir, os.pardir, "analysis")
     utils.safe_makedir(analysis_dir)
     with utils.chdir(analysis_dir):
-        cl = [post_config["analysis"]["process_program"], post_config_file, fastq_dir]
+        if post_config["algorithm"]["num_cores"] == "messaging":
+            prog = post_config["analysis"]["distributed_process_program"]
+        else:
+            prog = post_config["analysis"]["process_program"]
+        cl = [prog, post_config_file, dname]
+        run_yaml = os.path.join(dname, "run_info.yaml")
         if os.path.exists(run_yaml):
             cl.append(run_yaml)
         subprocess.check_call(cl)
@@ -120,7 +124,7 @@ def _process_samplesheets(dname, config):
     ss_file = samplesheet.run_has_samplesheet(dname, config)
     if ss_file:
         out_file = os.path.join(dname, "run_info.yaml")
-        log.info("CSV Samplesheet %s found, converting to %s" %
+        logger2.info("CSV Samplesheet %s found, converting to %s" %
                  (ss_file, out_file))
         samplesheet.csv2yaml(ss_file, out_file)
 
@@ -143,7 +147,7 @@ def _generate_fastq(fc_dir, config):
                   ",".join(lanes)]
             if postprocess_dir:
                 cl += ["-o", fastq_dir]
-            log.debug("Converting qseq to fastq on all lanes.")
+            logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
     return fastq_dir
 
@@ -273,13 +277,12 @@ def _update_reported(msg_db, new_dname):
     """
     with open(msg_db, "a") as out_handle:
         out_handle.write("%s\n" % new_dname)
-        out_handle.close()
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
                      config, config_file):
     """Wait for messages with the give tag, passing on to the supplied handler.
     """
-    log.debug("Calling remote function: %s" % fn_name)
+    logger2.debug("Calling remote function: %s" % fn_name)
     user = getpass.getuser()
     hostname = socket.gethostbyaddr(socket.gethostname())[0]
     data = dict(
