@@ -79,7 +79,8 @@ class GDocsUploadTest(unittest.TestCase):
 
         # Assert that the gdocs_upload section exists
         if not 'gdocs_upload' in self.config:
-            raise Exception("'gdocs_upload' section is missing from %s, the results cannot be uploaded to Google Docs account" % config_file) 
+            print "WARNING: 'gdocs_upload' section is missing from %s, the results cannot be uploaded to Google Docs account" % config_file
+            return
         
         # Loop over the runs
         for name in self.runname:
