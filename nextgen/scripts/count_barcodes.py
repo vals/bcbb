@@ -73,6 +73,7 @@ import sys
 import shutil
 import yaml
 
+import pdb
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio.solexa import INDEX_LOOKUP
 
@@ -395,8 +396,20 @@ class FileMerger(dict):
         try:
             out_handle = self[target_file]
         except KeyError:
-            out_handle = open(target_file, "a")
-            self[target_file] = out_handle
+            opened = False
+            while not opened:
+                try:
+                    out_handle = open(target_file, "a")
+                    self[target_file] = out_handle
+                    opened = True
+                except IOError as e:
+                    if e.errno == 24:
+                        for (name, handle) in self.items()[:10]:
+                            handle.close()
+                            del self[name]
+                        pass
+                    else:
+                        raise e
 
         in_handle = open(source_file, "r")
         shutil.copyfileobj(in_handle, out_handle)
@@ -415,12 +428,22 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
     try:
         out_handle = out_handles[fname]
     except KeyError:
-        try:
-            out_handle = open(fname, "w")
-            out_handles[fname] = out_handle
-        except IOError as e:
-            print("Number of open files: %i" % (len(out_handles),))
-            raise e
+        opened = False
+        while not opened:
+            try:
+                out_handle = open(fname, "w")
+                out_handles[fname] = out_handle
+                opened = True
+            except IOError as e:
+                # errno.EMFILE (meaning 'too many open files') equals 24
+                if e.errno == 24:
+                    # Close a few files
+                    for (name, handle) in out_handles.items()[:10]:
+                        handle.close()
+                        del out_handles[name]
+                    pass
+                else:
+                    raise e
 
     out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
 
