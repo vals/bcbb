@@ -7,7 +7,6 @@ import os
 import re
 import subprocess
 
-import yaml
 # Fabric only needed on running side, not on setup and initial import
 try:
     import fabric.api as fabric
@@ -44,7 +43,7 @@ def _copy_from_sequencer(remote_info, config):
     else:
         logger.debug("Remote host information: %s" % remote_info)
         c_host_str = _config_hosts(config)
-        c_keyfile = config["analysis"].get("copy_keyfile",None)
+        c_keyfile = config["analysis"].get("copy_keyfile", None)
         with fabric.settings(host_string=c_host_str, key_filename=c_keyfile):
             base_dir = config["store_dir"]
             try:
@@ -68,6 +67,7 @@ def _config_hosts(config):
         copy_host = re.sub(r'\..*', '', os.uname()[1])
     copy_host_str = "%s@%s" % (copy_user, copy_host)
     return copy_host_str
+
 
 def _remote_copy(remote_info, config):
     """Securely copy files from remote directory to the processing server.
@@ -93,6 +93,7 @@ def _remote_copy(remote_info, config):
             fabric.run(" ".join(cl))
     logger.info("Analysis files copied")
     return fc_dir
+
 
 def _run_analysis(fc_dir, remote_info, config, config_file):
     """Run local or distributed analysis, wait to finish.
