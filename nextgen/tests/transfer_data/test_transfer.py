@@ -10,6 +10,48 @@ from bcbio.pipeline.config_loader import load_config
 from bcbio.pipeline.toplevel import _copy_from_sequencer
 from bcbio.pipeline.storage import _copy_for_storage
 
+test_dir_structure = \
+{"999999_XX999_9999_AC9999ACXX": [ \
+    {"Data": [ \
+        {"Intensities": [ \
+            {"BaseCalls": [ \
+                {"fastq": [ \
+                    "1_999999_AC9999ACXX_1_fastq.txt", \
+                    "1_999999_AC9999ACXX_2_fastq.txt", \
+                    "2_999999_AC9999ACXX_1_fastq.txt"
+                ]}, \
+                {"Plots": [ \
+                    "s_1_1101_all.png", \
+                    "s_1_1102_all.png", \
+                    "s_1_1103_all.png"
+                ]}, \
+                "All.htm", \
+                "BustasrdSummary.xsl", \
+                "BustasrdSummary.xml" \
+            ]} \
+        ]}, \
+        {"reports": [ \
+            "NumClusters_Chart.png", \
+            "NumClusters_Chart.xml", \
+            "NumPassedFilter25_Chart.png" \
+        ]}, \
+        {"Status_Files": [ \
+            "ByCycleFrame.htm", \
+            "ByCycle.htm", \
+            "ByCycle.js" \
+        ]}, \
+        "Status.htm" \
+    ]}, \
+    {"InterOp": [ \
+        "ControlMetricsOut.bin", \
+        "CorrectedIntMetricsOut.bin", \
+        "ErrorMetricsOut.bin" \
+    ]}, \
+    "RunInfo.xml", \
+    "run_info.yaml", \
+    "runParameters.xml" \
+]}
+
 
 def _remove_transferred_files(remote_info, config):
     """Remove the files transferred in a previous test.
@@ -21,6 +63,29 @@ def _remove_transferred_files(remote_info, config):
          (copy_to, os.path.split(remote_info["directory"])[1])
         log.debug(rm_str)
         fabric.run(rm_str)
+
+
+def make_dirs_or_files(argument, residue=""):
+    """Function for making the directories and files as defined in
+    a nesting of dictionaries, lists and strings.
+    """
+    if type(argument) == dict:
+        residue += argument.keys()[0] + "/"
+        a_list = argument.values()[0]
+        make_dirs_or_files(a_list, residue)
+    if type(argument) == list:
+        for elt in argument:
+            make_dirs_or_files(elt, residue)
+    if type(argument) == str:
+        try:
+            os.makedirs(residue)
+        except OSError as e:
+            if e.errno == 17:  # The directory already exists
+                pass
+            else:
+                raise e
+
+        open(residue + argument, 'w').close()
 
 
 def perform_transfer(transfer_function, protocol_config, \
