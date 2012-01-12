@@ -10,6 +10,8 @@ from bcbio.pipeline.config_loader import load_config
 from bcbio.pipeline.toplevel import _copy_from_sequencer
 from bcbio.pipeline.storage import _copy_for_storage
 
+from illumina_finished_msg import _files_to_copy
+
 test_dir_structure = \
 {"999999_XX999_9999_AC9999ACXX": [ \
     {"Data": [ \
@@ -88,6 +90,12 @@ def make_dirs_or_files(argument, residue=""):
         open(residue + argument, 'w').close()
 
 
+def print_file_list():
+    for root, dirs, files in os.walk("999999_XX999_9999_AC9999ACXX"):
+        for f in files:
+            print(root + "/" + f)
+
+
 def perform_transfer(transfer_function, protocol_config, \
         remove_before_copy=True, should_overwrite=False):
     """Sets up dictionaries simulating loaded remote_info and config
@@ -110,38 +118,43 @@ def perform_transfer(transfer_function, protocol_config, \
     """
     config = load_config("../data/automated/post_process.yaml")
 
-    store_dir = os.path.realpath("../transfer_data/copy_to")
-    config["store_dir"] = store_dir
-
-    config.update(protocol_config)
-
-    copy_dir = os.path.realpath("../transfer_data/to_copy")
-
-    remote_info = {}
-    remote_info["directory"] = copy_dir
-    remote_info["to_copy"] = ["file1", "file2", "file3", "dir1"]
-    remote_info["user"] = config["store_user"]
-    remote_info["hostname"] = config["store_host"]
-
-    # Generate test files
-    for file_dir in store_dir, copy_dir:
+    for file_dir in "copy_to", "to_copy":
         if not os.path.isdir(file_dir):
             os.mkdir(file_dir)
 
-    test_data = {}
-    for test_file in remote_info["to_copy"][:3]:
-        test_file_path = "%s/%s" % (copy_dir, test_file)
-        if not os.path.isdir(test_file_path):
-            with open(test_file_path, 'w+') as file_to_write:
-                # We just use the current processor time as test data, the
-                # important part is that it will be different enough between
-                # test just so we know we are not comparing with files copied
-                # in a previous test during the assertion.
-                test_data[test_file] = str(time.clock())
-                file_to_write.write(test_data[test_file])
+    store_dir = os.path.realpath("copy_to")
+    config["store_dir"] = store_dir
+    config.update(protocol_config)
+    copy_dir = os.path.realpath("to_copy")
 
-    if not os.path.isdir("%s/%s" % (copy_dir, remote_info["to_copy"][3])):
-        os.mkdir("%s/%s" % (copy_dir, remote_info["to_copy"][3]))
+    # Generate test files
+    test_files = []
+    make_dirs_or_files(test_dir_structure, "to_copy/")
+    base = test_dir_structure.keys()[0]
+    for root, dirs, files in os.walk(base):
+        for f in files:
+            test_files.append(root + "/" + f)
+
+    test_data = {}
+    for test_file in test_files:
+        with open(test_file, 'w+') as file_to_write:
+            # We just use the current processor time as test data, the
+            # important part is that it will be different enough between
+            # test just so we know we are not comparing with files copied
+            # in a previous test during the assertion.
+            test_data[test_file] = str(time.clock())
+            file_to_write.write(test_data[test_file])
+
+    remote_info = {}
+    remote_info["directory"] = copy_dir
+    remote_info["user"] = config["store_user"]
+    remote_info["hostname"] = config["store_host"]
+
+    files_to_copy = _files_to_copy("to_copy")
+    files_to_copy = list(set(sum(files_to_copy, [])))
+    files_to_copy = map(lambda fpath: base + "/" + fpath, files_to_copy)
+    # TODO: Trim out the files from files_to_copy which isn't in the test set.
+    remote_info["to_copy"] = files_to_copy
 
     # Perform copy with settings
     with fabric.settings(host_string="%s@%s" % \
@@ -154,7 +167,7 @@ def perform_transfer(transfer_function, protocol_config, \
         # Copy
         transfer_function(remote_info, config)
 
-    # Check of the copy succeeded
+    # Check if the copy succeeded
     for test_file in remote_info["to_copy"][:3]:
         test_file_path = "%s/%s/%s" % \
                          (store_dir, os.path.split(copy_dir)[1], test_file)
