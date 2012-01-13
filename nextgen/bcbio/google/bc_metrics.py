@@ -9,40 +9,40 @@ from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
-from bcbio.google import (_from_unicode,_to_unicode)
+from bcbio.google import (_from_unicode, _to_unicode, get_credentials)
 from bcbio.log import logger
 from bcbio.pipeline.flowcell import Flowcell
 import bcbio.solexa.flowcell
 
 # The structure of the demultiplex result
 BARCODE_STATS_HEADER = [
-                 ['Project name','project_name'],
-                 ['Date','fc_date'],
-                 ['Flowcell','fc_name'],
-                 ['Lane','lane'],
-                 ['Sample name','sample_name'],
-                 ['bcbb internal barcode index','bcbb_barcode_id'],
-                 ['Barcode name','barcode_name'],
-                 ['Barcode sequence','barcode_sequence'],
-                 ['Barcode type','barcode_type'],
-                 ['Demultiplexed read (pair) count','read_count'],
-                 ['Demultiplexed read (pair) count (millions)','rounded_read_count'],
-                 ['Comment','comment']
+                 ['Project name', 'project_name'],
+                 ['Date', 'fc_date'],
+                 ['Flowcell', 'fc_name'],
+                 ['Lane', 'lane'],
+                 ['Sample name', 'sample_name'],
+                 ['bcbb internal barcode index', 'bcbb_barcode_id'],
+                 ['Barcode name', 'barcode_name'],
+                 ['Barcode sequence', 'barcode_sequence'],
+                 ['Barcode type', 'barcode_type'],
+                 ['Demultiplexed read (pair) count', 'read_count'],
+                 ['Demultiplexed read (pair) count (millions)', 'rounded_read_count'],
+                 ['Comment', 'comment']
                 ]
 
 # The structure of the sequencing result
 SEQUENCING_RESULT_HEADER = [
-                 ['Sample name','sample_name'],
-                 ['Run','run'],
-                 ['Lane','lane'],
-                 ['Read (pair) count','read_count'],
-                 ['Read (pair) count (millions)','rounded_read_count'],
-                 ['Comment','comment'],
-                 ['Pass','pass']
+                 ['Sample name', 'sample_name'],
+                 ['Run', 'run'],
+                 ['Lane', 'lane'],
+                 ['Read (pair) count', 'read_count'],
+                 ['Read (pair) count (millions)', 'rounded_read_count'],
+                 ['Comment', 'comment'],
+                 ['Pass', 'pass']
                 ]
 
 
-def _create_header(header,columns):
+def _create_header(header, columns):
     header = copy.deepcopy(header)
     names = []
     for column in columns:
@@ -57,27 +57,27 @@ def _create_header(header,columns):
 
 def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     """Get the barcode read distribution for a run and upload to google docs"""
-    
+
     encoded_credentials = get_credentials(config)
     if not encoded_credentials:
-        log.warn("Could not find Google Docs account credentials. No demultiplex report was written")
+        logger.warn("Could not find Google Docs account credentials. No demultiplex report was written")
         return
-    
+
     # Get the required parameters from the post_process.yaml configuration file
-    gdocs = config.get("gdocs_upload",None)
+    gdocs = config.get("gdocs_upload", None)
     if not gdocs:
         logger.info("No GDocs upload section specified in config file, will not upload demultiplex data")
         return
-    
+
     # Get the GDocs demultiplex result file title
-    gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
+    gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file", None)
     if not gdocs_spreadsheet:
         logger.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
         return
-    
+
     # Get the account credentials
     encoded_credentials = ""
-    encoded_credentials_file = gdocs.get("gdocs_credentials",None)
+    encoded_credentials_file = gdocs.get("gdocs_credentials", None)
     if not encoded_credentials_file:
         logger.warn("Could not find Google Docs account credentials. No demultiplex report was written")
         return
@@ -87,13 +87,13 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
         return
     with open(encoded_credentials_file) as fh:
         encoded_credentials = fh.read().strip()
-    
+
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-    fc = Flowcell(fc_name,fc_date,run_info.get("details",[]),work_dir)
-    
+    fc = Flowcell(fc_name, fc_date, run_info.get("details", []), work_dir)
+
     # Upload the data
-    write_run_report_to_gdocs(fc,fc_date,fc_name,gdocs_spreadsheet,encoded_credentials)
-    
+    write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_spreadsheet, encoded_credentials)
+
     # Get the projects parent folder
     projects_folder = gdocs.get("gdocs_projects_folder",None)
     
