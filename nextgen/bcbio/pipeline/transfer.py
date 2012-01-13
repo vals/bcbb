@@ -36,25 +36,41 @@ def remote_copy(remote_info, base_dir, protocol):
                 fabric.run(" ".join(cl))
 
     elif protocol == "rsync":
+        include = []
         for fcopy in remote_info['to_copy']:
-            target_loc = os.path.join(fc_dir, fcopy)
-            target_dir = os.path.dirname(target_loc)
+            include.append("--include='%s/%s'" % \
+            (remote_info["directory"], fcopy))
+        # for fcopy in remote_info['to_copy']:
+        #     target_loc = os.path.join(fc_dir, fcopy)
+        #     target_dir = os.path.dirname(target_loc)
 
-            if not fabric_files.exists(target_dir):
-                fabric.run("mkdir -p %s" % target_dir)
+        #     if not fabric_files.exists(target_dir):
+        #         fabric.run("mkdir -p %s" % target_dir)
 
-            if os.path.isdir("%s/%s" % (remote_info["directory"], fcopy)) \
-            and fcopy[-1] != "/":
-                fcopy += "/"
+        #     if os.path.isdir("%s/%s" % (remote_info["directory"], fcopy)) \
+        #     and fcopy[-1] != "/":
+        #         fcopy += "/"
 
-            # Option -P --append should enable resuming progress on
-            # partial transfers.
-            cl = ["rsync", "-craz", "-P", "--append", "%s@%s:%s/%s" %
-                  (remote_info["user"], remote_info["hostname"],
-                   remote_info["directory"], fcopy), fc_dir]
+        #     # Option -P --append should enable resuming progress on
+        #     # partial transfers.
+        #     cl = ["rsync", "--checksum", "--recursive", "--archive", \
+        #             "--compress", "--partial", "--progress", "--append", \
+        #             "--prune-empty-dirs", "--verbose", "%s@%s:%s/%s" % \
+        #             (remote_info["user"], remote_info["hostname"], \
+        #             remote_info["directory"], fcopy), fc_dir]
 
-            logger.debug(cl)
-            fabric.run(" ".join(cl))
+        #     logger.debug(cl)
+        #     fabric.run(" ".join(cl))
+
+        cl = ["rsync", "--checksum", "--recursive", "--archive", \
+                "--compress", "--partial", "--progress", "--append", \
+                "--prune-empty-dirs", "--verbose", " ".join(include), \
+                "%s@%s:%s" % \
+                (remote_info["user"], remote_info["hostname"], \
+                remote_info["directory"]), fc_dir]
+
+        logger.debug(cl)
+        fabric.run(" ".join(cl))
 
     # Note: rdiff-backup doesn't have the ability to resume a partial transfer,
     # and will instead transfer the backup from the beginning if it detects a
