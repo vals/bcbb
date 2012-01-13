@@ -181,8 +181,6 @@ def perform_transfer(transfer_function, protocol_config, \
         # Copy
         transfer_function(remote_info, config)
 
-    # Filter out the files we expect to have gotten copied
-
     # Check if the copy succeeded
     for test_file, test_value in test_data.items():
         test_file_path = "%s/%s" % (store_dir, test_file)
