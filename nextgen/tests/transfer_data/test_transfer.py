@@ -131,7 +131,7 @@ def perform_transfer(transfer_function, protocol_config, \
     test_files = []
     make_dirs_or_files(test_dir_structure, "to_copy/")
     base = test_dir_structure.keys()[0]
-    for root, dirs, files in os.walk(base):
+    for root, dirs, files in os.walk("to_copy" + "/" + base):
         for f in files:
             test_files.append(root + "/" + f)
 
@@ -150,10 +150,24 @@ def perform_transfer(transfer_function, protocol_config, \
     remote_info["user"] = config["store_user"]
     remote_info["hostname"] = config["store_host"]
 
-    files_to_copy = _files_to_copy("to_copy")
+    files_to_copy = _files_to_copy("to_copy/" + base)
     files_to_copy = list(set(sum(files_to_copy, [])))
     files_to_copy = map(lambda fpath: base + "/" + fpath, files_to_copy)
-    # TODO: Trim out the files from files_to_copy which isn't in the test set.
+
+    # Trim out the unavailable files to copy
+    unavailable_files = []
+    for cfl in files_to_copy:
+        available_for_copy = False
+        for tfl in test_files:
+            if cfl in tfl:
+                available_for_copy = True
+
+        if not available_for_copy:
+            unavailable_files.append(cfl)
+
+    for ufl in unavailable_files:
+        files_to_copy.remove(ufl)
+
     remote_info["to_copy"] = files_to_copy
 
     # Perform copy with settings
@@ -167,10 +181,11 @@ def perform_transfer(transfer_function, protocol_config, \
         # Copy
         transfer_function(remote_info, config)
 
+    # Filter out the files we expect to have gotten copied
+
     # Check if the copy succeeded
-    for test_file in remote_info["to_copy"][:3]:
-        test_file_path = "%s/%s/%s" % \
-                         (store_dir, os.path.split(copy_dir)[1], test_file)
+    for test_file, test_value in test_data.items():
+        test_file_path = "%s/%s" % (store_dir, test_file)
         # Did the files get copied correctly
         assert os.path.isfile(test_file_path), "File not copied: %s" % test_file
         if os.path.isfile(test_file_path):
@@ -190,10 +205,6 @@ def perform_transfer(transfer_function, protocol_config, \
                 # directory of we specified that this should happen.
                 assert (read_data == test_data[test_file]) == \
                 (remove_before_copy or should_overwrite), fail_string
-        # Did the directories get copied correcty
-        if os.path.isdir(test_file_path):
-            # Not tested for yet
-            pass
 
 
 def test__copy_for_storage():
