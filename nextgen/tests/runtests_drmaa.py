@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This script runs nosetests in a DRMAA-compatible cluster environment.
+Runs nosetests in a DRMAA-compatible cluster environment.
 """
 import drmaa
 import os
@@ -20,6 +20,7 @@ def main():
 
     jobid = s.runJob(jt)
     print 'Your job has been submitted with id ' + jobid
+    s.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
 
     s.deleteJobTemplate(jt)
     s.exit()
