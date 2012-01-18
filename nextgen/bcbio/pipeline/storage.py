@@ -5,7 +5,6 @@ import os
 import yaml
 
 from bcbio.log import logger
-from bcbio.pipeline import log
 from bcbio.log import create_log_handler
 from bcbio.pipeline.config_loader import load_config
 from bcbio.pipeline.transfer import remote_copy
