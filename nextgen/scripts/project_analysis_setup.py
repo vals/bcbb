@@ -44,6 +44,7 @@ from optparse import OptionParser
 import yaml
 import glob
 import shutil
+import re
 from itertools import izip
 
 from bcbio.log import create_log_handler
@@ -60,6 +61,7 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
         sys.exit()
 
     config = load_config(config_file)
+
     ## Set log file in project output directory
     config.update(log_dir=os.path.join(project_dir, "log"))
     log_handler = create_log_handler(config, log.name)
@@ -78,6 +80,9 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
     config.update(fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
     dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, config['fc_alias'] ))
     dirs.update(data_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, "%s_%s" %(fc_date, fc_name) ))
+    if options.customer_delivery:
+        dirs.update(data_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix))
+
     with log_handler.applicationbound():
         config = _make_delivery_directory(dirs, config)
         _save_run_info(run_info, dirs['fc_delivery_dir'], run_exit=options.only_run_info)
@@ -99,15 +104,28 @@ def process_lane(info, config, dirs):
     fq = get_barcoded_fastq_files(multiplex, info, dirs['fc_dir'], config['fc_name'], config['fc_date'])
     
     ## Move data along with fastq files
-    fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
+    if not options.customer_delivery:
+        fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
+    else:
+        fc_bc_dir = config['data_delivery_dir']
     _make_dir(fc_bc_dir, "fastq.txt barcode directory")
     if not options.only_fastq:
         data, fastqc = _get_analysis_results(config, dirs, info['lane'])
         _deliver_data(data, fastqc, config['data_delivery_dir'])
 
     for fqpair in fq:
-        [_deliver_fastq_file(fq_src, os.path.basename(fq_src), fc_bc_dir) for fq_src in fqpair]
+        for fq_src in fqpair:
+            fq_tgt = fq_src
+            if options.customer_delivery:
+                fq_tgt = _convert_barcode_id_to_name(multiplex, config['fc_name'], fq_src)
+            _deliver_fastq_file(fq_src, os.path.basename(fq_tgt), fc_bc_dir)
 
+def _convert_barcode_id_to_name(multiplex, fc_name, fq):
+    bcid2name = dict([(mp['barcode_id'], mp['name']) for mp in multiplex])
+    bcid = re.search("_(\d+)_(\d+)_fastq.txt", fq)
+    from_str = "%s_%s_fastq.txt" % (bcid.group(1), bcid.group(2))
+    to_str   = "%s_%s.fastq" % (bcid2name[int(bcid.group(1))], bcid.group(2))
+    return fq.replace(from_str, to_str)
 
 def _deliver_fastq_file(fq_src, fq_tgt, outdir, fc_link_dir=None):
     _handle_data(fq_src, os.path.join(outdir, fq_tgt), f=shutil.move if options.move else shutil.copyfile)
@@ -116,7 +134,7 @@ def _make_delivery_directory(dirs, config):
     """Make the output directory"""
     _make_dir(dirs['fc_delivery_dir'], "flowcell delivery")
     _make_dir(dirs['data_delivery_dir'], "data delivery")
-    if (os.path.basename(dirs['data_delivery_dir']) != config['fc_alias']):
+    if (os.path.basename(dirs['data_delivery_dir']) != config['fc_alias'] and not options.customer_delivery):
         _handle_data(dirs['data_delivery_dir'], os.path.join(os.path.dirname(dirs['data_delivery_dir']), config['fc_alias']), os.symlink)
     config.update(fc_delivery_dir=dirs['fc_delivery_dir'])
     config.update(data_delivery_dir=dirs['data_delivery_dir'])
@@ -183,6 +201,7 @@ if __name__ == "__main__":
                              --project_desc=<project_desc>
                              --lanes=<lanes> --move_data
                              --only_install_run_info --only_install_fastq
+                             --customer_delivery
                              --dry_run --verbose]
 
     For more extensive help type project_analysis_setup.py
@@ -200,6 +219,8 @@ if __name__ == "__main__":
     parser.add_option("-f", "--only_install_run_info", dest="only_run_info", action="store_true",
                       default=False)
     parser.add_option("-m", "--move_data", dest="move", action="store_true",
+                      default=False)
+    parser.add_option("-c", "--customer_delivery", dest="customer_delivery", action="store_true",
                       default=False)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       default=False)
