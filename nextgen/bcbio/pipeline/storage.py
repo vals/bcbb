@@ -4,21 +4,13 @@ import os
 
 import yaml
 
-from bcbio.pipeline import log
+from bcbio.log import logger
 from bcbio.log import create_log_handler
 from bcbio.pipeline.config_loader import load_config
 from bcbio.pipeline.transfer import remote_copy
 
 
 def long_term_storage(remote_info, config_file):
-    with open(config_file) as in_handle:
-        config = yaml.load(in_handle)
-    log_handler = create_log_handler(config, log.name)
-    with log_handler.applicationbound():
-        _copy_for_storage(remote_info, config)
-
-
-def _copy_for_storage(remote_info, config):
     """Securely copy files from remote directory to the storage server.
 
     This requires ssh public keys to be setup so that no password entry
@@ -28,8 +20,10 @@ def _copy_for_storage(remote_info, config):
     import fabric.api as fabric
     import fabric.contrib.files as fabric_files
  
-    log.info("Copying run data over to remote storage: %s" % config["store_host"])
-    log.debug("The contents from AMQP for this dataset are:\n %s" % remote_info)
+    logger.info("Copying run data over to remote storage: %s" % config["store_host"])
+    logger.debug("The contents from AMQP for this dataset are:\n %s" % remote_info)
+    with open(config_file) as in_handle:
+        config = yaml.load(in_handle)
     base_dir = config["store_dir"]
     try:
         protocol = config["transfer_protocol"]
