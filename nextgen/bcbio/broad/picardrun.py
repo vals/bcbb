@@ -5,7 +5,8 @@ import os
 from bcbio.utils import curdir_tmpdir, file_exists
 from bcbio.distributed.transaction import file_transaction
 
-def picard_sort(picard, align_bam):
+
+def picard_sort(picard, align_bam, sort_order="coordinate"):
     """Sort a BAM file by coordinates.
     """
     base, ext = os.path.splitext(align_bam)
@@ -16,9 +17,10 @@ def picard_sort(picard, align_bam):
                 opts = [("INPUT", align_bam),
                         ("OUTPUT", tx_out_file),
                         ("TMP_DIR", tmp_dir),
-                        ("SORT_ORDER", "coordinate")]
+                        ("SORT_ORDER", sort_order)]
                 picard.run("SortSam", opts)
     return out_file
+
 
 def picard_merge(picard, in_files, out_file=None):
     """Merge multiple BAM files together with Picard.
@@ -36,6 +38,7 @@ def picard_merge(picard, in_files, out_file=None):
                 picard.run("MergeSamFiles", opts)
     return out_file
 
+
 def picard_index(picard, in_bam):
     index_file = "%s.bai" % in_bam
     if not file_exists(index_file):
@@ -44,6 +47,7 @@ def picard_index(picard, in_bam):
                     ("OUTPUT", tx_index_file)]
             picard.run("BuildBamIndex", opts)
     return index_file
+
 
 def picard_index_ref(picard, ref_file):
     """Provide a Picard style dict index file for a reference genome.
@@ -85,11 +89,30 @@ def picard_fastq_to_bam(picard, fastq_one, fastq_two, out_dir,
                 picard.run("FastqToSam", opts)
     return out_bam
 
+def picard_bam_to_fastq(picard, in_bam, fastq_one, fastq_two=None):
+    """Convert BAM file to fastq.
+    """
+    if not file_exists(fastq_one):
+        with curdir_tmpdir() as tmp_dir:
+            with file_transaction(fastq_one) as tx_out1:
+                opts = [("INPUT", in_bam),
+                        ("FASTQ", tx_out1),
+                        ("TMP_DIR", tmp_dir)]
+                if fastq_two is not None:
+                    opts += [("SECOND_END_FASTQ", fastq_two)]
+                picard.run("SamToFastq", opts)
+    return (fastq_one, fastq_two)
+
 def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file,
                       is_paired=False):
     """Convert SAM to BAM, including unmapped reads from fastq BAM file.
     """
-    out_bam = "%s.bam" % os.path.splitext(align_sam)[0]
+    if align_sam.endswith(".sam"):
+        out_bam = "%s.bam" % os.path.splitext(align_sam)[0]
+    elif align_sam.endswith("-align.bam"):
+        out_bam = "%s.bam" % align_sam.replace("-align.bam", "")
+    else:
+        raise NotImplementedError("Input format not recognized")
     if not file_exists(out_bam):
         with curdir_tmpdir() as tmp_dir:
             with file_transaction(out_bam) as tx_out_bam:
@@ -103,6 +126,7 @@ def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file,
                 picard.run("MergeBamAlignment", opts)
     return out_bam
 
+
 def picard_formatconverter(picard, align_sam):
     """Convert aligned SAM file to BAM format.
     """
@@ -114,6 +138,7 @@ def picard_formatconverter(picard, align_sam):
                         ("OUTPUT", tx_out_bam)]
                 picard.run("SamFormatConverter", opts)
     return out_bam
+
 
 def picard_mark_duplicates(picard, align_bam):
     base, ext = os.path.splitext(align_bam)
@@ -128,6 +153,7 @@ def picard_mark_duplicates(picard, align_bam):
                         ("METRICS_FILE", tx_dup_metrics)]
                 picard.run("MarkDuplicates", opts)
     return dup_bam, dup_metrics
+
 
 def picard_fixmate(picard, align_bam):
     """Run Picard's FixMateInformation generating an aligned output file.
