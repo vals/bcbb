@@ -8,7 +8,7 @@ try:
 except ImportError:
     fabric, fabric_files = (None, None)
 
-from bcbio.pipeline import log
+from bcbio.log import logger
 
 
 def remote_copy(remote_info, base_dir, protocol):

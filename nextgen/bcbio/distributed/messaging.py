@@ -7,9 +7,8 @@ import os
 import sys
 import time
 import contextlib
-import multiprocessing, logging
+import multiprocessing
 import subprocess
-import itertools
 logger = multiprocessing.log_to_stderr()
 logger.setLevel(multiprocessing.SUBDEBUG)
 
@@ -33,15 +32,11 @@ def parallel_runner(module, dirs, config, config_file):
                                     fromlist=["multitasks"]),
                          fn_name)
             cores = cores_including_resources(int(parallel), metadata, config)
-            # group items in blocks; multiprocessing seems to lose processors
-            # over time so this keeps refreshing the pool
-            n = cores * 5
-            for group_items in itertools.izip_longest(*[iter(items)]*n):
-                with utils.cpmap(cores) as cpmap:
-                    for data in cpmap(fn, filter(lambda x: x is not None, group_items)):
-                        if data:
-                            out.extend(data)
-        return out
+            with utils.cpmap(cores) as cpmap:
+                for data in cpmap(fn, filter(lambda x: x is not None, items)):
+                    if data:
+                        out.extend(data)
+            return out
     return run_parallel
 
 
@@ -61,19 +56,39 @@ def runner(task_module, dirs, config, config_file, wait=True):
         __import__(task_module)
         tasks = sys.modules[task_module]
         from celery.task.sets import TaskSet
+
         def _run(fn_name, xs):
             fn = getattr(tasks, fn_name)
             job = TaskSet(tasks=[apply(fn.subtask, (x,)) for x in xs])
             result = job.apply_async()
             out = []
             if wait:
-                while not result.ready():
-                    time.sleep(5)
-                for x in result.join():
-                    if x:
-                        out.extend(x)
+                with _close_taskset(result):
+                    while not result.ready():
+                        time.sleep(5)
+                        if result.failed():
+                            raise ValueError("Failed distributed task; cleaning up")
+                    for x in result.join():
+                        if x:
+                            out.extend(x)
             return out
         return _run
+
+
+@contextlib.contextmanager
+def _close_taskset(ts):
+    """Revoke existing jobs if a taskset fails; raise original error.
+    """
+    try:
+        yield None
+    except:
+        try:
+            raise
+        finally:
+            try:
+                ts.revoke()
+            except:
+                pass
 
 # ## Handle memory bound processes on multi-core machines
 
@@ -94,7 +109,8 @@ def cores_including_resources(cores, metadata, config):
                 required_memory = memory
     if required_memory > 0:
         cur_memory = _machine_memory()
-        cores = int(round(float(cur_memory) / float(required_memory)))
+        cores = min(cores,
+                    int(round(float(cur_memory) / float(required_memory))))
     if cores < 1:
         cores = 1
     return cores

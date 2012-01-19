@@ -48,6 +48,7 @@ def expand_path(path):
     """ Combines os.path.expandvars with replacing ~ with $HOME.
     """
     try:
-        return os.path.expandvars(path.replace("~", "$HOME"))
+        new_path = os.path.normpath(os.path.expandvars(path.replace("~", "$HOME")))
+        return new_path
     except AttributeError:
         return path

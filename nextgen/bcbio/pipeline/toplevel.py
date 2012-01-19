@@ -15,8 +15,7 @@ try:
 except (ImportError, SystemExit):
     fabric, fabric_files = (None, None)
 
-from bcbio.pipeline import log
-from bcbio.log import create_log_handler
+from bcbio.log import logger
 from bcbio import utils
 from bcbio.pipeline.transfer import remote_copy
 from bcbio.pipeline.config_loader import load_config
@@ -43,9 +42,10 @@ def _copy_from_sequencer(remote_info, config):
         fc_dir = remote_info["fc_dir"]
         assert os.path.exists(fc_dir)
     else:
-        log.debug("Remote host information: %s" % remote_info)
+        logger.debug("Remote host information: %s" % remote_info)
         c_host_str = _config_hosts(config)
-        with fabric.settings(host_string=c_host_str):
+        c_keyfile = config["analysis"].get("copy_keyfile",None)
+        with fabric.settings(host_string=c_host_str, key_filename=c_keyfile):
             base_dir = config["store_dir"]
             try:
                 protocol = config["transfer_protocol"]
@@ -69,6 +69,30 @@ def _config_hosts(config):
     copy_host_str = "%s@%s" % (copy_user, copy_host)
     return copy_host_str
 
+def _remote_copy(remote_info, config):
+    """Securely copy files from remote directory to the processing server.
+
+    This requires ssh public keys to be setup so that no password entry
+    is necessary.
+    """
+    fc_dir = os.path.join(config["analysis"]["store_dir"],
+                          os.path.basename(remote_info['directory']))
+    logger.info("Copying analysis files to %s" % fc_dir)
+    if not fabric_files.exists(fc_dir):
+        fabric.run("mkdir %s" % fc_dir)
+    for fcopy in remote_info['to_copy']:
+        target_loc = os.path.join(fc_dir, fcopy)
+        if not fabric_files.exists(target_loc):
+            target_dir = os.path.dirname(target_loc)
+            if not fabric_files.exists(target_dir):
+                fabric.run("mkdir -p %s" % target_dir)
+            cl = ["scp", "-r", "%s@%s:%s/%s" %
+                  (remote_info["user"], remote_info["hostname"],
+                   remote_info["directory"], fcopy),
+                  target_loc]
+            fabric.run(" ".join(cl))
+    logger.info("Analysis files copied")
+    return fc_dir
 
 def _run_analysis(fc_dir, remote_info, config, config_file):
     """Run local or distributed analysis, wait to finish.
