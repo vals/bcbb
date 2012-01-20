@@ -46,12 +46,33 @@ def remote_copy(remote_info, base_dir, protocol):
             # By including both these patterns we get the entire directory
             # if a directory is given, or a single file if a single file is
             # given.
+        # for fcopy in remote_info['to_copy']:
+        #     target_loc = os.path.join(fc_dir, fcopy)
+        #     target_dir = os.path.dirname(target_loc)
 
-        cl = ["rsync", "--checksum", "--archive", \
-                "--compress", "--partial", "--progress", \
-                "--prune-empty-dirs", "--verbose", "--include='*/'", \
-                " ".join(include), "--exclude='*'", \
-                "%s@%s:%s" % (remote_info["user"], remote_info["hostname"], \
+        #     if not fabric_files.exists(target_dir):
+        #         fabric.run("mkdir -p %s" % target_dir)
+
+        #     if os.path.isdir("%s/%s" % (remote_info["directory"], fcopy)) \
+        #     and fcopy[-1] != "/":
+        #         fcopy += "/"
+
+        #     # Option -P --append should enable resuming progress on
+        #     # partial transfers.
+        #     cl = ["rsync", "--checksum", "--recursive", "--archive", \
+        #             "--compress", "--partial", "--progress", "--append", \
+        #             "--prune-empty-dirs", "--verbose", "%s@%s:%s/%s" % \
+        #             (remote_info["user"], remote_info["hostname"], \
+        #             remote_info["directory"], fcopy), fc_dir]
+
+        #     logger.debug(cl)
+        #     fabric.run(" ".join(cl))
+
+        cl = ["rsync", "--append", "--checksum", "--archive", \
+                "--compress", "--inplace", "--partial", "--progress", \
+                "--prune-empty-dirs", "--verbose", "--include='*/'", " ".join(include), "--exclude='*'", \
+                "%s@%s:%s" % \
+                (remote_info["user"], remote_info["hostname"], \
                 remote_info["directory"]), fc_dir]
 
         logger.debug(cl)
