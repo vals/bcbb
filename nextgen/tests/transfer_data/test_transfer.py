@@ -168,9 +168,6 @@ def perform_transfer(transfer_function, protocol_config, \
     for ufl in unavailable_files:
         files_to_copy.remove(ufl)
 
-    print("Shouldn't copy " + files_to_copy[0])
-    files_to_copy.remove(files_to_copy[0])
-
     remote_info["to_copy"] = files_to_copy
 
     # Perform copy with settings
@@ -186,7 +183,7 @@ def perform_transfer(transfer_function, protocol_config, \
 
     # Check if the copy succeeded
     for test_file, test_value in test_data.items():
-        test_file_path = "%s/%s" % (store_dir, test_file)
+        test_file_path = "%s/%s" % (store_dir, "to_copy/" + test_file)
         # Did the files get copied correctly
         assert os.path.isfile(test_file_path), "File not copied: %s" % test_file
         if os.path.isfile(test_file_path):
