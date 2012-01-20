@@ -168,9 +168,6 @@ def perform_transfer(transfer_function, protocol_config, \
     for ufl in unavailable_files:
         files_to_copy.remove(ufl)
 
-    print("Shouldn't copy " + files_to_copy[0])
-    files_to_copy.remove(files_to_copy[0])
-
     remote_info["to_copy"] = files_to_copy
 
     # Perform copy with settings
