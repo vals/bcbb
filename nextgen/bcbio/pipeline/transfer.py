@@ -14,15 +14,14 @@ from bcbio.pipeline import log
 def remote_copy(remote_info, base_dir, protocol):
     """Securely copy files between servers.
     """
-    # fc_dir = os.path.join(base_dir, os.path.basename(remote_info['directory']))
     fc_dir = base_dir
 
     if not fabric_files.exists(fc_dir):
         fabric.run("mkdir %s" % fc_dir)
 
     if protocol == "scp" or protocol == None:
-        for fcopy in remote_info['to_copy']:
-            target_loc = os.path.join(fc_dir, fcopy)
+        for fcopy in remote_info["to_copy"]:
+            target_loc = os.path.join(fc_dir, os.path.basename(remote_info['directory']), fcopy)
             if not fabric_files.exists(target_loc):
                 target_dir = os.path.dirname(target_loc)
                 if not fabric_files.exists(target_dir):
@@ -39,8 +38,6 @@ def remote_copy(remote_info, base_dir, protocol):
     elif protocol == "rsync":
         include = []
         for fcopy in remote_info['to_copy']:
-            # include.append("--include='%s/%s'" % \
-            # (remote_info["directory"], fcopy))
             include.append("--include='%s/*'" % (fcopy,))
             include.append("--include='%s'" % (fcopy,))
             # By including both these patterns we get the entire directory
