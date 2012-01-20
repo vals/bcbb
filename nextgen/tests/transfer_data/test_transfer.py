@@ -133,11 +133,11 @@ def perform_transfer(transfer_function, protocol_config, \
     base = test_dir_structure.keys()[0]
     for root, dirs, files in os.walk("to_copy" + "/" + base):
         for f in files:
-            test_files.append(root + "/" + f)
+            test_files.append(root[8:] + "/" + f)
 
     test_data = {}
     for test_file in test_files:
-        with open(test_file, 'w+') as file_to_write:
+        with open("to_copy/" + test_file, 'w+') as file_to_write:
             # We just use the current processor time as test data, the
             # important part is that it will be different enough between
             # test just so we know we are not comparing with files copied
@@ -167,6 +167,9 @@ def perform_transfer(transfer_function, protocol_config, \
 
     for ufl in unavailable_files:
         files_to_copy.remove(ufl)
+
+    print("Shouldn't copy " + files_to_copy[0])
+    files_to_copy.remove(files_to_copy[0])
 
     remote_info["to_copy"] = files_to_copy
 

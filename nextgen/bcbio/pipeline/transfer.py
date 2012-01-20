@@ -14,7 +14,8 @@ from bcbio.log import logger
 def remote_copy(remote_info, base_dir, protocol):
     """Securely copy files between servers.
     """
-    fc_dir = os.path.join(base_dir, os.path.basename(remote_info['directory']))
+    # fc_dir = os.path.join(base_dir, os.path.basename(remote_info['directory']))
+    fc_dir = base_dir
 
     if not fabric_files.exists(fc_dir):
         fabric.run("mkdir %s" % fc_dir)
@@ -38,8 +39,13 @@ def remote_copy(remote_info, base_dir, protocol):
     elif protocol == "rsync":
         include = []
         for fcopy in remote_info['to_copy']:
-            include.append("--include='%s/%s'" % \
-            (remote_info["directory"], fcopy))
+            # include.append("--include='%s/%s'" % \
+            # (remote_info["directory"], fcopy))
+            include.append("--include='%s/*'" % (fcopy,))
+            include.append("--include='%s'" % (fcopy,))
+            # By including both these patterns we get the entire directory
+            # if a directory is given, or a single file if a single file is
+            # given.
         # for fcopy in remote_info['to_copy']:
         #     target_loc = os.path.join(fc_dir, fcopy)
         #     target_dir = os.path.dirname(target_loc)
@@ -62,9 +68,9 @@ def remote_copy(remote_info, base_dir, protocol):
         #     logger.debug(cl)
         #     fabric.run(" ".join(cl))
 
-        cl = ["rsync", "--checksum", "--recursive", "--archive", \
-                "--compress", "--partial", "--progress", "--append", \
-                "--prune-empty-dirs", "--verbose", " ".join(include), \
+        cl = ["rsync", "--append", "--checksum", "--archive", \
+                "--compress", "--inplace", "--partial", "--progress", \
+                "--prune-empty-dirs", "--verbose", "--include='*/'", " ".join(include), "--exclude='*'", \
                 "%s@%s:%s" % \
                 (remote_info["user"], remote_info["hostname"], \
                 remote_info["directory"]), fc_dir]
