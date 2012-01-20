@@ -51,7 +51,7 @@ def remote_copy(remote_info, base_dir, protocol):
                 "%s@%s:%s" % (remote_info["user"], remote_info["hostname"], \
                 remote_info["directory"]), fc_dir]
 
-        logger.debug(cl)
+        log.debug(cl)
         fabric.run(" ".join(cl))
 
     # Note: rdiff-backup doesn't have the ability to resume a partial transfer,

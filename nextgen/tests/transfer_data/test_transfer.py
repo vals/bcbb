@@ -116,7 +116,7 @@ def perform_transfer(transfer_function, protocol_config, \
     which give the string
     of a transfer protocol.
     """
-    config = load_config("../data/automated/post_process.yaml")
+    config = load_config("transfer_test_post_process.yaml")
 
     for file_dir in "copy_to", "to_copy":
         if not os.path.isdir(file_dir):
