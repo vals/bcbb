@@ -77,18 +77,24 @@ def get_sample_name(barcode_name):
 class Flowcell:
     """A class for managing information about a flowcell"""
     
-    def __init__(self,fc_name,fc_date,data,fc_dir=None):
+    def __init__(self,fc_name,fc_date,data,fc_dir=None,fc_alias=None):
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
         self.set_lanes(data)
         # Attempts to set the read counts on creation
         self.set_read_counts()
+        self.set_fc_alias(fc_alias)
                 
     def get_fc_date(self):
         return self.fc_date
     def set_fc_date(self,fc_date):
         self.fc_date = fc_date
+
+    def get_fc_alias(self):
+        return self.fc_alias
+    def set_fc_alias(self,fc_alias):
+        self.fc_alias = fc_alias
         
     def get_fc_dir(self):
         return self.fc_dir
