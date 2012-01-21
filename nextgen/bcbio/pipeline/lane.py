@@ -13,6 +13,7 @@ from bcbio.pipeline.demultiplex import split_by_barcode
 from bcbio.pipeline.alignment import align_to_sort_bam
 from bcbio.solexa.flowcell import get_flowcell_info
 
+
 def process_lane(lane_items, fc_name, fc_date, dirs, config):
     """Prepare lanes, potentially splitting based on barcodes.
     """
