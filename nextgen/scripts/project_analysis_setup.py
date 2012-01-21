@@ -46,15 +46,71 @@ from optparse import OptionParser
 import yaml
 import glob
 import shutil
+import logbook
 from itertools import izip
 
 from bcbio.log import create_log_handler
-from bcbio.pipeline import log
-from bcbio.pipeline.run_info import get_run_info, prune_run_info
+from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.lane import get_flowcell_id
 from bcbio.pipeline.fastq import get_single_fastq_files, get_barcoded_fastq_files, convert_barcode_id_to_name, get_fastq_files
 from bcbio.pipeline.config_loader import load_config
+from bcbio.pipeline.flowcell import Flowcell, Lane
 from bcbio import utils
+
+LOG_NAME = os.path.splitext(os.path.basename(__file__))[0]
+log = logbook.Logger(LOG_NAME)
+
+class DeliveryFlowcell(Flowcell):
+    """A class for managing information about a flowcell.
+
+    Adds functionality for keeping track of where data analysis 
+    has taken place, fc alias for data delivery"""
+
+    def __init__(self, fc_name, fc_date, data, fc_dir=None, fc_alias=None, fc_analysis_dir=None):
+        #Flowcell.__init__(self,fc_name,fc_date,data, fc_dir)
+        self.set_fc_dir(fc_dir)
+        self.set_fc_date(fc_date)
+        self.set_fc_name(fc_name)
+        self.set_lanes(data)
+        self.set_fc_alias(fc_alias)
+        self.set_fc_analysis_dir(fc_analysis_dir)
+
+    def get_fc_analysis_dir(self):
+        return self.fc_analysis_dir
+    def set_fc_analysis_dir(self,fc_analysis_dir):
+        self.fc_analysis_dir = fc_analysis_dir
+
+    def get_fc_alias(self):
+        return self.fc_alias
+    def set_fc_alias(self,fc_alias):
+        self.fc_alias = fc_alias
+
+    def get_fc_id(self):
+        return "_".join([self.get_fc_date(), self.get_fc_name()])
+
+    def prune_to_project(self,project, exclude_unmatched=True):
+        """Return a new DeliveryFlowcell object just containing the lanes and samples belonging to a specific project"""
+        lanes = []
+        fc = None
+        for lane in self.get_lanes():
+            l = lane.prune_to_project(project, exclude_unmatched)
+            if (l):
+                lanes.append(l.to_structure())
+        if (len(lanes)):
+            fc = DeliveryFlowcell(self.get_fc_name(),self.get_fc_date(),lanes,self.get_fc_dir())
+        return fc
+
+    def __str__(self):
+        s =  """DeliveryFlowcell: %s
+    fc_dir:          %s
+    fc_date:         %s
+    fc_name:         %s
+    fc_alias:        %s
+    fc_analysis_dir: %s
+
+    Number of lanes: %s
+""" % (self.get_fc_id(), self.get_fc_dir(), self.get_fc_date(), self.get_fc_name(), self.get_fc_alias(), self.get_fc_analysis_dir(), len(self.lanes))
+        return s
 
 def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, project_desc=None, lanes=None, barcodes=None):
     if project_desc is None and lanes is None:
@@ -64,69 +120,92 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
     config = load_config(config_file)
     ## Set log file in project output directory
     config.update(log_dir=os.path.join(project_dir, "log"))
-    log_handler = create_log_handler(config, log.name)
+    log_handler = create_log_handler(config)
 
-    fc_dir = os.path.normpath(fc_dir)
+    fc_dir = os.path.abspath(fc_dir)
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
+    ## Alternativ with pipeline.flowcell.Flowcell
+    fp = open(run_info_yaml)
+    run_info_structure = yaml.load(fp)
+    fc = DeliveryFlowcell(fc_name, fc_date, run_info_structure, fc_dir=fc_dir)
     with log_handler.applicationbound():
-        run_info = prune_run_info(run_info['details'], project_desc, lanes, barcodes)
-    if len(run_info) == 0:
+        #run_info = prune_run_info(run_info['details'], project_desc, lanes, barcodes)
+        fc_src = fc.prune_to_project(project_desc, exclude_unmatched=True)
+    if fc_src is None or len(fc.get_lanes()) == 0:
         if not project_desc is None:
             log.error("No lanes found with matching description %s: please check your flowcell run information" % project_desc)
             sys.exit()
         if not lanes  is None:
             log.error("No lanes found with numbers %s: please check your flowcell run information" % " ".join(lanes))
             sys.exit()
+    # Set up a "target" flowcell that contains the delivery information (directory etc)
+    fc_tgt = DeliveryFlowcell(fc_src.get_fc_name(), fc_src.get_fc_date(), fc_src.to_structure()['details'])
+    fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias
+    fc_delivery_dir = os.path.abspath(os.path.join(project_dir, options.data_prefix, fc_alias))
+    fc_analysis_dir = os.path.abspath(os.path.join(project_dir, options.data_prefix, "%s_%s" %(fc_date, fc_name)))
+    fc_tgt.set_fc_dir(fc_delivery_dir)
+    fc_tgt.set_fc_alias(fc_alias)
+    fc_tgt.set_fc_analysis_dir(fc_analysis_dir)
 
-    dirs = dict(fc_dir=fc_dir, project_dir=project_dir)
-    fc_name, fc_date = get_flowcell_id(run_info, dirs['fc_dir'])
-    config.update(fc_name = fc_name, fc_date = fc_date)
-    config.update(fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
-    dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, config['fc_alias'] ))
-    dirs.update(data_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, "%s_%s" %(fc_date, fc_name) ))
+    ##dirs = dict(fc_dir=fc_dir, project_dir=project_dir)
+    #fc_name, fc_date = get_flowcell_id(run_info, dirs['fc_dir'])
+    # config.update(fc_name = run_info_fc.get_fc_name(), fc_date = run_info_fc.get_fc_date())
+    # config.update(fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
+    # dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, config['fc_alias'] ))
+    # dirs.update(data_delivery_dir = os.path.join(dirs['project_dir'], options.data_prefix, "%s_%s" %(fc_date, fc_name) ))
     with log_handler.applicationbound():
-        config = _make_delivery_directory(dirs, config)
-        _save_run_info(run_info, dirs['fc_delivery_dir'], run_exit=options.only_run_info)
-        run_main(run_info, config, dirs)
+        _make_delivery_directory(fc_tgt)
+        _save_run_info(fc_tgt, run_exit=options.only_run_info)
+        run_main(fc_src, fc_tgt)
 
-def run_main(run_info, config, dirs):
-    for info in run_info:
-        process_lane(info, config, dirs)
+def run_main(fc_src, fc_tgt):
+    for lane in fc_src.get_lanes():
+        process_lane(lane, fc_src, fc_tgt)
 
-def process_lane(info, config, dirs):
+def process_lane(lane, fc_src, fc_tgt):
     """Models bcbio process lane"""
-    sample_name = info.get("description", "")
-    genome_build = info.get("genome_build", None)
-    multiplex = info.get('multiplex', None)
-    log.info("Processing sample: %s; lane %s; reference genome %s" %
-             (sample_name, info["lane"], genome_build))
+    multiplex = lane.get_samples()
+    log.info("Processing project: %s; lane %s; reference genome %s" %
+             (lane.get_description(), lane.get_name(), lane.get_genome_build()))
     if multiplex:
-        log.debug("Sample %s is multiplexed as: %s" % (sample_name, multiplex))
-    fq = get_barcoded_fastq_files(multiplex, info, dirs['fc_dir'], config['fc_name'], config['fc_date'])
-    
+        log.debug("Project %s is multiplexed as: %s" % (lane.get_description(), multiplex))
+    fq = _get_barcoded_fastq_files(lane, multiplex, fc_src.get_fc_date(), fc_src.get_fc_name(), fc_src.get_fc_dir())
     ## Move data along with fastq files
-    fc_bc_dir = os.path.join(config['data_delivery_dir'], "%s_%s_%s_barcode" % (info['lane'], config['fc_date'], config['fc_name']))
+    fc_bc_dir = os.path.join(fc_tgt.get_fc_dir(), "%s_%s_%s_barcode" % (lane.get_name(), fc_tgt.get_fc_date(), fc_tgt.get_fc_name()))
+    print fc_bc_dir
     _make_dir(fc_bc_dir, "fastq.txt barcode directory")
     if not options.only_fastq:
-        data, fastqc = _get_analysis_results(config, dirs, info['lane'])
-        _deliver_data(data, fastqc, config['data_delivery_dir'])
+        data, fastqc = _get_analysis_results(fc_src, lane)
+        _deliver_data(data, fastqc, fc_tgt.get_fc_analysis_dir())
 
     for fqpair in fq:
         [_deliver_fastq_file(fq_src, os.path.basename(fq_src), fc_bc_dir) for fq_src in fqpair]
 
 
+def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
+    fq = list()
+    bc_dir = "%s_%s_%s_barcode" % (lane.get_name(), fc_date, fc_name)
+    bc_dir = os.path.join(fc_dir, bc_dir)
+    if multiplex is None:
+        fq.append(get_fastq_files(bc_dir, {'lane':lane.get_name()}, fc_name))
+    else:
+        for bc in multiplex:
+            if not os.path.exists(bc_dir):
+                raise IOError("No barcode directory found: " + str(bc_dir))
+            item = {'lane':lane.get_name()}
+            fq.append(get_fastq_files(bc_dir, None, item, fc_name, bc_name=bc.get_barcode_id()))
+    return fq
+
+
 def _deliver_fastq_file(fq_src, fq_tgt, outdir, fc_link_dir=None):
     _handle_data(fq_src, os.path.join(outdir, fq_tgt), f=shutil.move if options.move else shutil.copyfile)
 
-def _make_delivery_directory(dirs, config):
+def _make_delivery_directory(fc_tgt):
     """Make the output directory"""
-    _make_dir(dirs['fc_delivery_dir'], "flowcell delivery")
-    _make_dir(dirs['data_delivery_dir'], "data delivery")
-    if (os.path.basename(dirs['data_delivery_dir']) != config['fc_alias']):
-        _handle_data(dirs['data_delivery_dir'], os.path.join(os.path.dirname(dirs['data_delivery_dir']), config['fc_alias']), os.symlink)
-    config.update(fc_delivery_dir=dirs['fc_delivery_dir'])
-    config.update(data_delivery_dir=dirs['data_delivery_dir'])
-    return config
+    _make_dir(fc_tgt.get_fc_dir(), "flowcell delivery")
+    _make_dir(fc_tgt.get_fc_analysis_dir(), "data delivery")
+    if (os.path.basename(fc_tgt.get_fc_analysis_dir()) != fc_tgt.get_fc_alias()):
+        _handle_data(fc_tgt.get_fc_analysis_dir(), os.path.join(os.path.dirname(fc_tgt.get_fc_analysis_dir()), fc_tgt.get_fc_alias()), os.symlink)
 
 def _make_dir(dir, label):
     if not os.path.exists(dir):
@@ -156,30 +235,29 @@ def _deliver_data(data, fastqc, outdir):
     for src in fastqc:
         tgt = os.path.join(outdir, "fastqc", os.path.basename(src))
         _handle_data(src, tgt, f=shutil.move if options.move else shutil.copytree)
-        
-def _get_analysis_results(config, dirs, lane):
-    """Get analysis results
 
+def _get_analysis_results(fc, lane):
+    """Get analysis results
+    
     For now just glob the analysis directory for fastqc output and files with the give flowcell name
     """
-    flowcell = "_".join([str(lane), config['fc_date'], config['fc_name']])
-    glob_str = os.path.join(dirs['fc_dir'], flowcell + "*.*")
+    flowcell = "_".join([lane.get_name(), fc.get_fc_id()])
+    glob_str = os.path.join(fc.get_fc_dir(), flowcell + "*.*")
     data = glob.glob(glob_str)
-    glob_str = os.path.join(dirs['fc_dir'], "fastqc", flowcell + "*")
+    glob_str = os.path.join(fc.get_fc_dir(), "fastqc", flowcell + "*")
     fastqc = glob.glob(glob_str)
     return data, fastqc
 
-def _save_run_info(run_info, outdir, run_exit=False):
-    outfile = os.path.join(outdir, "project_run_info.yaml")
+def _save_run_info(fc_tgt, run_exit=False):
+    outfile = os.path.join(fc_tgt.get_fc_dir(), "project_run_info.yaml")
     if not options.dry_run:
         with open(outfile, "w") as out_handle:
-            yaml.dump(run_info, stream=out_handle)
+            yaml.dump(fc_tgt.to_structure(), stream=out_handle)
     else:
         print "DRY_RUN:"
-        yaml.dump(run_info, stream=sys.stdout)
+        yaml.dump(fc_tgt.to_structure(), stream=sys.stdout)
     if run_exit:
         sys.exit()
-
 
 if __name__ == "__main__":
     usage = """
