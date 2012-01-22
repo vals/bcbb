@@ -90,17 +90,29 @@ class SampleDeliveryTest(unittest.TestCase):
         subprocess.check_call(cl)
 
 
-    def test_4_deliver_data(self):
-        """Test data delivery by selecting one lane and one barcode id"""
-        with make_workdir(link=False):
+    # def test_4_deliver_data(self):
+    #     """Test data delivery by selecting one lane and one barcode id"""
+    #     with make_workdir(link=False):
+    #         cl = ["project_analysis_setup.py",
+    #               self.post_process,
+    #               self.fc_dir,  self.proj_dir,
+    #               self.run_info,
+    #               "--data_prefix=nobackup",
+    #               "--lanes=1", "--barcode_ids=1"]
+    #subprocess.check_call(cl)
+
+
+    def test_4_deliver_customer_data(self):
+        """Test fastq delivery to customer by copying"""
+        with (make_workdir(link=False)):
             cl = ["project_analysis_setup.py",
                   self.post_process,
                   self.fc_dir,  self.proj_dir,
                   self.run_info,
-                  "--data_prefix=nobackup",
-                  "--lanes=1", "--barcode_ids=1"]
+                  "--flowcell_alias=%s" % "20000000_hiseq2000A",
+                  "--project_desc=%s" % "J.Doe_00_01", "--only_install_fastq",
+                  "--customer_delivery"]
             subprocess.check_call(cl)
-
 
     def test_5_deliver_data(self):
         """Test data delivery by moving"""
