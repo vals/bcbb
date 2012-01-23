@@ -2,39 +2,32 @@
 """Deliver data based on project identifiers
 
 Usage:
-  project_data_delivery.py  <YAML config file> <flow cell dir> <project dir>
-                            [<YAML run information> --data_prefix=<data prefix>
-                             --flowcell_alias=<flowcell alias>
-                             --project_desc=<project_desc>
-                             --lanes=<lanes> --barcode_ids=<barcode_ids>
-                             --move_data --only_install_run_info
-                             --only_install_fastq --dry_run --verbose]
+  project_analysis_setup.py <YAML config file> <flowcell_dir> <project_dir>
+                            [<YAML run information>
+                             --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
+                             --install_data --move_data --only_install_run_info
+                             --dry_run --verbose]
 
 
-Given a directory with demultiplexed flow cell data, and a project id
-or a comma-separated list of lane numbers, project specific files will
-be copied to a project directory. The optional <YAML run information>
-file specifies details about the flowcell lanes, instead of retrieving
-it from Galaxy. See automated_initial_analysis.py for details.
+Given a directory with demultiplexed flow cell data and a project id,
+project specific files will be copied to a project directory. The
+optional <YAML run information> file specifies details about the
+flowcell lanes, instead of retrieving it from Galaxy. See
+automated_initial_analysis.py for details.
 
 For a multiproject run_info file, only a subset of the lanes can be
 used. The run_info file is therefore pruned, and the pruned file is
 output to the project directory. The pruning is based on the options
-<project_desc>, or <lanes>. Keyword ALL delivers all lanes.
-
+<project_desc>.
 
 Options:
-  -d, --data_prefix=<data_prefix>               Install flowcells in <project_dir>/<data_prefix>
   -a, --flowcell_alias=<flowcell alias>         By default, samples are moved to a directory named
-                                                <flowcell_id>. This option changes output directory to
+                                                <flowcell_dir>. This option links the output directory to
                                                 <flowcell_alias>.
   -y, --project_desc=<project_desc>             Project description in description field of run_info file, or ALL.
-  -l, --lanes=<lanes>                           Comma-separated list of integers corresponding to lanes
-  -b, --barcode_ids=<barcode_ids>               Comma-separated list of integers corresponding to barcode ids.
-                                                Can only be used with one lane.
-  -c, --customer_delivery                       Deliver data to customer. Delivers all demuxed fastq data to one directory.
+  -c, --customer_delivery                       Deliver data to customer. Delivers all demuxed fastq data and results
+                                                to one directory <flowcell_dir> or <flowcell_alias>.
   -i, --only_install_run_info                   Only install pruned run_info file.
-  -f, --only_install_fastq                      Only install fastq files.
   -m, --move_data                               Move data instead of copying
   -n, --dry_run                                 Don't do anything samples, just list what will happen
   -v, --verbose                                 Print some more information
@@ -67,7 +60,6 @@ class PostProcessedFlowcell(Flowcell):
     are stored, and adds information about fc id and fc alias for data delivery"""
 
     def __init__(self, fc_name, fc_date, data, fc_dir=None, fc_alias=None, fc_results_dir=None):
-        #Flowcell.__init__(self,fc_name,fc_date,data, fc_dir)
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
@@ -82,11 +74,6 @@ class PostProcessedFlowcell(Flowcell):
     def get_fc_id(self):
         return "%s_%s" % (self.get_fc_date(), self.get_fc_name())
 
-    def get_bc_dir_fmt(self):
-        return self.bc_dir_fmt
-    def set_bc_dir_fmt(self, bc_dir_fmt):
-        self.bc_dir_fmt = bc_dir_fmt
-
     def get_fc_results_dir(self):
         return self.fc_results_dir
     def set_fc_results_dir(self,fc_results_dir):
@@ -96,9 +83,6 @@ class PostProcessedFlowcell(Flowcell):
         return self.fc_alias
     def set_fc_alias(self,fc_alias):
         self.fc_alias = fc_alias
-
-    def get_fc_id(self):
-        return "_".join([self.get_fc_date(), self.get_fc_name()])
 
     def prune_to_project(self,project, exclude_unmatched=True):
         """Return a new PostProcessedFlowcell object just containing the lanes and samples belonging to a specific project"""
@@ -153,9 +137,12 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
     rawdata_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, "data", rawdata_fc.get_fc_id())))
     analysis_fc = PostProcessedFlowcell(pruned_fc.get_fc_name(), pruned_fc.get_fc_date(), pruned_fc.to_structure()['details'], fc_alias=fc_alias)
     analysis_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, "intermediate", rawdata_fc.get_fc_id())))
-    print pruned_fc
-    print rawdata_fc
-    print analysis_fc
+
+    # If customer delivery setup some special options
+    if options.customer_delivery:
+        rawdata_fc.set_fc_dir(os.path.abspath(project_dir))
+        rawdata_fc.set_fc_alias(rawdata_fc.get_fc_id())
+        analysis_fc = rawdata_fc
 
     _make_delivery_directory(rawdata_fc)
     _make_delivery_directory(analysis_fc)
@@ -176,7 +163,10 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     fq = _get_barcoded_fastq_files(lane, multiplex, pruned_fc.get_fc_date(), pruned_fc.get_fc_name(), pruned_fc.get_fc_dir())
 
     ## Move data along with fastq files
-    fc_bc_dir = os.path.join(rawdata_fc.get_fc_dir(), "%s_%s_%s_barcode" % (lane.get_name(), rawdata_fc.get_fc_date(), rawdata_fc.get_fc_name()))
+    if options.customer_delivery:
+        fc_bc_dir = rawdata_fc.get_fc_dir()
+    else: 
+        fc_bc_dir = os.path.join(rawdata_fc.get_fc_dir(), "%s_%s_%s_barcode" % (lane.get_name(), rawdata_fc.get_fc_date(), rawdata_fc.get_fc_name()))
     _make_dir(fc_bc_dir, "fastq.txt barcode directory")
     if options.install_data:
         data, fastqc = _get_analysis_results(pruned_fc, lane)
@@ -185,8 +175,9 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     for fqpair in fq:
         for fastq_src in fqpair:
             fastq_tgt = fastq_src
+            if options.customer_delivery:
+                fastq_tgt = _convert_barcode_id_to_name(multiplex, rawdata_fc.get_fc_name(), fastq_src)
             _deliver_fastq_file(fastq_src, os.path.basename(fastq_tgt), fc_bc_dir)
-
 
 def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
     fq = list()
@@ -215,7 +206,7 @@ def _deliver_fastq_file(fq_src, fq_tgt, outdir, fc_link_dir=None):
 def _make_delivery_directory(fc):
     """Make the output directory"""
     _make_dir(fc.get_fc_dir(), "flowcell delivery")
-    if (fc.get_fc_alias != fc.get_fc_name):
+    if (fc.get_fc_alias() != fc.get_fc_id()):
         _handle_data(fc.get_fc_dir(), os.path.join(os.path.dirname(fc.get_fc_dir()), fc.get_fc_alias()), os.symlink)     
 
 def _make_dir(dir, label):
@@ -272,11 +263,10 @@ def _save_run_info(fc, run_exit=False):
 
 if __name__ == "__main__":
     usage = """
-    project_analysis_setup.py <YAML config file> <flow cell dir> <project dir>
+    project_analysis_setup.py <YAML config file> <flowcell_dir> <project_dir>
                             [<YAML run information>
-                             --flowcell_alias=<flowcell alias>
+                             --flowcell_alias=<flowcell_alias>
                              --project_desc=<project_desc>
-                             --lanes=<lanes> --barcode_ids=<barcode_ids>
                              --move_data --only_install_run_info --install_data
                              --dry_run --verbose]
 
@@ -286,9 +276,9 @@ if __name__ == "__main__":
     parser = OptionParser(usage=usage)
     parser.add_option("-a", "--flowcell_alias", dest="fc_alias")
     parser.add_option("-y", "--project_desc", dest="project_desc")
-    parser.add_option("-l", "--lanes", dest="lanes")
-    parser.add_option("-b", "--barcode_ids", dest="barcodes")
     parser.add_option("-d", "--install_data", dest="install_data", action="store_true",
+                      default=False)
+    parser.add_option("-c", "--customer_delivery", dest="customer_delivery", action="store_true",
                       default=False)
     parser.add_option("-f", "--only_install_run_info", dest="only_run_info", action="store_true",
                       default=False)
@@ -305,7 +295,5 @@ if __name__ == "__main__":
     kwargs = dict(
         fc_alias = options.fc_alias,
         project_desc = options.project_desc,
-        lanes = options.lanes,
-        barcodes = options.barcodes
         )
     main(*args, **kwargs)

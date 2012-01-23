@@ -1,6 +1,6 @@
 """This directory is setup with configurations to run the main functional test.
 
-It exercises a samplebased analysis pipeline on a smaller subset of data, as implemented at SciLife.
+It exercises a samplebased analysis pipeline on demultiplexed data.
 """
 import os
 import sys
@@ -11,7 +11,6 @@ import contextlib
 import glob
 import yaml
 from bcbio.pipeline.config_loader import load_config
-
 
 @contextlib.contextmanager
 def make_workdir():
@@ -48,7 +47,6 @@ class SampleBasedAnalysisTest(unittest.TestCase):
         self.file_dir = os.path.join(os.path.dirname(__file__))
         self.fc_dir = os.path.join(self.file_dir, "110106_FC70BUKAAXX")
         self.proj_dir = os.path.join(self.file_dir, "projects", "j_doe_00_01")
-        ##self.fcdir = os.path.join(os.path.dirname(__file__), "test_automated_output")
         self.run_info = os.path.join(self.fc_dir, "run_info.yaml")
         self.archive_base_dir  = os.path.join(self.file_dir)
         self.analysis_base_dir = os.path.join(self.file_dir)
@@ -77,7 +75,7 @@ class SampleBasedAnalysisTest(unittest.TestCase):
               os.path.join(self.fc_dir, "post_process.yaml"),
               self.fc_dir, self.proj_dir,
               self.run_info,
-              "--data_prefix=intermediate/nobackup",
+              "--install_data",
               "--project_desc=%s" % "J.Doe_00_01",
               "--flowcell_alias=20000101A_hiseq2000"]
         subprocess.check_call(cl)
@@ -90,6 +88,6 @@ class SampleBasedAnalysisTest(unittest.TestCase):
             self._deliver_data()
             cl = ["project_exome_pipeline.py",
                   os.path.join(self.fc_dir, "post_process.yaml"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "110106_FC70BUKAAXX"),
-                  os.path.join(self.proj_dir, "intermediate", "nobackup", "20000101A_hiseq2000", "project_run_info.yaml")]
+                  os.path.join(self.proj_dir, "intermediate", "110106_FC70BUKAAXX"),
+                  os.path.join(self.proj_dir, "data", "20000101A_hiseq2000", "project_run_info.yaml")]
             subprocess.check_call(cl)
