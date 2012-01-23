@@ -4,12 +4,14 @@
 import os
 import re
 import copy
+import logbook
 from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
 from bcbio.google import (_from_unicode,_to_unicode,get_credentials)
 from bcbio.pipeline import log
+from bcbio.log import create_log_handler
 
 
 # The structure of the demultiplex result
@@ -71,18 +73,26 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
         log.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
         return
     
-    # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-    bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
-    
-    # Upload the data
-    write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
-    
-    # Get the projects parent folder
-    projects_folder = gdocs.get("gdocs_projects_folder",None)
-    
-    # Write the bc project summary report
-    if projects_folder:
-        write_project_report_to_gdocs(fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
+    # Add email notification
+    email = gdocs.get("gdocs_email_notification",None)
+    log_handler = create_log_handler({'email': email},"")
+    with log_handler.applicationbound():
+        
+        # Inject the fc_date and fc_name in the email subject
+        with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
+        
+            # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
+            bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
+            
+            # Upload the data
+            write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
+            
+            # Get the projects parent folder
+            projects_folder = gdocs.get("gdocs_projects_folder",None)
+            
+            # Write the bc project summary report
+            if projects_folder:
+                write_project_report_to_gdocs(fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
 
 
 def format_project_name(unformated_name):
