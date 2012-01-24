@@ -5,6 +5,7 @@ import os
 import re
 import copy
 import glob
+import logbook
 from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
@@ -93,7 +94,7 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
 
     # Set up email notifications
     email = gdocs.get("gdocs_email_notification",None)
-    log_handler = create_log_handler({'email': email},"")
+    log_handler = create_log_handler({'email': email})
     with log_handler.applicationbound():
         
         # Inject the fc_date and fc_name into the subject line
