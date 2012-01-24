@@ -404,16 +404,16 @@ class FileMerger(dict):
                     opened = True
                 except IOError as e:
                     if e.errno == 24:
-                        for (name, handle) in self.items()[:10]:
+                        print("Closing 100 files")
+                        for (name, handle) in self.items()[:100]:
                             handle.close()
                             del self[name]
                         pass
                     else:
                         raise e
 
-        in_handle = open(source_file, "r")
-        shutil.copyfileobj(in_handle, out_handle)
-        in_handle.close()
+        with open(source_file, "r") as in_handle:
+            shutil.copyfileobj(in_handle, out_handle)
 
     def close(self):
         """Close all the opened files.
@@ -438,7 +438,8 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
                 # errno.EMFILE (meaning 'too many open files') equals 24
                 if e.errno == 24:
                     # Close a few files
-                    for (name, handle) in out_handles.items()[:10]:
+                    print("Closing 100 files when writing")
+                    for (name, handle) in out_handles.items()[:100]:
                         handle.close()
                         del out_handles[name]
                     pass
