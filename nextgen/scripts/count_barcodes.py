@@ -111,15 +111,11 @@ def main(fastq, run_info_file, lane, out_file,
     if not run_info_file:
         bc_matched = _get_common_barcodes(bcodes, cutoff)
 
-    # Get the barcode statistics
-    # bcm_nums, bcm_parts = _get_barcode_statistics(bc_matched,bcodes)
-
-    # TODO: Match matched bcs against each other.
-
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
         bc_grouping = \
         match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
+        rename_masked_filenames(out_format)
 
     elif mode == "count":
         bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
@@ -226,15 +222,6 @@ class BarcodeGrouping(object):
                     self.unmatched[barcode] = info
 
                 del self.matched[barcode]
-
-# def match_against_run_info(bcodes, run_info_file, mismatch, lane):
-#     given_bcodes = []
-#     with open(run_info_file) as in_handle:
-#         run_info = yaml.load(in_handle)
-#         given_bcodes += [bc["sequence"] for \
-#         bc in run_info[lane - 1]["multiplex"]]
-
-#     return approximate_matching(bcodes, given_bcodes, mismatch)
 
 
 def _match_barcodes(bcode, given_bcodes, mismatch, masked=False):
@@ -439,7 +426,7 @@ class FileWriter(dict):
 
     def __call__(self, barcode, name1, seq1, qual1, name2, seq2, qual2):
         self.write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2)
-
+    
     def write_reads(self, barcode, name1, seq1, qual1, name2, seq2, qual2):
         read1name = self.output_base.replace("--r--", "1")
         read1name = read1name.replace("--b--", barcode)
@@ -461,7 +448,7 @@ class FileWriter(dict):
                     opened = True
                 except IOError as e:
                     if e.errno == 24:
-                        print("Closing some files")
+                        print("Closing some of the %s files" % (len(self),))
                         for (name, handle) in self.items()[:100]:
                             handle.close()
                             del self[name]
@@ -489,6 +476,29 @@ def compare_run_info_and_index_lookup(run_info_barcodes):
             unknown.add(bc)
 
     return unknown
+
+
+def rename_masked_filenames(out_format):
+    """Output files with N in the filename should be renamed to match an
+    unmasked barcode.
+    """
+    import glob
+    import re
+    out_glob = out_format.replace("--b--", "*")
+    out_glob = out_glob.replace("--r--", "*")
+    created_files = glob.glob(out_glob)
+    re_glob = re.compile(out_glob)
+    for filename in created_files:
+        if "N" not in filename:
+            continue
+        
+        for _, sequence, _ in FastqGeneralIterator(open(filename)):
+            name = sequence[-6:]
+            if "N" not in name:
+                break
+            
+        os.rename(filename, out_format.replace("--b--", name))
+        print("Changed %s -> %s" % (filename, name))
 
 if __name__ == "__main__":
     parser = OptionParser()
