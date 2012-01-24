@@ -86,9 +86,9 @@ def main(fastq, run_info_file, lane, out_file,
         bc_matched = _get_run_info_barcodes(run_info_file, lane)
         compare_run_info_and_index_lookup(bc_matched)
 
-    out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
     if mode == "demultiplex":
-        out_writer = output_to_fastq(out_format)
+        out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
+        out_writer = FileWriter(out_format)
 
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
@@ -103,6 +103,9 @@ def main(fastq, run_info_file, lane, out_file,
             out_writer(bcode, title, sequence, quality, None, None, None)
         bcodes[bcode] += 1
         # Count number not A in the last one
+
+    if mode == "demultiplex":
+        out_writer.close()
 
     # Automatically determine which barcodes to use unless a run_info file was specified
     if not run_info_file:
@@ -422,53 +425,57 @@ class FileMerger(dict):
             handle.close()
 
 
-def _write_to_handles(name, seq, qual, fname, out_handles):
-    """Defines format and location to write the fastq triple.
+class FileWriter(dict):
+    """A class for efficientely writing to several file
     """
-    try:
-        out_handle = out_handles[fname]
-    except KeyError:
-        opened = False
-        while not opened:
+    def __init__(self, output_base):
+        self.output_base = output_base
+        self.work_dir = os.path.dirname(output_base)
+        if not os.path.exists(self.work_dir) and self.work_dir:
             try:
-                out_handle = open(fname, "w")
-                out_handles[fname] = out_handle
-                opened = True
-            except IOError as e:
-                # errno.EMFILE (meaning 'too many open files') equals 24
-                if e.errno == 24:
-                    # Close a few files
-                    print("Closing 100 files when writing")
-                    for (name, handle) in out_handles.items()[:100]:
-                        handle.close()
-                        del out_handles[name]
-                    pass
-                else:
-                    raise e
+                os.makedirs(self.work_dir)
+            except OSError:
+                assert os.path.isdir(self.work_dir)
 
-    out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
+    def __call__(self, barcode, name1, seq1, qual1, name2, seq2, qual2):
+        self.write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2)
 
-
-def output_to_fastq(output_base):
-    """Write a set of paired end reads as fastq, managing output handles.
-    """
-    work_dir = os.path.dirname(output_base)
-    if not os.path.exists(work_dir) and work_dir:
-        try:
-            os.makedirs(work_dir)
-        except OSError:
-            assert os.path.isdir(work_dir)
-    out_handles = dict()
-
-    def write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2):
-        read1name = output_base.replace("--r--", "1").replace("--b--", barcode)
-        _write_to_handles(name1, seq1, qual1, read1name, out_handles)
+    def write_reads(self, barcode, name1, seq1, qual1, name2, seq2, qual2):
+        read1name = self.output_base.replace("--r--", "1")
+        read1name = read1name.replace("--b--", barcode)
+        self.write_to_handles(name1, seq1, qual1, read1name)
         if name2:
-            read2name = \
-            output_base.replace("--r--", "2").replace("--b--", barcode)
-            _write_to_handles(name2, seq2, qual2, read2name, out_handles)
+            read2name = self.output_base.replace("--r--", "2")
+            read2name = read2name.replace("--b--", barcode)
+            self.write_to_handles(name2, seq2, qual2, read2name)
 
-    return write_reads
+    def write_to_handles(self, name, seq, qual, fname):
+        try:
+            out_handle = self[fname]
+        except KeyError:
+            opened = False
+            while not opened:
+                try:
+                    out_handle = open(fname, "w")
+                    self[fname] = out_handle
+                    opened = True
+                except IOError as e:
+                    if e.errno == 24:
+                        print("Closing some files")
+                        for (name, handle) in self.items()[:100]:
+                            handle.close()
+                            del self[name]
+                        pass
+                    else:
+                        raise e
+
+        out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
+
+    def close(self):
+        """Close all the opened files.
+        """
+        for handle in self.itervalues():
+            handle.close()
 
 
 def compare_run_info_and_index_lookup(run_info_barcodes):
