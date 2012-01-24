@@ -5,12 +5,13 @@ import os
 import re
 import copy
 import glob
+import logbook
 from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
 from bcbio.google import (_from_unicode, _to_unicode, get_credentials)
-from bcbio.log import logger
+from bcbio.log import logger2, create_log_handler
 from bcbio.pipeline.flowcell import Flowcell
 import bcbio.solexa.flowcell
 
@@ -60,46 +61,54 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
 
     encoded_credentials = get_credentials(config)
     if not encoded_credentials:
-        logger.warn("Could not find Google Docs account credentials. No demultiplex report was written")
+        logger2.warn("Could not find Google Docs account credentials. No demultiplex report was written")
         return
 
     # Get the required parameters from the post_process.yaml configuration file
     gdocs = config.get("gdocs_upload", None)
     if not gdocs:
-        logger.info("No GDocs upload section specified in config file, will not upload demultiplex data")
+        logger2.info("No GDocs upload section specified in config file, will not upload demultiplex data")
         return
 
     # Get the GDocs demultiplex result file title
     gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file", None)
     if not gdocs_spreadsheet:
-        logger.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
+        logger2.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
         return
 
     # Get the account credentials
     encoded_credentials = ""
     encoded_credentials_file = gdocs.get("gdocs_credentials", None)
     if not encoded_credentials_file:
-        logger.warn("Could not find Google Docs account credentials. No demultiplex report was written")
+        logger2.warn("Could not find Google Docs account credentials. No demultiplex report was written")
         return
     # Check if the credentials file exists
     if not os.path.exists(encoded_credentials_file):
-        logger.warn("The Google Docs credentials file could not be found. No demultiplex data was written")
+        logger2.warn("The Google Docs credentials file could not be found. No demultiplex data was written")
         return
     with open(encoded_credentials_file) as fh:
         encoded_credentials = fh.read().strip()
-
+    
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
     fc = Flowcell(fc_name, fc_date, run_info.get("details", []), work_dir)
 
-    # Upload the data
-    write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_spreadsheet, encoded_credentials)
-
-    # Get the projects parent folder
-    projects_folder = gdocs.get("gdocs_projects_folder",None)
-    
-    # Write the bc project summary report
-    if projects_folder:
-        write_project_report_to_gdocs(fc,encoded_credentials,projects_folder)
+    # Set up email notifications
+    email = gdocs.get("gdocs_email_notification",None)
+    log_handler = create_log_handler({'email': email})
+    with log_handler.applicationbound():
+        
+        # Inject the fc_date and fc_name into the subject line
+        with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
+        
+            # Upload the data
+            write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_spreadsheet, encoded_credentials)
+        
+            # Get the projects parent folder
+            projects_folder = gdocs.get("gdocs_projects_folder",None)
+            
+            # Write the bc project summary report
+            if projects_folder:
+                write_project_report_to_gdocs(fc,encoded_credentials,projects_folder)
 
 def get_spreadsheet(ssheet_title,encoded_credentials):
     """Connect to Google docs and get a spreadsheet"""
@@ -116,10 +125,10 @@ def get_spreadsheet(ssheet_title,encoded_credentials):
     
     # Check that we got a result back
     if not ssheet:
-        logger.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)
+        logger2.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)
         return (None,None)
     
-    logger.info("Found spreadsheet matching the supplied title: '%s'" % (ssheet.title.text))
+    logger2.info("Found spreadsheet matching the supplied title: '%s'" % (ssheet.title.text))
     
     return (client,ssheet)
                
@@ -157,11 +166,11 @@ def write_project_report_to_gdocs(flowcell,encoded_credentials,gdocs_folder=""):
         folder_name = project_name
         folder = bcbio.google.document.get_folder(doc_client,folder_name)
         if not folder:
-            logger.info("creating folder '%s'" % folder_name)
+            logger2.info("creating folder '%s'" % folder_name)
             folder = bcbio.google.document.add_folder(doc_client,folder_name,parent_folder)
             
         ssheet = bcbio.google.document.move_to_folder(doc_client,ssheet,folder)
-        logger.info("'%s' spreadsheet written to folder '%s'" % (ssheet.title.text,folder_name))
+        logger2.info("'%s' spreadsheet written to folder '%s'" % (ssheet.title.text,folder_name))
         
 
 def _write_project_report_to_gdocs(client, ssheet, flowcell):
@@ -239,7 +248,7 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, encoded_creden
     
     # Get the projects in the run
     projects = fc.get_project_names()
-    logger.info("The run contains data from: '%s'" % "', '".join(projects))
+    logger2.info("The run contains data from: '%s'" % "', '".join(projects))
     
     # If we will split the worksheet by project, use the project names as worksheet titles
     success = True
@@ -267,11 +276,11 @@ def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
     # Add a new worksheet, possibly appending or replacing a pre-existing worksheet according to the append-flag
     wsheet = bcbio.google.spreadsheet.add_worksheet(client,ssheet,wsheet_title,len(rows)+1,len(header),append)
     if wsheet is None:
-        logger.info("Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title,ssheet.title.text))
+        logger2.info("Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title,ssheet.title.text))
         return False
     
     # Write the data to the worksheet
-    logger.info("Adding data to the '%s' worksheet" % (wsheet_title))
+    logger2.info("Adding data to the '%s' worksheet" % (wsheet_title))
     return bcbio.google.spreadsheet.write_rows(client,ssheet,wsheet,header,rows)
      
     
