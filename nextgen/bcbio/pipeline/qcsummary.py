@@ -13,7 +13,8 @@ from mako.template import Template
 from bcbio.broad import runner_from_config
 from bcbio.broad.metrics import PicardMetrics, PicardMetricsParser
 from bcbio import utils
-
+from bcbio.solexa.run_configuration import IlluminaConfiguration
+    
 
 # ## High level functions to generate summary PDF
 
@@ -317,6 +318,92 @@ def _lane_stats(cur_name, work_dir):
     metrics = parser.extract_metrics(metrics_files)
     return metrics
 
+# Parser for the RTA-generated quality-metrics
+class RTAQCMetrics:
+    
+    def __init__(self, base_dir):
+        self._dir = base_dir
+        self._configuration = IlluminaConfiguration(base_dir)
+        self._metrics_path = os.path.join(base_dir,"Data","reports","Summary")
+        assert os.path.exists(self._metrics_path)
+
+        # Assert that the readN.xml qc metrics files exist
+        self._metric_files = []
+        for read in self._configuration.reads().keys():
+            qc_file = os.path.join(self._metrics_path,"read%s.xml" % read)
+            assert os.path.exists(qc_file)
+            self._metric_files.append(qc_file)
+        
+        # Parse the XML files
+        self.readSummaries()
+         
+    @staticmethod
+    def metrics():
+        return [
+                ['error_rate', 'ErrRatePhiX', False],
+                ['error_rate_sd', 'ErrRatePhiXSD', False],
+                ['raw_cluster_dens', 'ClustersRaw', True],
+                ['raw_cluster_dens_sd', 'ClustersRawSD', True],
+                ['prc_pf', 'PrcPFClusters', False],
+                ['prc_pf_sd', 'PrcPFClustersSD', False],
+                ['pf_cluster_dens', 'ClustersPF', True],
+                ['pf_cluster_dens_sd', 'ClustersPFSD', True],
+                ['phasing', 'Phasing', False],
+                ['prephasing', 'Prephasing', False],
+                ['prc_aligned', 'PrcAlign', False],
+                ['prc_aligned_sd', 'PrcAlignSD', False]
+            ]
+    
+    def configuration(self):
+        return self._configuration
+    
+    # getQCstats() is probably the method you usually want to call
+    def getQCstats(self):
+        qc_stats = {}
+        for metric in self.metrics():
+            qc_stats[metric[0]] = self.getAllLaneMetrics(metric[1],metric[2])
+        return qc_stats
+
+    def readSummaries(self):
+        self._qc_roots = {}
+        for qc_file in self._metric_files:
+            tree = ET.parse(qc_file)
+            root = tree.getroot()
+            if root is not None:
+                read = root.get("Read","0")
+                self._qc_roots[read] = root
+
+    def getAllSingleLaneMetric(self, metric, lane, clu_dens = False):
+        metrics = {}
+        for read, root in self._qc_roots.items():
+            metrics["read%s" % read] = self.getSingleLaneMetric(root, metric, lane, clu_dens)
+        return metrics
+
+    def getSingleLaneMetric(self, root, metric, lane, clu_dens = False):
+        m = self.getLaneMetric(root, metric, clu_dens, lane)
+        return m[lane]
+    
+    def getAllLaneMetrics(self, metric, clu_dens):
+        metrics = {}
+        for read, root in self._qc_roots.items():
+            metrics["read%s" % read] = self.getLaneMetric(root, metric, clu_dens)
+        return metrics
+
+    def getLaneMetric(self, root, metric, clu_dens, lane=None):
+        if clu_dens: densRatio = float(root.get("densityRatio"))
+        lanes = root.findall("Lane")    
+        m = {}
+        for l in lanes:
+            k = l.get("key")
+            if lane is not None and k != str(lane):
+                continue
+            val = float(l.get(metric))
+            m[k] = val
+            if clu_dens: 
+                m[k] = str(int(round((densRatio * val)/1000))) + 'K'
+        return m
+
+        
 # ## LaTeX templates for output PDF
 
 _section_template = r"""
