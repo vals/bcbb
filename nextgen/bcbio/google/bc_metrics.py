@@ -439,7 +439,7 @@ def write_run_report_to_gdocs(fc_date, fc_name, bc_metrics, ssheet_title, encode
         success &= _write_to_worksheet(client,ssheet,wsheet_title,rows,BARCODE_STATS_HEADER,append)
 
     return success
-
+    
 def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
     """Generic method to write a set of rows to a worksheet on google docs"""
     
@@ -456,5 +456,4 @@ def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
     log.info("Adding data to the '%s' worksheet" % (wsheet_title))
     return bcbio.google.spreadsheet.write_rows(client,ssheet,wsheet,[col_header[0] for col_header in header],rows)
      
-    
-    
+   
