@@ -5,7 +5,7 @@ Usage:
   project_analysis_setup.py <YAML config file> <flowcell_dir> <project_dir>
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
-                             --install_data --move_data --only_install_run_info
+                             --install_data --move_data --symlink --only_install_run_info
                              --dry_run --verbose]
 
 
@@ -29,6 +29,7 @@ Options:
                                                 to one directory <flowcell_dir> or <flowcell_alias>.
   -i, --only_install_run_info                   Only install pruned run_info file.
   -m, --move_data                               Move data instead of copying
+  -l, --symlink                                 Link data instead of copying
   -n, --dry_run                                 Don't do anything samples, just list what will happen
   -v, --verbose                                 Print some more information
 """
@@ -134,9 +135,9 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
             sys.exit()
     # Set up a raw data flowcell that contains the delivery information for raw data (demuxed fastq data)
     rawdata_fc = PostProcessedFlowcell(pruned_fc.get_fc_name(), pruned_fc.get_fc_date(), pruned_fc.to_structure()['details'], fc_alias=fc_alias)
-    rawdata_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, "data", rawdata_fc.get_fc_id())))
+    rawdata_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, "nobackup/data", rawdata_fc.get_fc_id())))
     analysis_fc = PostProcessedFlowcell(pruned_fc.get_fc_name(), pruned_fc.get_fc_date(), pruned_fc.to_structure()['details'], fc_alias=fc_alias)
-    analysis_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, "intermediate", rawdata_fc.get_fc_id())))
+    analysis_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, "nobackup/intermediate", rawdata_fc.get_fc_id())))
 
     # If customer delivery setup some special options
     if options.customer_delivery:
@@ -201,7 +202,13 @@ def _convert_barcode_id_to_name(multiplex, fc_name, fq):
     return fq.replace(from_str, to_str)
  
 def _deliver_fastq_file(fq_src, fq_tgt, outdir, fc_link_dir=None):
-    _handle_data(fq_src, os.path.join(outdir, fq_tgt), f=shutil.move if options.move else shutil.copyfile)
+    if options.link:
+        f = os.symlink
+    elif options.move:
+        f = shutil.move
+    else:
+        f = shutil.copyfile
+    _handle_data(fq_src, os.path.join(outdir, fq_tgt), f)
 
 def _make_delivery_directory(fc):
     """Make the output directory"""
@@ -266,7 +273,7 @@ if __name__ == "__main__":
     project_analysis_setup.py <YAML config file> <flowcell_dir> <project_dir>
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias>
-                             --project_desc=<project_desc>
+                             --project_desc=<project_desc> --symlink
                              --move_data --only_install_run_info --install_data
                              --dry_run --verbose]
 
@@ -283,6 +290,8 @@ if __name__ == "__main__":
     parser.add_option("-f", "--only_install_run_info", dest="only_run_info", action="store_true",
                       default=False)
     parser.add_option("-m", "--move_data", dest="move", action="store_true",
+                      default=False)
+    parser.add_option("-l", "--symlink", dest="link", action="store_true",
                       default=False)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       default=False)
