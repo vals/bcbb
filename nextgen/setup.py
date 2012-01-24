@@ -53,4 +53,3 @@ setup(name = "bcbio-nextgen",
           #"rpy2 >= 2.0.7"
       ])
 os.system("git rev-parse --short --verify HEAD > ~/.bcbb_pipeline_version")
- 
