@@ -72,8 +72,9 @@ from optparse import OptionParser
 import sys
 import shutil
 import yaml
+import re
+import unittest
 
-import pdb
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio.solexa import INDEX_LOOKUP
 
@@ -97,12 +98,16 @@ def main(fastq, run_info_file, lane, out_file,
         minus_offset = None
     else:
         minus_offset = -offset
+
     for title, sequence, quality in FastqGeneralIterator(in_handle):
         bcode = sequence[-(offset + length):minus_offset].strip()
         if mode == "demultiplex":
-            out_writer(bcode, title, sequence, quality, None, None, None)
+            new_title = convert_old_fastq_header(title, bcode)
+            out_writer(bcode, new_title,
+            sequence[:-(offset + length)], quality[:-(offset + length)], \
+            None, None, None)
         bcodes[bcode] += 1
-        # Count number not A in the last one
+        # TODO: Count number not A in the last one
 
     if mode == "demultiplex":
         out_writer.close()
@@ -111,11 +116,20 @@ def main(fastq, run_info_file, lane, out_file,
     if not run_info_file:
         bc_matched = _get_common_barcodes(bcodes, cutoff)
 
+    # Get the barcode statistics
+    # bcm_nums, bcm_parts = _get_barcode_statistics(bc_matched,bcodes)
+
+    # TODO: Match matched bcs against each other.
+
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
         bc_grouping = \
         match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
         rename_masked_filenames(out_format)
+
+        # TODO:
+        # Put back the barcodes where they came from in the unmatched sequences
+        # Or perhaps other strategy for trimming the barcodes...
 
     elif mode == "count":
         bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
@@ -127,8 +141,29 @@ def main(fastq, run_info_file, lane, out_file,
         yaml.dump(bc_grouping.__dict__, out_handle, width=70)
 
 
+def convert_old_fastq_header(title, barcode):
+    """Convert a header/title from a fastq file from the old format to the
+    new format (after CASAVA 1.8).
+    """
+    old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
+    ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
+    ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
+
+    m = old_fastq_header_re.match(title.rstrip())
+    # if m:
+    new_title = \
+    "@%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
+    % m.groupdict()
+    new_title += barcode
+    # else:
+    #     new_title = title
+
+    return new_title
+
+
 def _get_barcode_statistics(exp_barcodes, obs_barcodes):
-    """Get the prevalence of a particular barcode, as a number and a frequency"""
+    """Get the prevalence of a particular barcode, as a number and a frequency
+    """
     total = float(sum(obs_barcodes.itervalues()))
     print("Total after read:\t%.0f" % (total,))
     bcm_nums = []
@@ -142,7 +177,8 @@ def _get_barcode_statistics(exp_barcodes, obs_barcodes):
 
 
 def _get_common_barcodes(bcodes, cutoff):
-    """Get the barcodes that occur at a frequency above cutoff"""
+    """Get the barcodes that occur at a frequency above cutoff
+    """
     # Seperate out the most common barcodes
     total = float(sum(bcodes.itervalues()))
     bc_matched = []
@@ -227,11 +263,16 @@ class BarcodeGrouping(object):
 def _match_barcodes(bcode, given_bcodes, mismatch, masked=False):
     """Logic for matching a barcode against the given barcodes"""
 
+
+def _match_barcodes(bcode, given_bcodes, mismatch, masked=False):
+    """Logic for matching a barcode against the given barcodes"""
+
     # First check for perfect matches
     matched = ""
     if bcode in given_bcodes:
         matched = bcode
-    # If a perfect match could not be found, do a finer matching but only if we allow mismatches or the given barcodes contain masked positions
+    # If a perfect match could not be found, do a finer matching but only if
+    # we allow mismatches or the given barcodes contain masked positions.
     elif mismatch > 0 or masked:
         for gbc in given_bcodes:
             current_mismatch = bc_mismatched(bcode, gbc, mismatch)
@@ -249,7 +290,8 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     found_bcodes = set()
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
-    # Set a flag indicating whether the given barcodes contain masked nucleotides
+    # Set a flag indicating whether the given
+    # barcodes contain masked nucleotides
     masked = False
     for gbc in given_bcodes:
         if 'N' in gbc:
@@ -301,7 +343,8 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
 
     assert mismatch >= 0, "Amount of mismatch cannot be negative."
 
-    # Set a flag indicating whether the given barcodes contain masked nucleotides
+    # Set a flag indicating whether the given
+    # barcodes contain masked nucleotides
     masked = False
     for gbc in given_bcodes:
         if 'N' in gbc:
@@ -531,3 +574,18 @@ if __name__ == "__main__":
     main(fastq, run_info, int(options.lane), options.out_file, \
     int(options.length), int(options.offset), int(options.mismatch), \
     options.verbose, float(options.cutoff), options.dry_run, options.mode)
+
+
+# --- TESTS
+
+class BarcodeTest(unittest.TestCase):
+    """Test the methods in the demultiplexing script.
+    """
+    def test_convert_old_fastq_header(self):
+        """Test converting a fastq header of the old format in
+        to the new format.
+        """
+        old_header = "@HWI-ST1018:8:1101:13101:38091#0/1"
+        desired_header = "@HWI-ST1018:::8:1101:13101:38091 1:::AAAAAA"
+        new_header = convert_old_fastq_header(old_header, "AAAAAA")
+        assert new_header == desired_header, "Header conversion failed"
