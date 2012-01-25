@@ -38,7 +38,7 @@ def remote_copy(remote_info, base_dir, protocol):
     elif protocol == "rsync":
         include = []
         for fcopy in remote_info['to_copy']:
-            include.append("--include='%s/*'" % (fcopy,))
+            include.append("--include='%s**/*'" % (fcopy,))
             include.append("--include='%s'" % (fcopy,))
             # By including both these patterns we get the entire directory
             # if a directory is given, or a single file if a single file is
