@@ -4,7 +4,6 @@ import os
 import sys
 
 import logbook
-
 from bcbio import utils
 
 def create_log_handler(config, log_name):
@@ -18,7 +17,11 @@ def create_log_handler(config, log_name):
         handler = logbook.StreamHandler(sys.stdout)
         
     if email:
-        handler = logbook.MailHandler(email, [email], 
+        smtp_host = config.get("smtp_host",None)
+        smtp_port = config.get("smtp_port",25)
+        if smtp_host is not None: smtp_host = [smtp_host,smtp_port]
+            
+        handler = logbook.MailHandler(email, [email], server_addr=smtp_host,  
                                       format_string=u'''Subject: [BCBB pipeline] {record.extra[run]} \n\n {record.message}''',
                                       level='INFO', bubble = True)
     return handler
