@@ -70,6 +70,8 @@ def write_run_report_to_gdocs(fc,qc,ssheet_title,encoded_credentials,wsheet_titl
 
     qc_metrics = qc.metrics()
     qc_stats = qc.getQCstats()
+    run_cfg = qc.configuration()
+    indexread = run_cfg.indexread()
     
     # Create the header row
     header = [["Date"],["Flowcell"],["Lane"],["Description"]]
@@ -98,6 +100,8 @@ def write_run_report_to_gdocs(fc,qc,ssheet_title,encoded_credentials,wsheet_titl
                 sd = None
             cell = ""
             for read in value.keys():
+                if read.lstrip('read') in indexread:
+                    continue
                 val = "%s" % value[read][lane.get_name()]
                 if sd is not None:
                     val += " +/- %s" % sd[read][lane.get_name()]
