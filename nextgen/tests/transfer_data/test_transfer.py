@@ -33,6 +33,14 @@ test_dir_structure = \
             ]} \
         ]}, \
         {"reports": [ \
+            {"level1": [ \
+                {"level2": [ \
+                    "file21", \
+                    "file22" \
+                ]}, \
+                "file11", \
+                "file12" \
+            ]}, \
             "NumClusters_Chart.png", \
             "NumClusters_Chart.xml", \
             "NumPassedFilter25_Chart.png" \
