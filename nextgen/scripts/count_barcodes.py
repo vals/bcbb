@@ -74,6 +74,7 @@ import shutil
 import yaml
 import re
 import unittest
+import glob
 
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio.solexa import INDEX_LOOKUP
@@ -149,7 +150,6 @@ def convert_old_fastq_header(title, barcode, old_fastq_header_re):
     new format (after CASAVA 1.8).
     """
     m = old_fastq_header_re.match(title.rstrip())
-    print(title)
     # if m:
     new_title = \
     "@%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
@@ -521,23 +521,26 @@ def rename_masked_filenames(out_format):
     """Output files with N in the filename should be renamed to match an
     unmasked barcode.
     """
-    import glob
-    import re
     out_glob = out_format.replace("--b--", "*")
     out_glob = out_glob.replace("--r--", "*")
     created_files = glob.glob(out_glob)
-    re_glob = re.compile(out_glob)
+    out_glob_re = out_format.replace("--b--", "(?P<multiplex_id>[\d\w]*)")
+    out_glob_re = out_glob_re.replace("--r--", "(?P<pair>\d)")
+    glob_re = re.compile(out_glob_re)
     for filename in created_files:
-        if "N" not in filename:
+        # import ipdb; ipdb.set_trace()
+        match_dict = glob_re.match(filename).groupdict()
+        barcode = match_dict["multiplex_id"]
+        if "N" not in barcode:
             continue
 
-        for _, sequence, _ in FastqGeneralIterator(open(filename)):
-            name = sequence[-6:]
-            if "N" not in name:
+        for title, _, _ in FastqGeneralIterator(open(filename)):
+            other_barcode = title[-6:]
+            if "N" not in other_barcode:
                 break
 
-        os.rename(filename, out_format.replace("--b--", name))
-        print("Changed %s -> %s" % (filename, name))
+        os.rename(filename, out_format.replace("--b--", other_barcode).replace("--r--", match_dict["pair"]))
+        print("Changed %s -> %s" % (filename, other_barcode))
 
 if __name__ == "__main__":
     parser = OptionParser()
