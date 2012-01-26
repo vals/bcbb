@@ -99,10 +99,13 @@ def main(fastq, run_info_file, lane, out_file,
     else:
         minus_offset = -offset
 
+    old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
+    ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
+    ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
     for title, sequence, quality in FastqGeneralIterator(in_handle):
         bcode = sequence[-(offset + length):minus_offset].strip()
         if mode == "demultiplex":
-            new_title = convert_old_fastq_header(title, bcode)
+            new_title = convert_old_fastq_header(title, bcode, old_fastq_header_re)
             out_writer(bcode, new_title,
             sequence[:-(offset + length)], quality[:-(offset + length)], \
             None, None, None)
@@ -141,15 +144,12 @@ def main(fastq, run_info_file, lane, out_file,
         yaml.dump(bc_grouping.__dict__, out_handle, width=70)
 
 
-def convert_old_fastq_header(title, barcode):
+def convert_old_fastq_header(title, barcode, old_fastq_header_re):
     """Convert a header/title from a fastq file from the old format to the
     new format (after CASAVA 1.8).
     """
-    old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
-    ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
-    ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
-
     m = old_fastq_header_re.match(title.rstrip())
+    print(title)
     # if m:
     new_title = \
     "@%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
@@ -258,10 +258,6 @@ class BarcodeGrouping(object):
                     self.unmatched[barcode] = info
 
                 del self.matched[barcode]
-
-
-def _match_barcodes(bcode, given_bcodes, mismatch, masked=False):
-    """Logic for matching a barcode against the given barcodes"""
 
 
 def _match_barcodes(bcode, given_bcodes, mismatch, masked=False):
@@ -469,7 +465,7 @@ class FileWriter(dict):
 
     def __call__(self, barcode, name1, seq1, qual1, name2, seq2, qual2):
         self.write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2)
-    
+
     def write_reads(self, barcode, name1, seq1, qual1, name2, seq2, qual2):
         read1name = self.output_base.replace("--r--", "1")
         read1name = read1name.replace("--b--", barcode)
@@ -534,12 +530,12 @@ def rename_masked_filenames(out_format):
     for filename in created_files:
         if "N" not in filename:
             continue
-        
+
         for _, sequence, _ in FastqGeneralIterator(open(filename)):
             name = sequence[-6:]
             if "N" not in name:
                 break
-            
+
         os.rename(filename, out_format.replace("--b--", name))
         print("Changed %s -> %s" % (filename, name))
 
@@ -585,7 +581,10 @@ class BarcodeTest(unittest.TestCase):
         """Test converting a fastq header of the old format in
         to the new format.
         """
+        old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
+        ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
+        ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
         old_header = "@HWI-ST1018:8:1101:13101:38091#0/1"
         desired_header = "@HWI-ST1018:::8:1101:13101:38091 1:::AAAAAA"
-        new_header = convert_old_fastq_header(old_header, "AAAAAA")
+        new_header = convert_old_fastq_header(old_header[1:], "AAAAAA", old_fastq_header_re)
         assert new_header == desired_header, "Header conversion failed"
