@@ -210,6 +210,7 @@ def _expected_reads(run_info_file):
         reads = read_elem.findall("Read")
     return len(reads)
 
+
 def _is_finished_dumping_checkpoint(directory):
     """Recent versions of RTA (1.10 or better), write the complete file.
 
@@ -227,6 +228,7 @@ def _is_finished_dumping_checkpoint(directory):
             v1, v2 = [float(v) for v in version.split(".")[:2]]
             if ((v1 > check_v1) or (v1 == check_v1 and v2 >= check_v2)):
                 return True
+
 
 def _files_to_copy(directory):
     """Retrieve files that should be remotely copied.
@@ -256,6 +258,7 @@ def _files_to_copy(directory):
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
             sorted(reports + fastq + run_info))
 
+
 def _read_reported(msg_db):
     """Retrieve a list of directories previous reported.
     """
@@ -266,11 +269,13 @@ def _read_reported(msg_db):
                 reported.append(line.strip())
     return reported
 
+
 def _get_directories(config):
     for directory in config["dump_directories"]:
         for dname in sorted(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]"))):
             if os.path.isdir(dname):
                 yield dname
+
 
 def _update_reported(msg_db, new_dname):
     """Add a new directory to the database of reported messages.

@@ -14,14 +14,14 @@ from bcbio.log import logger
 def remote_copy(remote_info, base_dir, protocol):
     """Securely copy files between servers.
     """
-    fc_dir = os.path.join(base_dir, os.path.basename(remote_info['directory']))
+    fc_dir = base_dir
 
     if not fabric_files.exists(fc_dir):
         fabric.run("mkdir %s" % fc_dir)
 
     if protocol == "scp" or protocol == None:
-        for fcopy in remote_info['to_copy']:
-            target_loc = os.path.join(fc_dir, fcopy)
+        for fcopy in remote_info["to_copy"]:
+            target_loc = os.path.join(fc_dir, os.path.basename(remote_info['directory']), fcopy)
             if not fabric_files.exists(target_loc):
                 target_dir = os.path.dirname(target_loc)
                 if not fabric_files.exists(target_dir):
@@ -32,29 +32,27 @@ def remote_copy(remote_info, base_dir, protocol):
                       remote_info["directory"], fcopy),
                       target_loc]
 
-                log.debug(cl)
+                logger.debug(cl)
                 fabric.run(" ".join(cl))
 
     elif protocol == "rsync":
+        include = []
         for fcopy in remote_info['to_copy']:
-            target_loc = os.path.join(fc_dir, fcopy)
-            target_dir = os.path.dirname(target_loc)
+            include.append("--include='%s**/*'" % (fcopy,))
+            include.append("--include='%s'" % (fcopy,))
+            # By including both these patterns we get the entire directory
+            # if a directory is given, or a single file if a single file is
+            # given.
 
-            if not fabric_files.exists(target_dir):
-                fabric.run("mkdir -p %s" % target_dir)
+        cl = ["rsync", "--checksum", "--archive", \
+                "--compress", "--partial", "--progress", \
+                "--prune-empty-dirs", "--verbose", "--include='*/'", \
+                " ".join(include), "--exclude='*'", \
+                "%s@%s:%s" % (remote_info["user"], remote_info["hostname"], \
+                remote_info["directory"]), fc_dir]
 
-            if os.path.isdir("%s/%s" % (remote_info["directory"], fcopy)) \
-            and fcopy[-1] != "/":
-                fcopy += "/"
-
-            # Option -P --append should enable resuming progress on
-            # partial transfers.
-            cl = ["rsync", "-craz", "-P", "--append", "%s@%s:%s/%s" %
-                  (remote_info["user"], remote_info["hostname"],
-                   remote_info["directory"], fcopy), fc_dir]
-
-            log.debug(cl)
-            fabric.run(" ".join(cl))
+        logger.debug(cl)
+        fabric.run(" ".join(cl))
 
     # Note: rdiff-backup doesn't have the ability to resume a partial transfer,
     # and will instead transfer the backup from the beginning if it detects a
@@ -69,7 +67,7 @@ def remote_copy(remote_info, base_dir, protocol):
               "%s@%s::%s" % (remote_info["user"], remote_info["hostname"],
               remote_info["directory"]), fc_dir]
 
-        log.debug(cl)
+        logger.debug(cl)
         fabric.run(" ".join(cl))
 
     return fc_dir
