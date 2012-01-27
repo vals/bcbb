@@ -103,16 +103,24 @@ def main(fastq, run_info_file, lane, out_file,
     old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
     ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
     ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
+    title_format_checked = False
+    reformat_title = False
     for title, sequence, quality in FastqGeneralIterator(in_handle):
         bcode = sequence[-(offset + length):minus_offset].strip()
         if mode == "demultiplex":
-            new_title = convert_old_fastq_header(title, bcode, old_fastq_header_re)
-            out_writer(bcode, new_title,
-            sequence[:-(offset + length)], quality[:-(offset + length)], \
-            None, None, None)
+            # new_title = convert_old_fastq_header(title, bcode, old_fastq_header_re)
+            if not title_format_checked and old_fastq_header_re.match(title):
+                reformat_title = True
+                title_format_checked = True
+
+            out_writer(bcode, title, sequence, quality, None, None, None)
+            # out_writer(bcode, title,
+            # sequence[:-(offset + length)], quality[:-(offset + length)], \
+            # None, None, None)
         bcodes[bcode] += 1
         # TODO: Count number not A in the last one
 
+    in_handle.close()
     if mode == "demultiplex":
         out_writer.close()
 
@@ -123,12 +131,26 @@ def main(fastq, run_info_file, lane, out_file,
     # Get the barcode statistics
     # bcm_nums, bcm_parts = _get_barcode_statistics(bc_matched,bcodes)
 
-    # TODO: Match matched bcs against each other.
-
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
         bc_grouping = \
         match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
+        # put_back_unmatched_barcodes_in_sequences(out_format)
+
+        if reformat_title:
+            out_glob = out_format.replace("--b--", "*").replace("--r--", "*")
+            out_files = [f for f in glob.glob(out_glob) if "unmatched" not in f]
+            for out_file in out_files:
+                old_handle = open(out_file)
+                new_handle = open(out_file + ".tmp", "w")
+                for title, seq, qual in FastqGeneralIterator(old_handle):
+                    barcode = seq[-7:-1]
+                    new_title = convert_old_fastq_header(title, barcode, old_fastq_header_re)
+                    new_handle.write("@%s\n%s\n+\n%s\n" % (new_title, seq[:-(offset + length)], qual[:-(offset + length)]))
+                old_handle.close()
+                new_handle.close()
+                shutil.move(out_file + ".tmp", out_file)
+
         rename_masked_filenames(out_format)
 
         # TODO:
@@ -145,6 +167,21 @@ def main(fastq, run_info_file, lane, out_file,
         yaml.dump(bc_grouping.__dict__, out_handle, width=70)
 
 
+def put_back_unmatched_barcodes_in_sequences(out_format):
+    """One might want to run the unmatched sequences through some other
+    demultiplexing script, then these must be in the correct format.
+    """
+    unmatched_filename = out_format.replace("--b--", "unmatched").replace("--r--", "1")
+    new_unmatched_filename = out_format.replace("--b--", "formattedunmatched").replace("--r--", "1")
+    unmatched_fastq = open(unmatched_filename)
+    new_unmatched_fastq = open(new_unmatched_filename, "w")
+    for title, sequence, quality in FastqGeneralIterator(unmatched_fastq):
+        new_unmatched_fastq.write("@%s\n%s\n+\n%s\n" % (title[:-6], sequence + title[-6:] + "A", quality))
+
+    unmatched_fastq.close()
+    new_unmatched_fastq.close()
+
+
 def convert_old_fastq_header(title, barcode, old_fastq_header_re):
     """Convert a header/title from a fastq file from the old format to the
     new format (after CASAVA 1.8).
@@ -152,7 +189,7 @@ def convert_old_fastq_header(title, barcode, old_fastq_header_re):
     m = old_fastq_header_re.match(title.rstrip())
     # if m:
     new_title = \
-    "@%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
+    "%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
     % m.groupdict()
     new_title += barcode
     # else:
@@ -528,14 +565,13 @@ def rename_masked_filenames(out_format):
     out_glob_re = out_glob_re.replace("--r--", "(?P<pair>\d)")
     glob_re = re.compile(out_glob_re)
     for filename in created_files:
-        # import ipdb; ipdb.set_trace()
         match_dict = glob_re.match(filename).groupdict()
         barcode = match_dict["multiplex_id"]
         if "N" not in barcode:
             continue
 
-        for title, _, _ in FastqGeneralIterator(open(filename)):
-            other_barcode = title[-6:]
+        for _, sequence, _ in FastqGeneralIterator(open(filename)):
+            other_barcode = sequence[-6:]
             if "N" not in other_barcode:
                 break
 
@@ -570,9 +606,15 @@ if __name__ == "__main__":
     # int(options.length), int(options.offset), int(options.mismatch), \
     # options.verbose, float(options.cutoff), options.dry_run, options.mode)",\
     # sort='cumulative')
-    main(fastq, run_info, int(options.lane), options.out_file, \
-    int(options.length), int(options.offset), int(options.mismatch), \
-    options.verbose, float(options.cutoff), options.dry_run, options.mode)
+    import pdb, traceback, sys
+    try:
+        main(fastq, run_info, int(options.lane), options.out_file, \
+        int(options.length), int(options.offset), int(options.mismatch), \
+        options.verbose, float(options.cutoff), options.dry_run, options.mode)
+    except:
+        type, value, tb = sys.exc_info()
+        traceback.print_exc()
+        pdb.post_mortem(tb)
 
 
 # --- TESTS
