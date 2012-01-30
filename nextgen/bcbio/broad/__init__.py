@@ -8,6 +8,7 @@ import subprocess
 
 from bcbio.broad import picardrun
 
+
 class BroadRunner:
     """Simplify running Broad commandline tools.
     """
