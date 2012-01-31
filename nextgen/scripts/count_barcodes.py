@@ -95,10 +95,6 @@ def main(fastq, run_info_file, lane, out_file,
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
     in_handle = open(fastq)
-    if offset == 0:
-        minus_offset = None
-    else:
-        minus_offset = -offset
 
     old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
     ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
@@ -106,19 +102,14 @@ def main(fastq, run_info_file, lane, out_file,
     title_format_checked = False
     reformat_title = False
     for title, sequence, quality in FastqGeneralIterator(in_handle):
-        bcode = sequence[-(offset + length):minus_offset].strip()
+        _, bcode = trim_sequence(sequence, offset, length)
         if mode == "demultiplex":
-            # new_title = convert_old_fastq_header(title, bcode, old_fastq_header_re)
             if not title_format_checked and old_fastq_header_re.match(title):
                 reformat_title = True
                 title_format_checked = True
 
             out_writer(bcode, title, sequence, quality, None, None, None)
-            # out_writer(bcode, title,
-            # sequence[:-(offset + length)], quality[:-(offset + length)], \
-            # None, None, None)
         bcodes[bcode] += 1
-        # TODO: Count number not A in the last one
 
     in_handle.close()
     if mode == "demultiplex":
@@ -128,14 +119,10 @@ def main(fastq, run_info_file, lane, out_file,
     if not run_info_file:
         bc_matched = _get_common_barcodes(bcodes, cutoff)
 
-    # Get the barcode statistics
-    # bcm_nums, bcm_parts = _get_barcode_statistics(bc_matched,bcodes)
-
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
         bc_grouping = \
         match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
-        # put_back_unmatched_barcodes_in_sequences(out_format)
 
         if reformat_title:
             out_glob = out_format.replace("--b--", "*").replace("--r--", "*")
@@ -144,18 +131,17 @@ def main(fastq, run_info_file, lane, out_file,
                 old_handle = open(out_file)
                 new_handle = open(out_file + ".tmp", "w")
                 for title, seq, qual in FastqGeneralIterator(old_handle):
-                    barcode = seq[-7:-1]
-                    new_title = convert_old_fastq_header(title, barcode, old_fastq_header_re)
-                    new_handle.write("@%s\n%s\n+\n%s\n" % (new_title, seq[:-(offset + length)], qual[:-(offset + length)]))
+                    trimmed_seq, barcode = trim_sequence(seq, offset, length)
+                    trimmed_qual, _ = trim_sequence(qual, offset, length)
+                    new_title = convert_old_fastq_header(title, barcode, \
+                    old_fastq_header_re)
+                    new_handle.write("@%s\n%s\n+\n%s\n" % \
+                    (new_title, trimmed_seq, trimmed_qual))
                 old_handle.close()
                 new_handle.close()
                 shutil.move(out_file + ".tmp", out_file)
 
         rename_masked_filenames(out_format)
-
-        # TODO:
-        # Put back the barcodes where they came from in the unmatched sequences
-        # Or perhaps other strategy for trimming the barcodes...
 
     elif mode == "count":
         bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
@@ -165,6 +151,20 @@ def main(fastq, run_info_file, lane, out_file,
 
     with open(out_file, "w+") as out_handle:
         yaml.dump(bc_grouping.__dict__, out_handle, width=70)
+
+
+def trim_sequence(sequence, offset, length):
+    """Returns the trimmed sequence as well as the barcode.
+    """
+    if offset == 0:
+        minus_offset = None
+    else:
+        minus_offset = -offset
+
+    barcode = sequence[-(offset + length):minus_offset].strip()
+    trimmed_sequence = sequence[:-(offset + length)]
+
+    return trimmed_sequence, barcode
 
 
 def put_back_unmatched_barcodes_in_sequences(out_format):
@@ -187,13 +187,13 @@ def convert_old_fastq_header(title, barcode, old_fastq_header_re):
     new format (after CASAVA 1.8).
     """
     m = old_fastq_header_re.match(title.rstrip())
-    # if m:
-    new_title = \
-    "%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
-    % m.groupdict()
-    new_title += barcode
-    # else:
-    #     new_title = title
+    if m:
+        new_title = \
+        "%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
+        % m.groupdict()
+        new_title += barcode
+    else:
+        new_title = title
 
     return new_title
 
@@ -561,8 +561,8 @@ def rename_masked_filenames(out_format):
     out_glob = out_format.replace("--b--", "*")
     out_glob = out_glob.replace("--r--", "*")
     created_files = glob.glob(out_glob)
-    out_glob_re = out_format.replace("--b--", "(?P<multiplex_id>[\d\w]*)")
-    out_glob_re = out_glob_re.replace("--r--", "(?P<pair>\d)")
+    out_glob_re = out_format.replace("--b--", r"(?P<multiplex_id>[\d\w]*)")
+    out_glob_re = out_glob_re.replace("--r--", r"(?P<pair>\d)")
     glob_re = re.compile(out_glob_re)
     for filename in created_files:
         match_dict = glob_re.match(filename).groupdict()
@@ -570,8 +570,8 @@ def rename_masked_filenames(out_format):
         if "N" not in barcode:
             continue
 
-        for _, sequence, _ in FastqGeneralIterator(open(filename)):
-            other_barcode = sequence[-6:]
+        for title, _, _ in FastqGeneralIterator(open(filename)):
+            other_barcode = title[-6:]
             if "N" not in other_barcode:
                 break
 
@@ -622,6 +622,22 @@ if __name__ == "__main__":
 class BarcodeTest(unittest.TestCase):
     """Test the methods in the demultiplexing script.
     """
+    def setUp(self):
+        self.example_sequence = \
+        "AGAGGAAAAGAGGAAGAGAGGAATATAAAATTTATTTTTGCTACTATTTA" + \
+        "TTTTACTATTTGACCATTTTTACTGCTATTTTCACTCACTCAAATATGGTTGCCAATA"
+
+    def test_trim_sequence(self):
+        """Test trimming the barcode from the sequence.
+        """
+        desired_sequence = \
+        "AGAGGAAAAGAGGAAGAGAGGAATATAAAATTTATTTTTGCTACTATTTA" + \
+        "TTTTACTATTTGACCATTTTTACTGCTATTTTCACTCACTCAAATATGGTT"
+        desired_barcode = "GCCAAT"
+        trimmed_sequence, barcode = trim_sequence(self.example_sequence, 1, 6)
+        assert desired_sequence == trimmed_sequence, "Sequence not trimmed correctly"
+        assert desired_barcode == barcode, "Barcode not extracted correctly"
+
     def test_convert_old_fastq_header(self):
         """Test converting a fastq header of the old format in
         to the new format.
@@ -630,6 +646,7 @@ class BarcodeTest(unittest.TestCase):
         ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
         ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
         old_header = "@HWI-ST1018:8:1101:13101:38091#0/1"
-        desired_header = "@HWI-ST1018:::8:1101:13101:38091 1:::AAAAAA"
+        desired_header = "HWI-ST1018:::8:1101:13101:38091 1:::AAAAAA"
         new_header = convert_old_fastq_header(old_header[1:], "AAAAAA", old_fastq_header_re)
-        assert new_header == desired_header, "Header conversion failed"
+        assert new_header == desired_header, "Header conversion failed: \n%s\n%s" % \
+        (new_header, desired_header)
