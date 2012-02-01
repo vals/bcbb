@@ -189,7 +189,8 @@ class Lane:
         self.set_description(data.get("description",None))
         self.set_name(data.get("lane",None))
         self.set_samples(data.get("multiplex",[]))
-    
+        self.set_files([])
+
     def get_analysis(self):
         return self.data.get("analysis",None)
     
@@ -237,7 +238,12 @@ class Lane:
         self.multiplex = []
         for barcode in multiplex:
             self.add_sample(BarcodedSample(barcode,self))
-        
+
+    def set_files(self, files):
+        self.files = files
+    def get_files(self):
+        return self.files
+
     def get_samples_by_project(self,project):
         samples = []
         for sample in self.get_samples():
@@ -285,6 +291,8 @@ class Lane:
             struct["description"] = self.get_description()
         if (self.get_name()):
             struct["lane"] = self.get_name()
+        if (self.get_files()):
+            struct["files"] = self.get_files()
         if (self.get_samples()):
             struct["multiplex"] = []
             for sample in self.get_samples():

@@ -71,6 +71,14 @@ class PostProcessedFlowcell(Flowcell):
         if fc_results_dir is None:
             fc_results_dir = fc_dir
         self.set_fc_results_dir(fc_results_dir)
+        self.fastq_files = []
+
+    def add_fastq_files(self, fq):
+        self.fastq_files.append(fq)
+    def set_fastq_files(self, fq):
+        self.fastq_files = fq
+    def get_fastq_files(self):
+        return self.fastq_files
 
     def get_fc_id(self):
         return "%s_%s" % (self.get_fc_date(), self.get_fc_name())
@@ -147,12 +155,14 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
 
     _make_delivery_directory(rawdata_fc)
     _make_delivery_directory(analysis_fc)
-    _save_run_info(rawdata_fc, run_exit=options.only_run_info)
     run_main(pruned_fc, rawdata_fc, analysis_fc)
 
 def run_main(pruned_fc, rawdata_fc, analysis_fc):
+    rawdata_fc.set_lanes([])
     for lane in pruned_fc.get_lanes():
-        process_lane(lane, pruned_fc, rawdata_fc, analysis_fc)
+        new_lane = process_lane(lane, pruned_fc, rawdata_fc, analysis_fc)
+        rawdata_fc.add_lane(new_lane)
+    _save_run_info(rawdata_fc)
 
 def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     """Models bcbio process lane"""
@@ -164,21 +174,21 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     fq = _get_barcoded_fastq_files(lane, multiplex, pruned_fc.get_fc_date(), pruned_fc.get_fc_name(), pruned_fc.get_fc_dir())
 
     ## Move data along with fastq files
-    if options.customer_delivery:
-        fc_bc_dir = rawdata_fc.get_fc_dir()
-    else: 
-        fc_bc_dir = os.path.join(rawdata_fc.get_fc_dir(), "%s_%s_%s_barcode" % (lane.get_name(), rawdata_fc.get_fc_date(), rawdata_fc.get_fc_name()))
-    _make_dir(fc_bc_dir, "fastq.txt barcode directory")
+    fc_data_dir = rawdata_fc.get_fc_dir()
+    _make_dir(fc_data_dir, "data delivery directory")
     if options.install_data:
         data, fastqc = _get_analysis_results(pruned_fc, lane)
         _deliver_data(data, fastqc, analysis_fc.get_fc_dir())
-
+    fastq_targets = list()
     for fqpair in fq:
         for fastq_src in fqpair:
             fastq_tgt = fastq_src
             if options.customer_delivery:
                 fastq_tgt = _convert_barcode_id_to_name(multiplex, rawdata_fc.get_fc_name(), fastq_src)
-            _deliver_fastq_file(fastq_src, os.path.basename(fastq_tgt), fc_bc_dir)
+            _deliver_fastq_file(fastq_src, os.path.basename(fastq_tgt), fc_data_dir)
+            fastq_targets.append(os.path.join(fc_data_dir, os.path.basename(fastq_tgt)))
+    lane.set_files(fastq_targets)
+    return lane
 
 def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
     fq = list()
@@ -224,6 +234,8 @@ def _make_dir(dir, label):
         logger.warn("%s already exists: not creating new directory" % (dir))
 
 def _handle_data(src, tgt, f=shutil.copyfile):
+    if options.only_run_info:
+        return
     if src is None:
         return
     if os.path.exists(tgt):
@@ -257,7 +269,7 @@ def _get_analysis_results(fc, lane):
     fastqc = glob.glob(glob_str)
     return data, fastqc
 
-def _save_run_info(fc, run_exit=False):
+def _save_run_info(fc):
     outfile = os.path.join(fc.get_fc_dir(), "project_run_info.yaml")
     if not options.dry_run:
         with open(outfile, "w") as out_handle:
@@ -265,8 +277,6 @@ def _save_run_info(fc, run_exit=False):
     else:
         print "DRY_RUN:"
         yaml.dump(fc.to_structure(), stream=sys.stdout)
-    if run_exit:
-        sys.exit()
 
 if __name__ == "__main__":
     usage = """
