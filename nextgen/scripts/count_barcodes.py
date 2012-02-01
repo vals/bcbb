@@ -81,7 +81,7 @@ from bcbio.solexa import INDEX_LOOKUP
 
 
 def main(fastq1, fastq2, barcode_file, lane, out_file,
-    length, offset, mismatch, verbose, cutoff, dry_run, mode):
+    length, offset, mismatch, verbose, cutoff, dry_run, mode, out_format):
 
     bc_matched = []
     if barcode_file:
@@ -95,14 +95,14 @@ def main(fastq1, fastq2, barcode_file, lane, out_file,
                 for line in (l for l in in_handle if not l.startswith("#")):
                     name, seq = line.rstrip("\r\n").split()
                     barcodes[seq] = name
-            return barcodes.keys()
+            bc_matched = barcodes.keys()
 
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
     in_handle = open(fastq1)
 
     if mode == "demultiplex":
-        out_format = fastq1.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
+        out_format = fastq1.split(".")[0] + out_format
         out_writer = FileWriter(out_format)
 
         if fastq2 is not None:
@@ -679,6 +679,7 @@ if __name__ == "__main__":
                                                         action="store_true")
     parser.add_option("--mode", dest="mode", default="demultiplex")
     parser.add_option("--DEBUG", dest="debug", default=False, action="store_true")
+    parser.add_option("--out_format", dest="out_format", default="_out/out_--b--_--r--_fastq.txt")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq1, = args
@@ -701,12 +702,12 @@ if __name__ == "__main__":
     try:
         main(fastq1, fastq2, run_info, int(options.lane), options.out_file, \
         int(options.length), int(options.offset), int(options.mismatch), \
-        options.verbose, float(options.cutoff), options.dry_run, options.mode)
+        options.verbose, float(options.cutoff), options.dry_run, options.mode, \
+        options.out_format)
     except Exception as e:
         if options.debug:
             import pdb
             import traceback
-            import sys
             type, value, tb = sys.exc_info()
             traceback.print_exc()
             pdb.post_mortem(tb)
