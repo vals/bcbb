@@ -80,74 +80,127 @@ from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio.solexa import INDEX_LOOKUP
 
 
-def main(fastq, run_info_file, lane, out_file,
+def main(fastq1, fastq2, barcode_file, lane, out_file,
     length, offset, mismatch, verbose, cutoff, dry_run, mode):
 
     bc_matched = []
-    if run_info_file:
-        bc_matched = _get_run_info_barcodes(run_info_file, lane)
-        compare_run_info_and_index_lookup(bc_matched)
-
-    if mode == "demultiplex":
-        out_format = fastq.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
-        out_writer = FileWriter(out_format)
+    if barcode_file:
+        if barcode_file.split(".")[-1] == "yaml":
+            bc_matched = _get_run_info_barcodes(barcode_file, lane)
+            print(bc_matched)
+            compare_run_info_and_index_lookup(bc_matched)
+        elif barcode_file.split(".")[-1] == "cfg":
+            raise NotImplementedError
 
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
-    in_handle = open(fastq)
+    in_handle = open(fastq1)
+
+    if mode == "demultiplex":
+        out_format = fastq1.split(".")[0] + "_out/out_--b--_--r--_fastq.txt"
+        out_writer = FileWriter(out_format)
+
+        if fastq2 is not None:
+            in_handle2 = open(fastq2)
 
     old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
     ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
     ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
     title_format_checked = False
     reformat_title = False
-    for title, sequence, quality in FastqGeneralIterator(in_handle):
-        _, bcode = trim_sequence(sequence, offset, length)
-        if mode == "demultiplex":
-            if not title_format_checked and old_fastq_header_re.match(title):
-                reformat_title = True
-                title_format_checked = True
+    if fastq2 is None:
+        for title, sequence, quality in FastqGeneralIterator(in_handle):
+            _, bcode = trim_sequence(sequence, offset, length)
+            if mode == "demultiplex":
+                if not title_format_checked and old_fastq_header_re.match(title):
+                    reformat_title = True
+                    title_format_checked = True
 
-            out_writer(bcode, title, sequence, quality, None, None, None)
-        bcodes[bcode] += 1
+                out_writer(bcode, title, sequence, quality, None, None, None)
+            bcodes[bcode] += 1
+    else:
+        for (title1, sequence1, quality1), (title2, sequence2, quality2) in \
+        izip(FastqGeneralIterator(in_handle), FastqGeneralIterator(in_handle2)):
+            _, bcode = trim_sequence(sequence1, offset, length)
+            if mode == "demultiplex":
+                if not title_format_checked and old_fastq_header_re.match(title1):
+                    reformat_title = True
+                    title_format_checked = True
+
+                out_writer(bcode, title1, sequence1, quality1, title2, sequence2, quality2)
+
+            bcodes[bcode] += 1
 
     in_handle.close()
+
     if mode == "demultiplex":
         out_writer.close()
+        if fastq2 is not None:
+            in_handle2.close()
 
     # Automatically determine which barcodes to use unless a run_info file was specified
-    if not run_info_file:
+    if not barcode_file:
         bc_matched = _get_common_barcodes(bcodes, cutoff)
 
     if mode == "demultiplex":
         # Check with mismatch against most common, split fastq files.
-        bc_grouping = \
-        match_and_merge(dict(bcodes), bc_matched, mismatch, out_format)
+        bc_grouping = match_and_merge(dict(bcodes), bc_matched, mismatch, \
+        out_format, paired=bool(fastq2))
 
         if reformat_title:
-            out_glob = out_format.replace("--b--", "*").replace("--r--", "*")
+            out_glob = out_format.replace("--b--", "*").replace("--r--", "1")
             out_files = [f for f in glob.glob(out_glob) if "unmatched" not in f]
-            for out_file in out_files:
-                old_handle = open(out_file)
-                new_handle = open(out_file + ".tmp", "w")
-                for title, seq, qual in FastqGeneralIterator(old_handle):
-                    trimmed_seq, barcode = trim_sequence(seq, offset, length)
-                    trimmed_qual, _ = trim_sequence(qual, offset, length)
-                    new_title = convert_old_fastq_header(title, barcode, \
-                    old_fastq_header_re)
-                    new_handle.write("@%s\n%s\n+\n%s\n" % \
-                    (new_title, trimmed_seq, trimmed_qual))
-                old_handle.close()
-                new_handle.close()
-                shutil.move(out_file + ".tmp", out_file)
+            if fastq2 is not None:
+                out_glob2 = out_format.replace("--b--", "*").replace("--r--", "2")
+                out_files2 = [f for f in glob.glob(out_glob2) if "unmatched" not in f]
 
-        rename_masked_filenames(out_format)
+            if fastq2 is None:
+                for out_file in out_files:
+                    old_handle = open(out_file)
+                    new_handle = open(out_file + ".tmp", "w")
+                    for title, seq, qual in FastqGeneralIterator(old_handle):
+                        trimmed_seq, barcode = trim_sequence(seq, offset, length)
+                        trimmed_qual, _ = trim_sequence(qual, offset, length)
+                        new_title = convert_old_fastq_header(title, barcode, \
+                        old_fastq_header_re)
+                        new_handle.write("@%s\n%s\n+\n%s\n" % \
+                        (new_title, trimmed_seq, trimmed_qual))
+                    old_handle.close()
+                    new_handle.close()
+                    shutil.move(out_file + ".tmp", out_file)
+
+            else:
+                for out_file1, out_file2 in zip(out_files, out_files2):
+                    old_handle1 = open(out_file1)
+                    old_handle2 = open(out_file2)
+                    new_handle1 = open(out_file1 + ".tmp", "w")
+                    new_handle2 = open(out_file2 + ".tmp", "w")
+                    for (title, seq1, qual1), (_, seq2, qual2) in \
+                    izip(FastqGeneralIterator(old_handle1), FastqGeneralIterator(old_handle2)):
+                        trimmed_seq1, barcode = trim_sequence(seq1, offset, length)
+                        trimmed_qual1, _ = trim_sequence(qual1, offset, length)
+                        new_title1 = convert_old_fastq_header(title, barcode, \
+                        old_fastq_header_re, pair="1")
+                        new_title2 = convert_old_fastq_header(title, barcode, \
+                        old_fastq_header_re, pair="2")
+                        new_handle1.write("@%s\n%s\n+\n%s\n" % \
+                        (new_title1, trimmed_seq1, trimmed_qual1))
+                        new_handle2.write("@%s\n%s\n+\n%s\n" % \
+                        (new_title2, seq2, qual2))
+                    old_handle1.close()
+                    old_handle2.close()
+                    new_handle1.close()
+                    new_handle2.close()
+                    shutil.move(out_file1 + ".tmp", out_file1)
+                    shutil.move(out_file2 + ".tmp", out_file2)
+
+        rename_masked_filenames(out_format, bool(fastq2))
 
     elif mode == "count":
         bc_grouping = match_and_count(dict(bcodes), bc_matched, mismatch)
 
     if not out_file:
-        out_file = fastq.split(".txt")[0] + "_barcodes.yaml"
+        out_file = fastq1.split(".txt")[0] + "_barcodes.yaml"
 
     with open(out_file, "w+") as out_handle:
         yaml.dump(bc_grouping.__dict__, out_handle, width=70)
@@ -182,15 +235,17 @@ def put_back_unmatched_barcodes_in_sequences(out_format):
     new_unmatched_fastq.close()
 
 
-def convert_old_fastq_header(title, barcode, old_fastq_header_re):
+def convert_old_fastq_header(title, barcode, old_fastq_header_re, pair="1"):
     """Convert a header/title from a fastq file from the old format to the
     new format (after CASAVA 1.8).
     """
     m = old_fastq_header_re.match(title.rstrip())
     if m:
+        matchdict = m.groupdict()
+        matchdict[pair] = pair
         new_title = \
         "%(instrument)s:::%(fc_lane)s:%(tile)s:%(x)s:%(y)s %(pair)s:::" \
-        % m.groupdict()
+        % matchdict
         new_title += barcode
     else:
         new_title = title
@@ -230,15 +285,16 @@ def _get_common_barcodes(bcodes, cutoff):
 def _get_run_info_barcodes(run_info_file, lane=0):
     """Extract the barcodes to demultiplex against from run_info file"""
 
-    barcodes = {}
+    barcodes = set([])
     with open(run_info_file) as fh:
         run_info = yaml.load(fh)
         for lane_info in run_info:
             if (lane != 0 and int(lane_info.get("lane", 0)) != lane):
                 continue
             for bc in lane_info.get("multiplex", {}):
-                barcodes[bc.get("sequence", "")] = 1
-    return barcodes.keys()
+                barcodes.add(bc["sequence"])
+
+    return list(barcodes)
 
 
 class BarcodeGrouping(object):
@@ -359,7 +415,7 @@ def match_and_count(bcodes, given_bcodes, mismatch):
     return bc_grouping
 
 
-def match_and_merge(bcodes, given_bcodes, mismatch, format):
+def match_and_merge(bcodes, given_bcodes, mismatch, format, paired=False):
     """Matches barcodes and merges the corresponding splitted fastq files in to
     the large fastq files.
     Returns a dictionary with matched barcodes along with info.
@@ -396,9 +452,9 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
             found_bcodes.add(bc)
 
             if match != bc:
-                merge_matched_files(match, bc, format, merger)
+                merge_matched_files(match, bc, format, merger, paired)
         else:
-            merge_matched_files("unmatched", bc, format, merger)
+            merge_matched_files("unmatched", bc, format, merger, paired)
 
     merger.close()
 
@@ -421,7 +477,7 @@ def match_and_merge(bcodes, given_bcodes, mismatch, format):
     return bc_grouping
 
 
-def merge_matched_files(primary_bc, matched_bc, format, merger):
+def merge_matched_files(primary_bc, matched_bc, format, merger, paired=False):
     """Merges the fastq file corresponding to matched_bc in to the fastq file
     corresponding to primary_bc.
     """
@@ -431,6 +487,14 @@ def merge_matched_files(primary_bc, matched_bc, format, merger):
     merger(matched_file, primary_file)
 
     os.remove(matched_file)
+
+    if paired:
+        matched_file = format.replace("--r--", "2").replace("--b--", matched_bc)
+        primary_file = format.replace("--r--", "2").replace("--b--", primary_bc)
+
+        merger(matched_file, primary_file)
+
+        os.remove(matched_file)
 
 
 def bc_mismatched(bc, bc_given, mismatch):
@@ -554,12 +618,12 @@ def compare_run_info_and_index_lookup(run_info_barcodes):
     return unknown
 
 
-def rename_masked_filenames(out_format):
+def rename_masked_filenames(out_format, paired=False):
     """Output files with N in the filename should be renamed to match an
     unmasked barcode.
     """
     out_glob = out_format.replace("--b--", "*")
-    out_glob = out_glob.replace("--r--", "*")
+    out_glob = out_glob.replace("--r--", "1")
     created_files = glob.glob(out_glob)
     out_glob_re = out_format.replace("--b--", r"(?P<multiplex_id>[\d\w]*)")
     out_glob_re = out_glob_re.replace("--r--", r"(?P<pair>\d)")
@@ -575,8 +639,12 @@ def rename_masked_filenames(out_format):
             if "N" not in other_barcode:
                 break
 
-        os.rename(filename, out_format.replace("--b--", other_barcode).replace("--r--", match_dict["pair"]))
+        os.rename(filename, out_format.replace("--b--", other_barcode).replace("--r--", "1"))
         print("Changed %s -> %s" % (filename, other_barcode))
+        if paired:
+            filename2 = out_format.replace("--b--", barcode).replace("--r--", "2")
+            new_filename2 = out_format.replace("--b--", other_barcode).replace("--r--", "2")
+            os.rename(filename2, new_filename2)
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -591,12 +659,17 @@ if __name__ == "__main__":
     parser.add_option("-n", "--dryrun", dest="dry_run", default=False, \
                                                         action="store_true")
     parser.add_option("--mode", dest="mode", default="demultiplex")
+    parser.add_option("--DEBUG", dest="debug", default=False, action="store_true")
     options, args = parser.parse_args()
     if len(args) == 1:
-        fastq, = args
+        fastq1, = args
+        fastq2 = None
         run_info = None
     elif len(args) == 2:
-        fastq, run_info = args
+        fastq1, fastq2 = args
+        run_info = None
+    elif len(args) == 3:
+        fastq1, fastq2, run_info = args
     else:
         print __doc__
         sys.exit()
@@ -606,15 +679,20 @@ if __name__ == "__main__":
     # int(options.length), int(options.offset), int(options.mismatch), \
     # options.verbose, float(options.cutoff), options.dry_run, options.mode)",\
     # sort='cumulative')
-    import pdb, traceback, sys
     try:
-        main(fastq, run_info, int(options.lane), options.out_file, \
+        main(fastq1, fastq2, run_info, int(options.lane), options.out_file, \
         int(options.length), int(options.offset), int(options.mismatch), \
         options.verbose, float(options.cutoff), options.dry_run, options.mode)
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+    except Exception as e:
+        if options.debug:
+            import pdb
+            import traceback
+            import sys
+            type, value, tb = sys.exc_info()
+            traceback.print_exc()
+            pdb.post_mortem(tb)
+        else:
+            raise e
 
 
 # --- TESTS
