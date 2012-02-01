@@ -90,7 +90,12 @@ def main(fastq1, fastq2, barcode_file, lane, out_file,
             print(bc_matched)
             compare_run_info_and_index_lookup(bc_matched)
         elif barcode_file.split(".")[-1] == "cfg":
-            raise NotImplementedError
+            barcodes = {}
+            with open(barcode_file) as in_handle:
+                for line in (l for l in in_handle if not l.startswith("#")):
+                    name, seq = line.rstrip("\r\n").split()
+                    barcodes[seq] = name
+            return barcodes.keys()
 
     # Collect counts for all observed barcodes
     bcodes = collections.defaultdict(int)
@@ -106,27 +111,41 @@ def main(fastq1, fastq2, barcode_file, lane, out_file,
     old_fastq_header_re = re.compile(r"(?P<instrument>[\d\w-]*)"
     ":(?P<fc_lane>\d*):(?P<tile>\d*):(?P<x>\d*)"
     ":(?P<y>\d*)#(?P<multiplex_id>[\d\w]*)/(?P<pair>\d)")
-    title_format_checked = False
     reformat_title = False
     if fastq2 is None:
+        fastq1_iterator = FastqGeneralIterator(in_handle)
+        title, sequence, quality = fastq1_iterator.next()
+        _, bcode = trim_sequence(sequence, offset, length)
+
+        if mode == "demultiplex":
+            if old_fastq_header_re.match(title):
+                reformat_title = True
+            out_writer(bcode, title, sequence, quality, None, None, None)
+
         for title, sequence, quality in FastqGeneralIterator(in_handle):
             _, bcode = trim_sequence(sequence, offset, length)
-            if mode == "demultiplex":
-                if not title_format_checked and old_fastq_header_re.match(title):
-                    reformat_title = True
-                    title_format_checked = True
 
+            if mode == "demultiplex":
                 out_writer(bcode, title, sequence, quality, None, None, None)
-            bcodes[bcode] += 1
-    else:
-        for (title1, sequence1, quality1), (title2, sequence2, quality2) in \
-        izip(FastqGeneralIterator(in_handle), FastqGeneralIterator(in_handle2)):
-            _, bcode = trim_sequence(sequence1, offset, length)
-            if mode == "demultiplex":
-                if not title_format_checked and old_fastq_header_re.match(title1):
-                    reformat_title = True
-                    title_format_checked = True
 
+            bcodes[bcode] += 1
+
+    else:
+        fastqs_iterator = izip(FastqGeneralIterator(in_handle), FastqGeneralIterator(in_handle2))
+        (title1, sequence1, quality1), (title2, sequence2, quality2) = \
+        fastqs_iterator.next()
+        _, bcode = trim_sequence(sequence1, offset, length)
+
+        if mode == "demultiplex":
+            if old_fastq_header_re.match(title1):
+                reformat_title = True
+            out_writer(bcode, title1, sequence1, quality1, title2, sequence2, quality2)
+
+        for (title1, sequence1, quality1), (title2, sequence2, quality2) in \
+        fastqs_iterator:
+            _, bcode = trim_sequence(sequence1, offset, length)
+
+            if mode == "demultiplex":
                 out_writer(bcode, title1, sequence1, quality1, title2, sequence2, quality2)
 
             bcodes[bcode] += 1
@@ -282,7 +301,7 @@ def _get_common_barcodes(bcodes, cutoff):
     return bc_matched
 
 
-def _get_run_info_barcodes(run_info_file, lane=0):
+def _get_run_info_barcodes(run_info_file, lane=0, length=6):
     """Extract the barcodes to demultiplex against from run_info file"""
 
     barcodes = set([])
@@ -292,7 +311,7 @@ def _get_run_info_barcodes(run_info_file, lane=0):
             if (lane != 0 and int(lane_info.get("lane", 0)) != lane):
                 continue
             for bc in lane_info.get("multiplex", {}):
-                barcodes.add(bc["sequence"])
+                barcodes.add(bc["sequence"][:length])
 
     return list(barcodes)
 
