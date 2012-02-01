@@ -564,14 +564,40 @@ modified scripts of the analysis pipeline scripts have to be used:
 * `scripts/project_exome_pipeline.py` -- performs the same analyses as
   automated_initial_analysis.py, but starts with demultiplexed data
 
+
+[ip1]: http://docutils.sourceforge.net/rst.html
+[ip2]: http://sphinx.pocoo.org
+[ip3]: http://paver.github.com/paver/
+
 ## Getting v 0.3a working
 
 Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
 
     export LC_ALL=en_US.utf-8
 
+## Getting v 0.3 a working
 
+There is some required software which need be installed locally.
 
-[ip1]: http://docutils.sourceforge.net/rst.html
-[ip2]: http://sphinx.pocoo.org
-[ip3]: http://paver.github.com/paver/
+* snpEff 2.0.2
+
+Version 2.0.3 is not compatible with GATK, make sure it is 2.0.2.
+Also get the following data for snpEff 2.0.2
+
+* GRCH37.63
+* NCBIM37.73
+* athalianaTair10
+
+All for snpEff 2.0.2! It is all available on the snpEff download page.
+
+Make sure to have the environment variable LC_ALL set to en_US.utf-8 by doing
+
+    export LC_ALL=en_US.utf-8
+
+Only changing LC_NUMERIC or LC_MONETARY does not work.
+
+Also make sure to use
+
+* tophat 1.3.0
+
+or later.

@@ -98,13 +98,13 @@ def make_lane_items(info, fc_date, fc_name, dirs, config):
 
 
 def get_flowcell_id(run_info, fc_dir, check_bc=True, glob_ext="_fastq.txt"):
-    lane = None
-    for info in run_info:
-        lane = info.get("lane", "")
-    if check_bc:
-        glob_str = "%s_*_barcode/*%s" % (lane, glob_ext)
-    else:
-        glob_str = "%s_*%s" % (lane, glob_ext)
+    for lane in run_info:
+        for bc in lane:
+            if check_bc:
+                glob_str = "%s_*_barcode/*%s" % (bc['lane'], glob_ext)
+            else:
+                glob_str = "%s_*%s" % (lane, glob_ext)
+                next
     files = glob.glob(os.path.join(fc_dir, glob_str))
     try:
         (name, date) = get_flowcell_info(os.path.basename(files[0]))
