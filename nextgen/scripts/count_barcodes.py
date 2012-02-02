@@ -102,7 +102,6 @@ def main(fastq1, fastq2, barcode_file, lane, out_file,
     in_handle = open(fastq1)
 
     if mode == "demultiplex":
-        out_format = fastq1.split(".")[0] + out_format
         out_writer = FileWriter(out_format)
 
         if fastq2 is not None:
@@ -679,7 +678,8 @@ if __name__ == "__main__":
                                                         action="store_true")
     parser.add_option("--mode", dest="mode", default="demultiplex")
     parser.add_option("--DEBUG", dest="debug", default=False, action="store_true")
-    parser.add_option("--out_format", dest="out_format", default="_out/out_--b--_--r--_fastq.txt")
+    parser.add_option("--out_format", dest="out_format", \
+    default="demultiplex_out/out_--b--_--r--_fastq.txt")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq1, = args
