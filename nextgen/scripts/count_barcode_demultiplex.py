@@ -1,27 +1,4 @@
-"""Compares the Illumina HiSeq bar codes in a fastq file with a given
-samplesheet file or with bar codes given in Illumina documentation.
-# This script uses a few assumptions about how the barcoding works.
-# Since the aim is to look at Illumina HiSeq barcodes, the assumption is that
-# the barcode is located at the 3' end of read 1 for each paired-end read.
-
-Usage:
-    count_barcodes.py <fastq file> [<run info yaml file>]
-        -o, --out_file <name of yaml file to be written (if not given, the out
-                        file will be named as the fastq file, though with
-                        .txt replaced by _barcodes.yaml)>
-        -l, --length <number of characters in the bar code (default is 6)>
-        -b, --back <number of steps back from the end of each line where the
-                    bar code ends, 1 for Illumina (defualt is 0).>
-        -m, --mismatch <number of erroneous characters to consider when
-                        matching bar codes (default is 1).>
-        -v, --verbose (sets the script to print out what is written to
-                        the file)
-
-    If called only with the fastq file, the bar codes will be matched to and
-    grouped with bar codes from the Illumina documentation.
-    If also the <run info yaml file> is given, the bar codes in the fastq file
-    will be matched to the bar codes in the run info file. Index names will
-    still be extracted from the Illumina documentation table.
+"""Performs demultiplexing or just gather barcode statistics of given input.
 
 Example:
     count_barcodes.py 1_110106_FC70BUKAAXX_1_fastq.txt -v -b 1 -m 0
@@ -665,7 +642,16 @@ def rename_masked_filenames(out_format, paired=False):
             os.rename(filename2, new_filename2)
 
 if __name__ == "__main__":
-    parser = OptionParser()
+    usage = \
+    """Usage: %prog <fastq file> [<fastq2 file>] [<run info yaml file>] [options]
+
+    If called only with the fastq file, the bar codes will be matched to and
+    grouped with bar codes from the Illumina documentation.
+    If also the <run info yaml file> is given, the bar codes in the fastq file
+    will be matched to the bar codes in the run info file. Index names will
+    still be extracted from the Illumina documentation table.
+    """
+    parser = OptionParser(usage=usage)
     parser.add_option("--lane", dest="lane", default=0, \
     help="Specifies a lane (from the run_info.yaml) to use demultiplex \
     information from. Setting this to 0 means 'look at all lanes', this is also \
@@ -709,18 +695,26 @@ if __name__ == "__main__":
     run of the script. This should contain '--b--', where the barcode sequence \
     will be substituted in, and '--r--', where the pair number will be \
     substituted (will be '1' when run on fastq which isn't paired).")
+    parser.add_option("-p", "--paired", dest="paired", default=False, \
+    action="store_true", help="Indicate when supplying two arguments \
+    whether they refer to a pair of fastq files or a fastq file along with \
+    file with barcode information. If not given, two files are considered to \
+    be a single fastq file and a barcode information file.")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq1, = args
         fastq2 = None
         run_info = None
-    elif len(args) == 2:
+    elif len(args) == 2 and options.paired:
         fastq1, fastq2 = args
         run_info = None
+    elif len(args) == 2 and not options.paired:
+        fastq1, run_info = args
+        fastq2 = None
     elif len(args) == 3:
         fastq1, fastq2, run_info = args
     else:
-        print __doc__
+        parser.print_help()
         sys.exit()
 
     # import cProfile
