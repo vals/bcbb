@@ -325,13 +325,13 @@ class RTAQCMetrics:
         self._dir = base_dir
         self._configuration = IlluminaConfiguration(base_dir)
         self._metrics_path = os.path.join(base_dir,"Data","reports","Summary")
-        assert os.path.exists(self._metrics_path)
-
+        assert os.path.exists(self._metrics_path), "The RTA QC metrics folder %s does not exist" % self._metrics_path
+        
         # Assert that the readN.xml qc metrics files exist
         self._metric_files = []
         for read in self._configuration.reads().keys():
             qc_file = os.path.join(self._metrics_path,"read%s.xml" % read)
-            assert os.path.exists(qc_file)
+            assert os.path.exists(qc_file), "The RTA QC metrics file %s does not exist" % qc_file
             self._metric_files.append(qc_file)
         
         # Parse the XML files

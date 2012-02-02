@@ -9,7 +9,7 @@ class IlluminaConfiguration:
     def __init__(self, base_dir,config_xml="RunInfo.xml"):
         self._dir = base_dir
         self._run_info = os.path.join(base_dir,config_xml)
-        assert os.path.exists(self._run_info)
+        assert os.path.exists(self._run_info), "The illumina configuration xml file %s does not exist" % self._run_info
         self._parse_configuration()
         
     def _parse_configuration(self):
