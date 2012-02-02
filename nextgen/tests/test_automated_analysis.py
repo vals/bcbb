@@ -35,9 +35,9 @@ class AutomatedAnalysisTest(unittest.TestCase):
         """
         DlInfo = collections.namedtuple("DlInfo", "fname dirname version")
         download_data = [DlInfo("110106_FC70BUKAAXX.tar.gz", None, None),
-                         DlInfo("genomes_automated_test.tar.gz", "genomes", 1),
+                         DlInfo("genomes_automated_test.tar.gz", "genomes", 5),
                          DlInfo("110907_ERP000591.tar.gz", None, None),
-                         DlInfo("100326_FC6107FAAXX.tar.gz", None, None)]
+                         DlInfo("100326_FC6107FAAXX.tar.gz", None, 2)]
         for dl in download_data:
             url = "http://chapmanb.s3.amazonaws.com/{fname}".format(fname=dl.fname)
             dirname = os.path.join(data_dir, os.pardir,
@@ -64,24 +64,32 @@ class AutomatedAnalysisTest(unittest.TestCase):
         os.rename(os.path.basename(dirname), dirname)
         os.remove(os.path.basename(url))
 
-    def test_4_run_full_pipeline(self):
-        """Run full automated analysis pipeline.
+    def _get_post_process_yaml(self):
+        std = os.path.join(self.data_dir, "post_process.yaml")
+        sample = os.path.join(self.data_dir, "post_process-sample.yaml")
+        if os.path.exists(std):
+            return std
+        else:
+            return sample
+
+    def test_3_full_pipeline(self):
+        """Run full automated analysis pipeline with multiplexing.
         """
         self.setUp()
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  os.path.join(self.data_dir, "post_process.yaml"),
+                  self._get_post_process_yaml(),
                   os.path.join(self.data_dir, os.pardir, "110106_FC70BUKAAXX"),
                   os.path.join(self.data_dir, "run_info.yaml")]
             subprocess.check_call(cl)
 
-    def test_3_empty_fastq(self):
+    def test_4_empty_fastq(self):
         """Handle analysis of empty fastq inputs from failed runs.
         """
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  os.path.join(self.data_dir, "post_process.yaml"),
+                  self._get_post_process_yaml(),
                   os.path.join(self.data_dir, os.pardir, "110221_empty_FC12345AAXX"),
                   os.path.join(self.data_dir, "run_info-empty.yaml")]
             subprocess.check_call(cl)
@@ -92,19 +100,29 @@ class AutomatedAnalysisTest(unittest.TestCase):
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  os.path.join(self.data_dir, "post_process.yaml"),
+                  self._get_post_process_yaml(),
                   os.path.join(self.data_dir, os.pardir, "110907_ERP000591"),
                   os.path.join(self.data_dir, "run_info-rnaseq.yaml")]
             subprocess.check_call(cl)
 
-    # TODO: We will install SNPEff later with all needed files
-    # def test_1_variantcall(self):
-    #     """Test variant calling with GATK pipeline.
-    #     """
-    #     self._install_test_files(self.data_dir)
-    #     with make_workdir():
-    #         cl = ["automated_initial_analysis.py",
-    #               os.path.join(self.data_dir, "post_process.yaml"),
-    #               os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
-    #               os.path.join(self.data_dir, "run_info-variantcall.yaml")]
-    #         subprocess.check_call(cl)
+    def test_1_variantcall(self):
+        """Test variant calling with GATK pipeline.
+        """
+        self._install_test_files(self.data_dir)
+        with make_workdir():
+            cl = ["automated_initial_analysis.py",
+                  self._get_post_process_yaml(),
+                  os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
+                  os.path.join(self.data_dir, "run_info-variantcall.yaml")]
+            subprocess.check_call(cl)
+
+    def test_5_bam(self):
+        """Allow BAM files as input to pipeline.
+        """
+        self._install_test_files(self.data_dir)
+        with make_workdir():
+            cl = ["automated_initial_analysis.py",
+                  self._get_post_process_yaml(),
+                  os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
+                  os.path.join(self.data_dir, "run_info-bam.yaml")]
+            subprocess.check_call(cl)

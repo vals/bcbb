@@ -1,5 +1,8 @@
 """
-Test sample delivery
+Test project analysis setup.
+
+NOTE: Now there is a dependency on test_automated_analysis.py:AutomatedAnalysisTest.test_3_full_pipeline being run.
+This test generates the demultiplexed data that must exist in test_automated_output.
 """
 import os
 import sys
@@ -34,26 +37,23 @@ class SampleDeliveryTest(unittest.TestCase):
     """Deliver samples from bcbio-processed data to John Doe"""
 
     def setUp(self):
-        self.fcid = "110106_FC70BUKAAXX"
         self.file_dir = os.path.dirname(os.path.abspath(__file__))
-        self.proj_dir = os.path.join(self.file_dir, "projects")
-        self.fcdir = os.path.join(os.path.dirname(__file__), "test_automated_output")
-        self.archive_base_dir  = os.path.join(self.file_dir)
+        self.fc_dir   = os.path.join(self.file_dir, "110106_FC70BUKAAXX")
+        self.proj_dir = os.path.join(self.file_dir, "projects", "j_doe_00_01")
+        self.run_info = os.path.join(self.file_dir, "data", "automated", "run_info-project.yaml")
         self.analysis_base_dir  = os.path.join(self.file_dir)
 
-        self.post_process = os.path.join(self.analysis_base_dir, self.fcid, "post_process.yaml")
+        self.post_process = os.path.join(self.analysis_base_dir, self.fc_dir, "post_process.yaml")
         if os.path.exists(self.proj_dir):
             shutil.rmtree(self.proj_dir)
         if not os.path.exists(self.proj_dir):
             os.makedirs(self.proj_dir)
         if not os.path.exists(os.path.join(self.file_dir, "test_automated_output", "run_info.yaml")):
-            os.symlink(os.path.join(self.file_dir, "data", "automated", "run_info-project.yaml"), os.path.join(self.file_dir, "test_automated_output", "run_info.yaml"))
+            os.symlink(os.path.join(self.file_dir, "data", "automated", "run_info.yaml"), os.path.join(self.file_dir, "test_automated_output", "run_info.yaml"))
         if not os.path.exists(os.path.join(self.file_dir, "test_automated_output", "tool-data")):
             os.symlink(os.path.join(self.file_dir, "data", "automated", "tool-data"), os.path.join(self.file_dir, "test_automated_output", "tool-data"))
 
         post_process = load_config(os.path.join(self.file_dir, "data", "automated", "post_process.yaml"))
-        post_process["analysis"]["store_dir"] = os.path.join(self.archive_base_dir)
-        post_process["analysis"]["base_dir"] = os.path.join(self.analysis_base_dir)
         with open(os.path.join(self.file_dir, "test_automated_output", "post_process.yaml"), "w") as fh:
             yaml.dump(post_process, stream=fh)
 
@@ -61,40 +61,52 @@ class SampleDeliveryTest(unittest.TestCase):
         """Test dry run: don't do anything"""
         self.setUp()
         with make_workdir():
-            cl = ["sample_delivery.py",
+            cl = ["project_analysis_setup.py",
                   self.post_process,
-                  self.fcid, "j_doe_00_01",
-                  "--project_base_dir=%s" % self.proj_dir,
+                  self.fc_dir, self.proj_dir,
+                  self.run_info,
                   "--project_desc=%s" % "J.Doe_00_01",
                   "--dry_run"]
             subprocess.check_call(cl)
 
     def test_2_write_run_info_only(self):
-        """Test writing of pruned run info file"""
-        cl = ["sample_delivery.py",
+	"""Test writing of pruned run info file"""
+        cl = ["project_analysis_setup.py",
               self.post_process,
-              self.fcid, "j_doe_00_01",
-              "--project_base_dir=%s" % self.proj_dir,
+              self.fc_dir, self.proj_dir,
+              self.run_info,
               "--project_desc=%s" % "J.Doe_00_01",
               "--only_install_run_info"]
         subprocess.check_call(cl)
 
     def test_3_deliver_data_copy(self):
         """Test data delivery by default method copy"""
-        cl = ["sample_delivery.py",
+        cl = ["project_analysis_setup.py",
               self.post_process,
-              self.fcid, "j_doe_00_01",
-              "--project_base_dir=%s" % self.proj_dir,
+              self.fc_dir,  self.proj_dir,
+              self.run_info,
               "--project_desc=%s" % "J.Doe_00_01"]
         subprocess.check_call(cl)
 
-    def test_4_deliver_data(self):
-        """Test data delivery by moving"""
-        with make_workdir(link=False):
-            cl = ["sample_delivery.py",
+    def test_4_deliver_customer_data(self):
+        """Test fastq delivery to customer by copying"""
+        with (make_workdir(link=False)):
+            cl = ["project_analysis_setup.py",
                   self.post_process,
-                  self.fcid, "j_doe_00_01",
-                  "--project_base_dir=%s" % self.proj_dir, 
-                  "--project_desc=%s" % "J.Doe_00_01", "--move_data"]
+                  self.fc_dir,  self.proj_dir,
+                  self.run_info,
+                  "--flowcell_alias=%s" % "20000000_hiseq2000A",
+                  "--project_desc=%s" % "J.Doe_00_01",
+                  "--customer_delivery"]
             subprocess.check_call(cl)
 
+    def test_5_deliver_data(self):
+        """Test data delivery by moving"""
+        with make_workdir(link=False):
+            cl = ["project_analysis_setup.py",
+                  self.post_process,
+                  self.fc_dir,  self.proj_dir,
+                  self.run_info,
+                  "--install_data",
+                  "--project_desc=%s" % "J.Doe_00_01", "--move_data"]
+            subprocess.check_call(cl)

@@ -14,6 +14,7 @@ from bcbio.broad import runner_from_config
 from bcbio.broad.metrics import PicardMetrics, PicardMetricsParser
 from bcbio import utils
 
+
 # ## High level functions to generate summary PDF
 
 def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
@@ -27,6 +28,11 @@ def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
                                         tmp_dir, config)
         return _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                              dirs, config)
+
+
+def screen_for_contamination(fastq1, fastq2, config):
+    _run_fastq_screen(fastq1, fastq2, config)
+
 
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                   dirs, config):
@@ -50,6 +56,7 @@ def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
     subprocess.check_call(cl)
     return "%s.pdf" % os.path.splitext(out_file)[0]
 
+
 def _graphs_and_summary(bam_file, sam_ref, is_paired, tmp_dir, config):
     """Prepare picard/FastQC graphs and summary details.
     """
@@ -66,6 +73,7 @@ def _graphs_and_summary(bam_file, sam_ref, is_paired, tmp_dir, config):
     summary_table = _update_summary_table(summary_table, sam_ref, fastqc_stats)
     return all_graphs, summary_table, fastqc_overrep
 
+
 def _update_summary_table(summary_table, ref_file, fastqc_stats):
     stats_want = []
     summary_table[0] = (summary_table[0][0], summary_table[0][1],
@@ -76,6 +84,62 @@ def _update_summary_table(summary_table, ref_file, fastqc_stats):
     summary_table.insert(0, ("Reference organism",
         ref_org.replace("_", " "), ""))
     return summary_table
+
+
+# ## Generate project level QC summary for quickly assessing large projects
+
+def write_project_summary(samples):
+    """Write project summary information on the provided samples.
+    """
+    def _nocommas(x):
+        return x.replace(",", "")
+
+    def _percent(x):
+        return x.replace("(", "").replace(")", "").replace("\\", "")
+    out_file = os.path.join(samples[0][0]["dirs"]["work"], "project-summary.csv")
+    sample_info = _get_sample_summaries(samples)
+    header = ["Total", "Aligned", "Pair duplicates", "Insert size",
+              "On target bases", "Mean target coverage", "10x coverage targets",
+              "Zero coverage targets", "Total variations", "In dbSNP",
+              "Transition/Transversion (all)", "Transition/Transversion (dbSNP)",
+              "Transition/Transversion (novel)"]
+    select = [(0, _nocommas), (1, _percent), (1, _percent), (0, None),
+              (1, _percent), (0, None), (0, _percent),
+              (0, _percent), (0, None), (0, _percent),
+              (0, None), (0, None), (0, None)]
+    rows = [["Sample"] + header]
+    for name, info in sample_info:
+        cur = [name]
+        for col, (i, prep_fn) in zip(header, select):
+            val = info.get(col, ["", ""])[i]
+            if prep_fn and val:
+                val = prep_fn(val)
+            cur.append(val)
+        rows.append(cur)
+    with open(out_file, "w") as out_handle:
+        writer = csv.writer(out_handle)
+        for row in rows:
+            writer.writerow(row)
+
+
+def _get_sample_summaries(samples):
+    """Retrieve high level summary information for each sample.
+    """
+    out = []
+    with utils.curdir_tmpdir() as tmp_dir:
+        for sample in (x[0] for x in samples):
+            is_paired = sample.get("fastq2", None) not in ["", None]
+            _, summary, _ = _graphs_and_summary(sample["work_bam"], sample["sam_ref"],
+                                            is_paired, tmp_dir, sample["config"])
+            sample_info = {}
+            for xs in summary:
+                n = xs[0]
+                if n is not None:
+                    sample_info[n] = xs[1:]
+            sample_name = ";".join([x for x in sample["name"] if x])
+            out.append((sample_name, sample_info))
+    return out
+
 
 # ## Run and parse read information from FastQC
 
@@ -165,6 +229,29 @@ def _run_fastqc(bam_file, config):
         os.remove("%s.zip" % fastqc_out)
     return fastqc_out
 
+def _run_fastq_screen(fastq1, fastq2, config):
+    """ Runs fastq_screen on a subset of a fastq file
+    """
+    out_base = "fastq_screen"
+    utils.safe_makedir(out_base)
+    program = config.get("program", {}).get("fastq_screen", "fastq_screen")
+
+    if fastq2 is not None:
+        if os.path.exists(fastq2):
+        # paired end
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1, "--paired", fastq2]
+        else:
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1]
+    else:
+        cl = [program, "--outdir", out_base, "--subset", "2000000", \
+        "--multilib", fastq1]
+
+    if config["algorithm"].get("quality_format","").lower() == 'illumina':
+        cl.insert(1,"--illumina")
+         
+    subprocess.check_call(cl)
 
 # ## High level summary in YAML format for loading into Galaxy.
 
@@ -195,7 +282,8 @@ def summary_metrics(run_info, analysis_dir, fc_name, fc_date, fastq_dir):
     tab_out = []
     lane_info = []
     sample_info = []
-    for run in run_info["details"]:
+    for lane_xs in run_info["details"]:
+        run = lane_xs[0]
         tab_out.append([run["lane"], run.get("researcher", ""),
             run.get("name", ""), run.get("description")])
         base_info = dict(
@@ -207,17 +295,16 @@ def summary_metrics(run_info, analysis_dir, fc_name, fc_date, fastq_dir):
         cur_lane_info["metrics"] = _bustard_stats(run["lane"], fastq_dir,
                                                   fc_date, analysis_dir)
         lane_info.append(cur_lane_info)
-        for barcode in run.get("multiplex", [None]):
+        for lane_x in lane_xs:
             cur_name = "%s_%s_%s" % (run["lane"], fc_date, fc_name)
-            if barcode:
-                cur_name = "%s_%s-" % (cur_name, barcode["barcode_id"])
+            if lane_x["barcode_id"]:
+                cur_name = "%s_%s-" % (cur_name, lane_x["barcode_id"])
             stats = _metrics_from_stats(_lane_stats(cur_name, analysis_dir))
             if stats:
                 cur_run_info = copy.deepcopy(base_info)
                 cur_run_info["metrics"] = stats
-                cur_run_info["barcode_id"] = str(barcode["barcode_id"]) if barcode else ""
-                cur_run_info["barcode_type"] = (str(barcode.get("barcode_type", ""))
-                                                if barcode else "")
+                cur_run_info["barcode_id"] = str(lane_x["barcode_id"])
+                cur_run_info["barcode_type"] = str(lane_x.get("barcode_type", ""))
                 sample_info.append(cur_run_info)
     return lane_info, sample_info, tab_out
 
@@ -233,7 +320,7 @@ def _metrics_from_stats(stats):
                 )
         metrics = dict()
         for stat_name, metric_name in s_to_m.iteritems():
-            metrics[metric_name] = stats[stat_name]
+            metrics[metric_name] = stats.get(stat_name, 0)
         return metrics
 
 def _bustard_stats(lane_num, fastq_dir, fc_date, analysis_dir):

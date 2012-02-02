@@ -11,35 +11,41 @@ import pysam
 import numpy
 
 from bcbio.ngsalign import bowtie
-from bcbio.utils import safe_makedir, file_transaction
+from bcbio.utils import safe_makedir, file_exists
+from bcbio.distributed.transaction import file_transaction
 
 galaxy_location_file = "bowtie_indices.loc"
 
 _out_fnames = ["accepted_hits.sam", "junctions.bed", "insertions.bed", "deletions.bed"]
 
-def align(fastq_file, pair_file, ref_file, out_base, align_dir, config):
+def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
+          rg_name=None):
     qual_format = config["algorithm"].get("quality_format", None)
     if qual_format is None or qual_format.lower() == "illumina":
         qual_flags = ["--solexa1.3-quals"]
     else:
         qual_flags = []
+    cores = config.get("resources", {}).get("tophat", {}).get("cores", None)
+    core_flags = ["-p", str(cores)] if cores else []
     out_dir = os.path.join(align_dir, "%s_tophat" % out_base)
-    safe_makedir(out_dir)
     out_file = os.path.join(out_dir, _out_fnames[0])
     files = [ref_file, fastq_file]
-    if not os.path.exists(out_file):
-        cl = [config["program"].get("tophat", "tophat")]
-        cl += qual_flags
-        cl += ["-m", str(config["algorithm"].get("max_errors", 0)),
-               "--output-dir", out_dir]
-        if pair_file:
-            d, d_stdev = _estimate_paired_innerdist(fastq_file, pair_file, ref_file,
-                                                    out_base, out_dir, config)
-            cl += ["--mate-inner-dist", str(d),
-                   "--mate-std-dev", str(d_stdev)]
-            files.append(pair_file)
-        cl += files
-        with file_transaction([os.path.join(out_dir, f) for f in _out_fnames]):
+    if not file_exists(out_file):
+        with file_transaction(out_dir) as tx_out_dir:
+            safe_makedir(tx_out_dir)
+            cl = [config["program"].get("tophat", "tophat")]
+            cl += core_flags
+            cl += qual_flags
+            cl += ["-m", str(config["algorithm"].get("max_errors", 0)),
+                   "--output-dir", tx_out_dir,
+                   "--no-convert-bam"]
+            if pair_file:
+                d, d_stdev = _estimate_paired_innerdist(fastq_file, pair_file, ref_file,
+                                                        out_base, tx_out_dir, config)
+                cl += ["--mate-inner-dist", str(d),
+                       "--mate-std-dev", str(d_stdev)]
+                files.append(pair_file)
+            cl += files
             child = subprocess.check_call(cl)
     out_file_final = os.path.join(out_dir, "%s.sam" % out_base)
     if not os.path.exists(out_file_final):
