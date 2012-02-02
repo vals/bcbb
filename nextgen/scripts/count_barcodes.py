@@ -666,20 +666,49 @@ def rename_masked_filenames(out_format, paired=False):
 
 if __name__ == "__main__":
     parser = OptionParser()
-    parser.add_option("--lane", dest="lane", default=0)
-    parser.add_option("-o", "--out_file", dest="out_file", default=None)
-    parser.add_option("-l", "--length", dest="length", default=6)
-    parser.add_option("-b", "--back", dest="offset", default=0)
-    parser.add_option("-m", "--mismatch", dest="mismatch", default=1)
+    parser.add_option("--lane", dest="lane", default=0, \
+    help="Specifies a lane (from the run_info.yaml) to use demultiplex \
+    information from. Setting this to 0 means 'look at all lanes', this is also \
+    the default.")
+    parser.add_option("-o", "--out_file", dest="out_file", default=None, \
+     help="The name of the file where the statistics about the barcodes will \
+     be stored. If not given, the statistics will be saved in a file with \
+     the same name as the fastq file but with '.txt' replaced by \
+     '_barcodes.yaml'")
+    parser.add_option("-l", "--length", dest="length", default=6, \
+    help="The length of the barcode sequences, default is 6.")
+    parser.add_option("-b", "--back", dest="offset", default=0, \
+    help="The number of characters there are after the barcode in the \
+    sequence.\n For example, sometimes Illumina barcodes have an 'A' after the \
+    barcode, if this is not taken in consideration for the barcodes used to \
+    match against there will be a mismatch, and in that case one would supply \
+    '-b 1' as an option.")
+    parser.add_option("-m", "--mismatch", dest="mismatch", default=1, \
+    help="The number of mismatches to allow. Default is 1.")
     parser.add_option("-v", "--verbose", dest="verbose", default=False, \
-                                                        action="store_true")
-    parser.add_option("-c", "--cutoff", dest="cutoff", default=0.02)
+    action="store_true", help="Print the statistics (which are stored in the \
+    out_file) to stdout after the script is complete.")
+    parser.add_option("-c", "--cutoff", dest="cutoff", default=0.02, \
+    help="The frequency of a barcode which is needed for the barcode to be \
+    considered matched, and used to match other barcodes against. This is only \
+    used when not supplying a run_info or barcode-file.\n Default is 0.02 (2%).")
     parser.add_option("-n", "--dryrun", dest="dry_run", default=False, \
-                                                        action="store_true")
-    parser.add_option("--mode", dest="mode", default="demultiplex")
-    parser.add_option("--DEBUG", dest="debug", default=False, action="store_true")
+    action="store_true", help="Not implemented.")
+    parser.add_option("--mode", dest="mode", default="demultiplex", \
+    help="The mode for the script to run in. Default is 'demultiplex'.\n \
+    There are two available modes: 'demultiplex', where files for each barcode \
+    are saved. As well as the mode 'count', where no actual demultiplexing \
+    takes place, but statistics and matching information is gathered and saved \
+    in the out_file.")
+    parser.add_option("--DEBUG", dest="debug", default=False, \
+    action="store_true", help="Start pdb when an error occurs. \
+    False if not supplied.")
     parser.add_option("--out_format", dest="out_format", \
-    default="demultiplex_out/out_--b--_--r--_fastq.txt")
+    default="demultiplex_out/out_--b--_--r--_fastq.txt", \
+    help="The format of the demultiplexed files which will be saved during the \
+    run of the script. This should contain '--b--', where the barcode sequence \
+    will be substituted in, and '--r--', where the pair number will be \
+    substituted (will be '1' when run on fastq which isn't paired).")
     options, args = parser.parse_args()
     if len(args) == 1:
         fastq1, = args
