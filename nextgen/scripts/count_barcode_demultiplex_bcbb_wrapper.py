@@ -14,7 +14,7 @@ def main(fastq1, fastq2, barcode_info_file, mismatch, outfile, back, length):
     cl.append(barcode_info_file)
     cl.append("--mismatch=%s" % mismatch)
     cl.append("--out_file=%s" % outfile)
-    cl.appenf("--length=%s" % length)
+    cl.append("--length=%s" % length)
     cl.append("--back=%s" % back)
     if fastq2:
         cl.append("--paired")
