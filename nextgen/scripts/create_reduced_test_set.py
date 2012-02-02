@@ -1,20 +1,26 @@
 """
 Creates a minimal raw sequencing data test set from a flowcell directory by copying a
-subset of the tiles and just the files needed for downstream analysis, as well as 
-modifying the relevant config files to reflect this.
+subset of the tiles and cycles and just the files needed for downstream analysis, as 
+well as modifying the relevant config files to reflect this.
     
 Usage:
     create_reduced_test_set.py <flow cell dir> [options]
     
 Options:
     
-    -s, --subset=<FLOAT | INT>             Specify the size of the subset of tiles to use. 
+    -t, --tile_subset=<FLOAT | INT>       Specify the size of the subset of tiles to use. 
                                            0 < FLOAT < 1 or 1 <= INT <= NUM_TILES. If < 1, 
                                            the specified fraction of tiles (rounded down) 
                                            will be used. If >= 1, the specified number of 
                                            tiles will be used. 
+    
+    -c, --cycle_subset=<FLOAT | INT>      Specify the size of the subset of cycles to use. 
+                                           0 < FLOAT < 1 or 1 <= INT <= NUM_CYCLES. If < 1, 
+                                           the specified fraction of cycles (rounded down) 
+                                           will be used. If >= 1, the specified number of 
+                                           cycles will be used. 
                                   
-    -t, --target_dir=<target directory>    The destination directory where the minimal test
+    -o, --output_dir=<output directory>    The destination directory where the minimal test
                                            set will be written to a sub-directory with the
                                            same name as the source directory. There must not
                                            already exist a folder for the flowcell within the 
@@ -28,11 +34,12 @@ import glob
 import os
 import re
 import math
+from optparse import OptionParser
 import xml.etree.ElementTree as xml
 from random import randint
 from shutil import (copy2,copytree,rmtree)
 
-def main(run_dir,subset_size,target_dir):
+def main(run_dir,tile_subset,cycle_subset,target_dir):
     
     # Get the name of the run folder
     _,run_name = os.path.split(os.path.normpath(run_dir))
@@ -50,7 +57,7 @@ def main(run_dir,subset_size,target_dir):
     os.chdir(run_name)
 
     # Copy the data files
-    copy_data_files(run_dir)
+    copy_data_files(run_dir,tile_subset,cycle_subset)
     # Copy the meta files
     print "Copying meta files"
     copy_meta_files(run_dir)
@@ -58,23 +65,29 @@ def main(run_dir,subset_size,target_dir):
     # Change back to the original cwd
     os.chdir(cwd)
     
-def copy_data_files(run_dir,subset_size):
+def copy_data_files(run_dir,tile_subset,cycle_subset):
 
     # Copy and parse the config.xml file to get the available tiles common to all lanes
     config_file = os.path.join(run_dir,'Data','Intensities','config.xml')
-    all = _parse_config(config_file)
+    all_tiles, cycle_range = _parse_config(config_file)
     
     # Randomly pick a subset of tiles to copy
     subset = []
-    if subset_size < 1.0:
-        desired = max(1,int(math.floor(subset_size*len(all))))
+    if tile_subset < 1.0:
+        desired = max(1,int(math.floor(tile_subset*len(all_tiles))))
     else:
-        desired = min(math.floor(subset_size),len(all))
+        desired = min(math.floor(tile_subset),len(all_tiles))
     
     while len(subset) < desired:
-        subset.append(all.pop(randint(1,len(all))-1))
+        subset.append(all_tiles.pop(randint(1,len(all_tiles))-1))
 
-    print "%s tiles available, will copy a subset of %s tiles" % (len(all),len(subset))
+    print "%s tiles available, will copy a subset of %s tiles" % (len(all_tiles),len(subset))
+    
+    if cycle_subset > 0:
+        for range in cycle_range:
+            range[1] = min(range[1],int(range[0] + cycle_subset - 1))
+    
+    print "Will copy cycles in the ranges: %s" % cycle_range
     
     to_copy = []
     size = 0
@@ -85,34 +98,41 @@ def copy_data_files(run_dir,subset_size):
                  os.path.join(idir,"L*","*%s*" % tile),
                  os.path.join(idir,"L*","C*","*%s*" % tile),
                  os.path.join(idir,"Offsets","*%s*" % tile),
-                 os.path.join(bcdir,"*%s*" % tile),
                  os.path.join(bcdir,"L*","*%s*" % tile),
                  os.path.join(bcdir,"L*","C*","*%s*" % tile),
                  os.path.join(bcdir,"Matrix", "*%s*" % tile),
                  os.path.join(bcdir,"Phasing", "*%s*" % tile)]
         for g in globs:
             for item in glob.glob(g):
-                to_copy.append([item,os.path.relpath(os.path.dirname(item),run_dir)])
-                size += os.path.getsize(to_copy[-1][0])
-             
+                if _file_in_cycle(item,cycle_range):
+                    to_copy.append([item,os.path.relpath(os.path.dirname(item),run_dir),True])
+                    size += os.path.getsize(to_copy[-1][0])
+                else: 
+                    to_copy.append(["C%s.1" % cycle_range[0][1],os.path.relpath(os.path.dirname(item),run_dir),False])
+                
     print "Will copy %s files, totalling %s Mbytes" % (len(to_copy),size/(1024*1024))
     
     # Copy the files, creating subdirectories as necessary
-    for src_file, dst_dir in to_copy:
-        if not os.path.exists(dst_dir):
-            print "Creating directory %s" % dst_dir
-            os.makedirs(dst_dir,0770)
-        print "Copying file %s to %s" % (src_file,dst_dir)
-        copy2(src_file,dst_dir)
+    for src_file, dst_dir, do_copy in to_copy:
+        if do_copy:
+            if not os.path.exists(dst_dir):
+                print "Creating directory %s" % dst_dir
+                os.makedirs(dst_dir,0770)
+            print "Copying file %s to %s" % (src_file,dst_dir)
+            copy2(src_file,dst_dir)
+        else:
+            if not os.path.lexists(dst_dir):
+                print "Symlinking %s to %s" % (dst_dir,src_file)
+                os.symlink(src_file, dst_dir)
     
     config_file_cpy = os.path.join('Data','Intensities',os.path.basename(config_file))
     print "Copying and updating config file %s" % config_file
-    _update_config(config_file,config_file_cpy,subset)
+    _update_config(config_file,config_file_cpy,subset,cycle_range)
 
     config_file = os.path.join(run_dir,'Data','Intensities','BaseCalls','config.xml')
     config_file_cpy = os.path.join('Data','Intensities','BaseCalls',os.path.basename(config_file))
     print "Copying and updating config file %s" % config_file
-    _update_config(config_file,config_file_cpy,subset)
+    _update_config(config_file,config_file_cpy,subset,cycle_range)
 
 def copy_meta_files(run_dir):
     
@@ -150,10 +170,27 @@ def _file_tile(file):
         return int(m.group(1))
     return -1
 
+def _file_in_cycle(file,cycle_range):
+    m = re.search(r"C(\d+)\.1",os.path.dirname(file))
+    if m is None or len(m.groups()) == 0:
+        return True
+    cycle = int(m.group(1))
+    for range in cycle_range:
+        if cycle >= range[0] and cycle <= range[1]:
+            return True
+    return False
+
 def _parse_config(config_file):
     all_tiles = []
+    cycle_range = []
     cfg = xml.parse(config_file)
     root = cfg.getroot()
+    reads = root.findall('Run/RunParameters/Reads')
+    for read in reads:
+        c1 = int(read.find('FirstCycle').text)
+        c2 = int(read.find('LastCycle').text)
+        cycle_range.append([c1,c2])
+        
     tiles = root.find('Run/TileSelection')
     if tiles is None:
         return all_tiles
@@ -165,11 +202,12 @@ def _parse_config(config_file):
             all_tiles = lane_tiles
         else:
             all_tiles = list(set(all_tiles).intersection(lane_tiles))
-    return all_tiles
+    return all_tiles, cycle_range
 
-def _update_config(config_file_src,config_file_dst,subset):
+def _update_config(config_file_src,config_file_dst,subset,cycle_range):
     cfg = xml.parse(config_file_src)
     root = cfg.getroot()
+         
     tiles = root.find('Run/TileSelection')
     if tiles is None:
         return
@@ -178,11 +216,12 @@ def _update_config(config_file_src,config_file_dst,subset):
             if int(tile.text) not in subset:
                 lane.remove(tile)
     cfg.write(config_file_dst,encoding='UTF8')
-
+    
 if __name__ == "__main__":
     parser = OptionParser()
-    parser.add_option("-s", "--subset", dest="subset", default=0.05)
-    parser.add_option("-t", "--target_dir", dest="target_dir", default=None)
+    parser.add_option("-t", "--tile_subset", dest="tile_subset", default=0.05)
+    parser.add_option("-c", "--cycle_subset", dest="cycle_subset", default=100)
+    parser.add_option("-o", "--output_dir", dest="output_dir", default=None)
     parser.add_option("-v", "--verbose", dest="verbose", default=False, \
                                                         action="store_true")
     options, args = parser.parse_args()
@@ -191,5 +230,5 @@ if __name__ == "__main__":
     else:
         print __doc__
         sys.exit()
-    main(os.path.abspath(run_dir),float(options.subset),options.target_dir)
+    main(os.path.abspath(run_dir),float(options.tile_subset),float(options.cycle_subset),options.output_dir)
     
