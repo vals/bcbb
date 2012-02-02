@@ -31,7 +31,7 @@ setup(name = "bcbio-nextgen",
                  'scripts/store_finished_sqn.py',
                  'scripts/upload_to_galaxy.py',
                  'scripts/variant_effects.py',
-                 'scripts/count_barcodes.py'  # temporary name
+                 'scripts/count_barcode_demultiplex.py'
                  ],
       package_data = {
           'config' : ['*.yaml'],
