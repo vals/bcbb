@@ -643,7 +643,7 @@ def rename_masked_filenames(out_format, paired=False):
 
 if __name__ == "__main__":
     usage = \
-    """Usage: %prog <fastq file> [<fastq2 file>] [<run info yaml file>] [options]
+    """Usage: %prog <fastq1> [<fastq2>] [<run info yaml file>] [options]
 
     If called only with the fastq file, the bar codes will be matched to and
     grouped with bar codes from the Illumina documentation.
@@ -654,8 +654,8 @@ if __name__ == "__main__":
     parser = OptionParser(usage=usage)
     parser.add_option("--lane", dest="lane", default=0, \
     help="Specifies a lane (from the run_info.yaml) to use demultiplex \
-    information from. Setting this to 0 means 'look at all lanes', this is also \
-    the default.")
+    information from. Setting this to 0 means 'look at all lanes', this is \
+    also the default.")
     parser.add_option("-o", "--out_file", dest="out_file", default=None, \
      help="The name of the file where the statistics about the barcodes will \
      be stored. If not given, the statistics will be saved in a file with \
@@ -665,10 +665,10 @@ if __name__ == "__main__":
     help="The length of the barcode sequences, default is 6.")
     parser.add_option("-b", "--back", dest="offset", default=0, \
     help="The number of characters there are after the barcode in the \
-    sequence.\n For example, sometimes Illumina barcodes have an 'A' after the \
-    barcode, if this is not taken in consideration for the barcodes used to \
-    match against there will be a mismatch, and in that case one would supply \
-    '-b 1' as an option.")
+    sequence.\n For example, sometimes Illumina barcodes have an 'A' after \
+    the barcode, if this is not taken in consideration for the barcodes used \
+    to match against there will be a mismatch, and in that case one would \
+    supply '-b 1' as an option.")
     parser.add_option("-m", "--mismatch", dest="mismatch", default=1, \
     help="The number of mismatches to allow. Default is 1.")
     parser.add_option("-v", "--verbose", dest="verbose", default=False, \
@@ -691,10 +691,10 @@ if __name__ == "__main__":
     False if not supplied.")
     parser.add_option("--out_format", dest="out_format", \
     default="demultiplex_out/out_--b--_--r--_fastq.txt", \
-    help="The format of the demultiplexed files which will be saved during the \
-    run of the script. This should contain '--b--', where the barcode sequence \
-    will be substituted in, and '--r--', where the pair number will be \
-    substituted (will be '1' when run on fastq which isn't paired).")
+    help="The format of the demultiplexed files which will be saved during \
+    the run of the script. This should contain '--b--', where the barcode \
+    sequence will be substituted in, and '--r--', where the pair number will \
+    be substituted (will be '1' when run on fastq which isn't paired).")
     parser.add_option("-p", "--paired", dest="paired", default=False, \
     action="store_true", help="Indicate when supplying two arguments \
     whether they refer to a pair of fastq files or a fastq file along with \
@@ -725,7 +725,8 @@ if __name__ == "__main__":
     try:
         main(fastq1, fastq2, run_info, int(options.lane), options.out_file, \
         int(options.length), int(options.offset), int(options.mismatch), \
-        options.verbose, float(options.cutoff), options.dry_run, options.mode, \
+        options.verbose, float(options.cutoff), options.dry_run, \
+        options.mode, \
         options.out_format)
     except Exception as e:
         if options.debug:
