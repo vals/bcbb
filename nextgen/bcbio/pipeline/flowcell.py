@@ -196,12 +196,12 @@ class Lane:
     
     def set_data(self,data):
         self.data = copy.deepcopy(data)
-    
+
     def get_description(self):
         return _from_unicode(self.description)
     def set_description(self,description):
         self.description = _to_unicode(description)
-        
+
     def get_genome_build(self):
         return self.data.get("genome_build",None)
     
@@ -297,6 +297,11 @@ class Lane:
             struct["multiplex"] = []
             for sample in self.get_samples():
                 struct["multiplex"].append(sample.to_structure())
+        else:
+            if (self.get_analysis()):
+                struct["analysis"] = self.get_analysis()
+            if (self.get_genome_build()):
+                struct["genome_build"] = self.get_genome_build()
         return struct
 
     def get_barcode_ids(self):
