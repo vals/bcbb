@@ -56,47 +56,6 @@ def _apply_filter(unfiltered,filter):
     
     return filtered
 
-def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
-    """Get the barcode read distribution for a run and upload to google docs"""
-    
-    encoded_credentials = get_credentials(config)
-    if not encoded_credentials:
-        log.warn("Could not find Google Docs account credentials. No demultiplex report was written")
-        return
-    
-    # Get the required parameters from the post_process.yaml configuration file
-    gdocs = config.get("gdocs_upload",None)
-    
-    # Get the GDocs demultiplex result file title
-    gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
-    if not gdocs_spreadsheet:
-        log.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
-        return
-    
-    # Add email notification
-    email = gdocs.get("gdocs_email_notification",None)
-    smtp_host = config.get("smtp_host","")
-    smtp_port = config.get("smtp_port","")
-    log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port},"")
-    with log_handler.applicationbound():
-        
-        # Inject the fc_date and fc_name in the email subject
-        with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
-        
-            # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-            bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
-            
-            # Upload the data
-            write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
-            
-            # Get the projects parent folder
-            projects_folder = gdocs.get("gdocs_projects_folder",None)
-            
-            # Write the bc project summary report
-            if projects_folder:
-                write_project_report_to_gdocs(fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
-
-
 def format_project_name(unformated_name):
     """Make the project name adhere to the formatting convention"""
     regexp = r'^(.+?)_(\d{2})_(\d{2})(.*)$'
