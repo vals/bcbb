@@ -578,7 +578,7 @@ class FileWriter(dict):
             opened = False
             while not opened:
                 try:
-                    out_handle = open(fname, "w")
+                    out_handle = open(fname, "a")
                     self[fname] = out_handle
                     opened = True
                 except IOError as e:
