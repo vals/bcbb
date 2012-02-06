@@ -88,19 +88,18 @@ class SampleDeliveryTest(unittest.TestCase):
               "--project_desc=%s" % "J.Doe_00_01"]
         subprocess.check_call(cl)
 
-    def test_4_deliver_customer_data(self):
+    def test_5_deliver_customer_data(self):
         """Test fastq delivery to customer by copying"""
         with (make_workdir(link=False)):
             cl = ["project_analysis_setup.py",
                   self.post_process,
                   self.fc_dir,  self.proj_dir,
                   self.run_info,
-                  "--flowcell_alias=%s" % "20000000_hiseq2000A",
                   "--project_desc=%s" % "J.Doe_00_01",
                   "--customer_delivery"]
             subprocess.check_call(cl)
 
-    def test_5_deliver_data(self):
+    def test_6_deliver_data(self):
         """Test data delivery by moving"""
         with make_workdir(link=False):
             cl = ["project_analysis_setup.py",
@@ -108,5 +107,6 @@ class SampleDeliveryTest(unittest.TestCase):
                   self.fc_dir,  self.proj_dir,
                   self.run_info,
                   "--install_data",
+                  "--flowcell_alias=%s" % "20000000_hiseq2000A",
                   "--project_desc=%s" % "J.Doe_00_01", "--move_data"]
             subprocess.check_call(cl)

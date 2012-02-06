@@ -6,6 +6,7 @@ Usage:
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
                              --install_data --move_data --symlink --only_install_run_info
+                             --customer_delivery --barcode_id_to_name --numerical_lanes
                              --dry_run --verbose]
 
 
@@ -16,9 +17,13 @@ flowcell lanes, instead of retrieving it from Galaxy. See
 automated_initial_analysis.py for details.
 
 For a multiproject run_info file, only a subset of the lanes can be
-used. The run_info file is therefore pruned, and the pruned file is
-output to the project directory. The pruning is based on the options
-<project_desc>.
+used. The run_info file is therefore pruned, and the pruned file project_run_info.yaml 
+is output to the project directory. The pruning is based on the options
+<project_desc>. 
+
+In order to avoid downstream demultiplexing, a file sample_project_run_info.yaml 
+is created, in which each sample is put in a separate lane. Lane names are formatted
+as "number_samplename" by default.
 
 Options:
   -a, --flowcell_alias=<flowcell alias>         By default, samples are moved to a directory named
@@ -27,9 +32,12 @@ Options:
   -y, --project_desc=<project_desc>             Project description in description field of run_info file, or ALL.
   -c, --customer_delivery                       Deliver data to customer. Delivers all demuxed fastq data and results
                                                 to one directory <flowcell_dir> or <flowcell_alias>.
+  -b, --barcode_id_to_name                      Convert barcode ids to sample names
   -i, --only_install_run_info                   Only install pruned run_info file.
   -m, --move_data                               Move data instead of copying
   -l, --symlink                                 Link data instead of copying
+  -i, --numerical_lanes                         Use numerical lanes for sample_project_run_info.yaml. Otherwise uses
+                                                number_samplename
   -n, --dry_run                                 Don't do anything samples, just list what will happen
   -v, --verbose                                 Print some more information
 """
@@ -48,9 +56,9 @@ from itertools import izip
 from bcbio.log import logger, setup_logging
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.lane import get_flowcell_id
-from bcbio.pipeline.fastq import get_single_fastq_files, get_barcoded_fastq_files, convert_barcode_id_to_name, get_fastq_files
+from bcbio.pipeline.fastq import get_single_fastq_files, get_fastq_files
 from bcbio.pipeline.config_loader import load_config
-from bcbio.pipeline.flowcell import Flowcell, Lane
+from bcbio.pipeline.flowcell import Flowcell, Lane, get_sample_name
 from bcbio import utils
 from bcbio.pipeline.config_loader import load_config
 
@@ -71,14 +79,12 @@ class PostProcessedFlowcell(Flowcell):
         if fc_results_dir is None:
             fc_results_dir = fc_dir
         self.set_fc_results_dir(fc_results_dir)
-        self.fastq_files = []
 
-    def add_fastq_files(self, fq):
-        self.fastq_files.append(fq)
-    def set_fastq_files(self, fq):
-        self.fastq_files = fq
-    def get_fastq_files(self):
-        return self.fastq_files
+    def get_files(self):
+        fl = []
+        for l in self.get_lanes():
+            fl.append(l.get_files())
+        return fl
 
     def get_fc_id(self):
         return "%s_%s" % (self.get_fc_date(), self.get_fc_name())
@@ -128,6 +134,9 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
         logger.error("No project description or lanes provided: cannot deliver files without this information")
         sys.exit()
 
+    if options.customer_delivery and not fc_alias == "":
+        logger.info("INFO: Ignoring flowcell_alias when doing customer_delivery")
+
     fc_dir = os.path.abspath(fc_dir)
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
     fp = open(run_info_yaml)
@@ -162,7 +171,8 @@ def run_main(pruned_fc, rawdata_fc, analysis_fc):
     for lane in pruned_fc.get_lanes():
         new_lane = process_lane(lane, pruned_fc, rawdata_fc, analysis_fc)
         rawdata_fc.add_lane(new_lane)
-    _save_run_info(rawdata_fc)
+    _save_run_info(rawdata_fc, "project_run_info.yaml")
+    _sample_based_run_info(rawdata_fc)
 
 def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     """Models bcbio process lane"""
@@ -183,7 +193,7 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     for fqpair in fq:
         for fastq_src in fqpair:
             fastq_tgt = fastq_src
-            if options.customer_delivery:
+            if options.customer_delivery or options.barcode_id_to_name:
                 fastq_tgt = _convert_barcode_id_to_name(multiplex, rawdata_fc.get_fc_name(), fastq_src)
             _deliver_fastq_file(fastq_src, os.path.basename(fastq_tgt), fc_data_dir)
             fastq_targets.append(os.path.join(fc_data_dir, os.path.basename(fastq_tgt)))
@@ -205,7 +215,7 @@ def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
     return fq
 
 def _convert_barcode_id_to_name(multiplex, fc_name, fq):
-    bcid2name = dict([(mp.get_barcode_id(), mp.get_barcode_name()) for mp in multiplex])
+    bcid2name = dict([(mp.get_barcode_id(), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
     bcid = re.search("_(\d+)_(\d+)_fastq.txt", fq)
     from_str = "%s_%s_fastq.txt" % (bcid.group(1), bcid.group(2))
     to_str   = "%s_%s.fastq" % (bcid2name[bcid.group(1)], bcid.group(2))
@@ -269,14 +279,40 @@ def _get_analysis_results(fc, lane):
     fastqc = glob.glob(glob_str)
     return data, fastqc
 
-def _save_run_info(fc):
-    outfile = os.path.join(fc.get_fc_dir(), "project_run_info.yaml")
+def _save_run_info(fc, filename):
+    outfile = os.path.join(fc.get_fc_dir(), filename)
     if not options.dry_run:
         with open(outfile, "w") as out_handle:
             yaml.dump(fc.to_structure(), stream=out_handle)
     else:
         print "DRY_RUN:"
         yaml.dump(fc.to_structure(), stream=sys.stdout)
+
+def _sample_based_run_info(fc):
+    """Convert a regular run info file into a sample-based info file, one sample per lane"""
+    sample_fc = PostProcessedFlowcell(fc.get_fc_name(), fc.get_fc_date(), {}, fc_alias = fc.get_fc_alias(), fc_dir=fc.get_fc_dir())    
+    lane_num = 0
+    for l in fc.get_lanes():
+        bcids = l.get_barcode_ids()
+        for barcode_id in bcids:
+            s = l.get_sample_by_barcode(barcode_id)
+            lane_num = lane_num + 1
+            newl = Lane(data={"description":s.get_name(), "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build()})
+            if not options.numerical_lanes:
+                newl.set_name("%s_%s" %(lane_num, s.get_name()))
+            else:
+                newl.set_name("%s" % lane_num)
+            files = l.get_files()
+            if options.customer_delivery or options.barcode_id_to_name:
+                pat = "%s.*_%s_[12].*$" % (l.get_name(), get_sample_name(s.get_barcode_name()))
+            else:
+                pat = "%s.*_%s_[12].*$" % (l.get_name(), barcode_id)
+            bc_files = re.compile(pat, re.IGNORECASE)
+            files = filter(bc_files.search, files) 
+            newl.set_files(files)
+            sample_fc.add_lane(newl)
+    _save_run_info(sample_fc, "sample_project_run_info.yaml")
+        
 
 if __name__ == "__main__":
     usage = """
@@ -297,11 +333,15 @@ if __name__ == "__main__":
                       default=False)
     parser.add_option("-c", "--customer_delivery", dest="customer_delivery", action="store_true",
                       default=False)
+    parser.add_option("-b", "--barcode_id_to_name", dest="barcode_id_to_name", action="store_true",
+                      default=False)
     parser.add_option("-f", "--only_install_run_info", dest="only_run_info", action="store_true",
                       default=False)
     parser.add_option("-m", "--move_data", dest="move", action="store_true",
                       default=False)
     parser.add_option("-l", "--symlink", dest="link", action="store_true",
+                      default=False)
+    parser.add_option("-i", "--numerical_lanes", dest="numerical_lanes", action="store_true",
                       default=False)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       default=False)
@@ -311,6 +351,7 @@ if __name__ == "__main__":
     if len(args) < 3:
         print __doc__
         sys.exit()
+    
     kwargs = dict(
         fc_alias = options.fc_alias,
         project_desc = options.project_desc,
