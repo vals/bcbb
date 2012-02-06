@@ -4,12 +4,14 @@
 import os
 import re
 import copy
+import logbook
 from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
 from bcbio.google import (_from_unicode,_to_unicode,get_credentials)
 from bcbio.pipeline import log
+from bcbio.log import create_log_handler
 
 
 # The structure of the demultiplex result
@@ -53,37 +55,6 @@ def _apply_filter(unfiltered,filter):
             filtered.append(entry)
     
     return filtered
-
-def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
-    """Get the barcode read distribution for a run and upload to google docs"""
-    
-    encoded_credentials = get_credentials(config)
-    if not encoded_credentials:
-        log.warn("Could not find Google Docs account credentials. No demultiplex report was written")
-        return
-    
-    # Get the required parameters from the post_process.yaml configuration file
-    gdocs = config.get("gdocs_upload",None)
-    
-    # Get the GDocs demultiplex result file title
-    gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
-    if not gdocs_spreadsheet:
-        log.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
-        return
-    
-    # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-    bc_metrics = get_bc_stats(fc_date,fc_name,work_dir,copy.deepcopy(run_info))
-    
-    # Upload the data
-    write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_spreadsheet,encoded_credentials)
-    
-    # Get the projects parent folder
-    projects_folder = gdocs.get("gdocs_projects_folder",None)
-    
-    # Write the bc project summary report
-    if projects_folder:
-        write_project_report_to_gdocs(fc_date,fc_name,bc_metrics,encoded_credentials,projects_folder)
-
 
 def format_project_name(unformated_name):
     """Make the project name adhere to the formatting convention"""
@@ -162,8 +133,6 @@ def get_spreadsheet(ssheet_title,encoded_credentials):
     if not ssheet:
         log.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)
         return (None,None)
-    
-    log.info("Found spreadsheet matching the supplied title: '%s'" % (ssheet.title.text))
     
     return (client,ssheet)
 
@@ -293,28 +262,31 @@ def write_project_report_to_gdocs(fc_date,fc_name,project_bc_metrics,encoded_cre
     for pdata in grouped:
         
         project_name = pdata.get("project_name","")
+        
+        folder_name = project_name
+        folder = bcbio.google.document.get_folder(doc_client,folder_name)
+        if not folder:
+            folder = bcbio.google.document.add_folder(doc_client,folder_name,parent_folder)
+            log.info("Folder '%s' created under '%s'" % (_from_unicode(folder_name),_from_unicode(parent_folder)))
+            
         ssheet_title = project_name + "_sequencing_results"
         ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
         if not ssheet:
             bcbio.google.document.add_spreadsheet(doc_client,ssheet_title)
             ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
-    
+            ssheet = bcbio.google.document.move_to_folder(doc_client,ssheet,folder)
+        
+            # Just to make it look a bit nicer, remove the default 'Sheet1' worksheet
+            wsheet = bcbio.google.spreadsheet.get_worksheet(client,ssheet,'Sheet 1')
+            if wsheet:
+                client.DeleteWorksheet(wsheet)
+                
+            log.info("Spreadsheet '%s' created in folder '%s'" % (_from_unicode(ssheet.title.text),_from_unicode(folder_name)))
+            
         _write_project_report_to_gdocs(client,ssheet,fc_date,fc_name,pdata)
         _write_project_report_summary_to_gdocs(client,ssheet)
-        
-        # Just to make it look a bit nicer, remove the default 'Sheet1' worksheet
-        wsheet = bcbio.google.spreadsheet.get_worksheet(client,ssheet,'Sheet 1')
-        if wsheet:
-            client.DeleteWorksheet(wsheet)
             
-        folder_name = project_name
-        folder = bcbio.google.document.get_folder(doc_client,folder_name)
-        if not folder:
-            log.info("creating folder '%s'" % _from_unicode(folder_name))
-            folder = bcbio.google.document.add_folder(doc_client,folder_name,parent_folder)
-            
-        ssheet = bcbio.google.document.move_to_folder(doc_client,ssheet,folder)
-        log.info("'%s' spreadsheet written to folder '%s'" % (_from_unicode(ssheet.title.text),_from_unicode(folder_name)))
+        log.info("Read count data written to spreadsheet '%s'" % _from_unicode(ssheet.title.text))
         
 
 def _write_project_report_to_gdocs(client, ssheet, fc_date, fc_name, project_data):
@@ -398,7 +370,7 @@ def write_run_report_to_gdocs(fc_date, fc_name, bc_metrics, ssheet_title, encode
     
     # Get the projects in the run
     projects = _get_unique_project_names(rows)
-    log.info("The run contains data from: '%s'" % "', '".join(projects))
+    log.info("Will write data from the run %s_%s for projects: '%s'" % (fc_date,fc_name,"', '".join(projects)))
     
     # Calculate the number of million reads for convenience
     brci = -1
@@ -429,7 +401,7 @@ def write_run_report_to_gdocs(fc_date, fc_name, bc_metrics, ssheet_title, encode
         success &= _write_to_worksheet(client,ssheet,wsheet_title,rows,BARCODE_STATS_HEADER,append)
 
     return success
-
+    
 def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
     """Generic method to write a set of rows to a worksheet on google docs"""
     
@@ -439,12 +411,14 @@ def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
     # Add a new worksheet, possibly appending or replacing a pre-existing worksheet according to the append-flag
     wsheet = bcbio.google.spreadsheet.add_worksheet(client,ssheet,wsheet_title,len(rows)+1,len(header),append)
     if wsheet is None:
-        log.info("Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title,ssheet.title.text))
+        log.info("ERROR: Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title,ssheet.title.text))
         return False
     
     # Write the data to the worksheet
-    log.info("Adding data to the '%s' worksheet" % (wsheet_title))
-    return bcbio.google.spreadsheet.write_rows(client,ssheet,wsheet,[col_header[0] for col_header in header],rows)
-     
-    
-    
+    success = bcbio.google.spreadsheet.write_rows(client,ssheet,wsheet,[col_header[0] for col_header in header],rows)
+    if success:
+        log.info("Wrote data to the '%s'/'%s' worksheet" % (ssheet.title.text,wsheet_title))
+    else:
+        log.info("ERROR: Could not write data to the '%s'/'%s' worksheet" % (ssheet.title.text,wsheet_title)) 
+   
+    return success

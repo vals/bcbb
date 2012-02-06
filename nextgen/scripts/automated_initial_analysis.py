@@ -37,7 +37,7 @@ from bcbio.pipeline.qcsummary import write_metrics
 from bcbio.pipeline import sample
 from bcbio.pipeline import lane
 from bcbio.galaxy.api import GalaxyApiAccess
-from bcbio.google.bc_metrics import create_bc_report_on_gdocs
+from bcbio.google.sequencing_report import create_report_on_gdocs
 from bcbio.pipeline.config_loader import load_config
 
 
@@ -64,8 +64,8 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = _run_parallel("process_lane", lanes, dirs, config, config_file)
 
-    # upload the demultiplex counts to Google Docs
-    create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config)
+    # upload the sequencing results to Google Docs
+    create_report_on_gdocs(fc_date, fc_name, run_info, dirs, config)
 
     align_items = _run_parallel("process_alignment", lane_items, dirs, config,
                                 config_file)
