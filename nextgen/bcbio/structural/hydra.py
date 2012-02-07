@@ -26,10 +26,9 @@ def select_unaligned_read_pairs(in_bam, extra, out_dir, config):
     runner = broad.runner_from_config(config)
     base, ext = os.path.splitext(os.path.basename(in_bam))
     nomap_bam = os.path.join(out_dir, "{}-{}{}".format(base, extra, ext))
-    sort_bam = runner.run_fn("picard_sort", in_bam, "queryname")
     if not utils.file_exists(nomap_bam):
         with file_transaction(nomap_bam) as tx_out:
-            runner.run("FilterSamReads", [("INPUT", sort_bam),
+            runner.run("FilterSamReads", [("INPUT", in_bam),
                                           ("OUTPUT", tx_out),
                                           ("EXCLUDE_ALIGNED", "true"),
                                           ("WRITE_READS_FILES", "false"),
@@ -47,9 +46,10 @@ def select_unaligned_read_pairs(in_bam, extra, out_dir, config):
     else:
         return None, None
 
-def remove_nopairs(in_bam, out_dir):
+def remove_nopairs(in_bam, out_dir, config):
     """Remove any reads without both pairs present in the file.
     """
+    runner = broad.runner_from_config(config)
     out_bam = os.path.join(out_dir, apply("{}-safepair{}".format,
                                           os.path.splitext(os.path.basename(in_bam))))
     if not utils.file_exists(out_bam):
@@ -64,10 +64,12 @@ def remove_nopairs(in_bam, out_dir):
                     for read in in_pysam:
                         if read_counts[read.qname] == 2:
                             out_pysam.write(read)
-    return out_bam
+    return runner.run_fn("picard_sort", out_bam, "queryname")
 
 def calc_paired_insert_stats(in_bam):
     """Retrieve statistics for paired end read insert distances.
+
+    MAD is the Median Absolute Deviation: http://en.wikipedia.org/wiki/Median_absolute_deviation
     """
     dists = []
     with closing(pysam.Samfile(in_bam, "rb")) as in_pysam:
@@ -77,8 +79,10 @@ def calc_paired_insert_stats(in_bam):
     # remove outliers
     med = numpy.median(dists)
     filter_dists = filter(lambda x: x < med + 10 * med, dists)
+    median = numpy.median(filter_dists)
     return {"mean": numpy.mean(filter_dists), "std": numpy.std(filter_dists),
-            "median": numpy.median(filter_dists)}
+            "median": median,
+            "mad": numpy.median([abs(x - median) for x in filter_dists])}
 
 def tiered_alignment(in_bam, tier_num, multi_mappers, extra_args,
                      genome_build, pair_stats,
@@ -92,6 +96,7 @@ def tiered_alignment(in_bam, tier_num, multi_mappers, extra_args,
                                           tier_num)
         config = copy.deepcopy(config)
         dirs = copy.deepcopy(dirs)
+        config["algorithm"]["bam_sort"] = "queryname"
         config["algorithm"]["multiple_mappers"] = multi_mappers
         config["algorithm"]["extra_align_args"] = ["-i", int(pair_stats["mean"]),
                                                int(pair_stats["std"])] + extra_args
@@ -115,11 +120,13 @@ def convert_bam_to_bed(in_bam, out_file):
     return out_file
 
 @utils.memoize_outfile("-pair.bed")
-def pair_discordants(in_bed, out_file):
+def pair_discordants(in_bed, pair_stats, out_file):
     with file_transaction(out_file) as tx_out_file:
         with open(tx_out_file, "w") as out_handle:
             subprocess.check_call(["pairDiscordants.py", "-i", in_bed,
-                                   "-m", "hydra", "-z", "800"],
+                                   "-m", "hydra",
+                                   "-z", str(int(pair_stats["median"]) +
+                                             10 * int(pair_stats["mad"]))],
                                   stdout=out_handle)
     return out_file
 
@@ -131,22 +138,24 @@ def dedup_discordants(in_bed, out_file):
                                   stdout=out_handle)
     return out_file
 
-@utils.memoize_outfile("-hydra.breaks")
-def run_hydra(in_bed, pair_stats, out_file):
-    with file_transaction(out_file) as tx_out_file:
-        subprocess.check_call(["hydra", "-i", in_bed, "-out", tx_out_file,
-                               "-mld", str(int(pair_stats["median"])),
+def run_hydra(in_bed, pair_stats):
+    base_out = "{}-hydra.breaks".format(os.path.splitext(in_bed)[0])
+    final_file = "{}.final".format(base_out)
+    if not utils.file_exists(final_file):
+        subprocess.check_call(["hydra", "-in", in_bed, "-out", base_out,
+                               "-ms", "1", "-li",
+                               "-mld", str(int(pair_stats["mad"]) * 10),
                                "-mno", str(int(pair_stats["median"]) +
-                                           20 * int(pair_stats["std"]))])
-    return out_file
+                                           20 * int(pair_stats["mad"]))])
+    return final_file
 
 def hydra_breakpoints(in_bam, pair_stats):
     """Detect structural variation breakpoints with hydra.
     """
     in_bed = convert_bam_to_bed(in_bam)
     if os.path.getsize(in_bed) > 0:
-        pair_bed = pair_discordants(in_bed)
-        dedup_bed = dedup_discordants(pair_bed, pair_stats)
+        pair_bed = pair_discordants(in_bed, pair_stats)
+        dedup_bed = dedup_discordants(pair_bed)
         return run_hydra(dedup_bed, pair_stats)
     else:
         return None
@@ -158,7 +167,7 @@ def detect_sv(align_bam, genome_build, dirs, config):
     """
     work_dir = utils.safe_makedir(os.path.join(dirs["work"], "structural"))
     pair_stats = calc_paired_insert_stats(align_bam)
-    fix_bam = remove_nopairs(align_bam, work_dir)
+    fix_bam = remove_nopairs(align_bam, work_dir, config)
     tier2_align = tiered_alignment(fix_bam, "2", True, [],
                                    genome_build, pair_stats,
                                    work_dir, dirs, config)

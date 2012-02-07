@@ -16,7 +16,7 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     """Prepare lanes, potentially splitting based on barcodes.
     """
     lane_name = "%s_%s_%s" % (lane_items[0]['lane'], fc_date, fc_name)
-    logger.info("Demulitplexing %s" % lane_name)
+    logger.info("Demultiplexing %s" % lane_name)
     full_fastq1, full_fastq2 = get_fastq_files(dirs["fastq"], dirs["work"],
                                                lane_items[0], fc_name, config=config)
     bc_files = split_by_barcode(full_fastq1, full_fastq2, lane_items,
