@@ -24,7 +24,6 @@ def analyze_and_upload(remote_info, config_file):
     """Main entry point for analysis and upload to Galaxy.
     """
     config = load_config(config_file)
-    log_handler = create_log_handler(config, log.name)
     fc_dir = _copy_from_sequencer(remote_info, config)
     analysis_dir = _run_analysis(fc_dir, remote_info, config, config_file)
     _upload_to_galaxy(fc_dir, analysis_dir, remote_info,
