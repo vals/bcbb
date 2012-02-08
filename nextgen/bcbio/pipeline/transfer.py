@@ -70,4 +70,4 @@ def remote_copy(remote_info, base_dir, protocol):
         log.debug(cl)
         fabric.run(" ".join(cl))
 
-    return fc_dir
+    return os.path.join(fc_dir, os.path.basename(remote_info['directory']))
