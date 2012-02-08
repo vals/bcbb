@@ -215,7 +215,7 @@ def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
     return fq
 
 def _convert_barcode_id_to_name(multiplex, fc_name, fq):
-    bcid2name = dict([(mp.get_barcode_id(), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
+    bcid2name = dict([(str(mp.get_barcode_id()), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
     bcid = re.search("_(\d+)_(\d+)_fastq.txt", fq)
     from_str = "%s_%s_fastq.txt" % (bcid.group(1), bcid.group(2))
     to_str   = "%s_%s.fastq" % (bcid2name[bcid.group(1)], bcid.group(2))
