@@ -72,7 +72,9 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
     # Get the GDocs demultiplex result file title
     gdocs_spreadsheet = gdocs.get("gdocs_dmplx_file", None)
     if not gdocs_spreadsheet:
-        logger.warn("Could not find Google Docs demultiplex results file title in config. No demultiplex counts were written to Google Docs")
+        logger.warn(" \
+        Could not find Google Docs demultiplex results file title in config.\
+        No demultiplex counts were written to Google Docs")
         return
 
     # Get the account credentials
@@ -89,31 +91,33 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
         encoded_credentials = fh.read().strip()
 
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
+    print(run_info)
     fc = Flowcell(fc_name, fc_date, run_info.get("details", []), work_dir)
 
     # Upload the data
     write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_spreadsheet, encoded_credentials)
 
     # Get the projects parent folder
-    projects_folder = gdocs.get("gdocs_projects_folder",None)
-    
+    projects_folder = gdocs.get("gdocs_projects_folder", None)
+
     # Write the bc project summary report
     if projects_folder:
-        write_project_report_to_gdocs(fc,encoded_credentials,projects_folder)
+        write_project_report_to_gdocs(fc, encoded_credentials, projects_folder)
 
-def get_spreadsheet(ssheet_title,encoded_credentials):
+
+def get_spreadsheet(ssheet_title, encoded_credentials):
     """Connect to Google docs and get a spreadsheet"""
-    
+
     # Convert the spreadsheet title to unicode
     ssheet_title = _to_unicode(ssheet_title)
-    
+
     # Create a client class which will make HTTP requests with Google Docs server.
     client = bcbio.google.spreadsheet.get_client()
-    bcbio.google.connection.authenticate(client,encoded_credentials)
-    
+    bcbio.google.connection.authenticate(client, encoded_credentials)
+
     # Locate the spreadsheet
-    ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
-    
+    ssheet = bcbio.google.spreadsheet.get_spreadsheet(client, ssheet_title)
+
     # Check that we got a result back
     if not ssheet:
         logger.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)

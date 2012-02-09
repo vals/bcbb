@@ -122,6 +122,7 @@ def _adjust_illumina_tags(barcodes,config):
         barcodes = new
     return barcodes
 
+
 def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     """Add multiplex information to control and non-multiplexed lanes.
 
@@ -139,14 +140,15 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             has_barcodes = True
             tag_sizes.extend([len(x["sequence"]) for x in xs])
             fastq_sizes.append(_get_fastq_size(xs[0], fastq_dir, fc_name))
-    if not has_barcodes: # nothing to worry about
+    if not has_barcodes:  # nothing to worry about
         return run_items
     fastq_sizes = list(set(fastq_sizes))
 
     # discard 0 sizes to handle the case where lane(s) are empty or failed
     try:
         fastq_sizes.remove(0)
-    except ValueError: pass
+    except ValueError:
+        pass
 
     tag_sizes = list(set(tag_sizes))
     final_items = []

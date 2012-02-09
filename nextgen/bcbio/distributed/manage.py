@@ -11,6 +11,7 @@ other architectures as well.
 import time
 import math
 
+
 def run_and_monitor(config, config_file, args, workers_needed=None,
                     task_module=None, queues=None):
     """Run a distributed analysis in s cluster environment, monitoring outputs.
@@ -33,6 +34,7 @@ def run_and_monitor(config, config_file, args, workers_needed=None,
         print "Cleaning up cluster workers"
         stop_workers(cluster, jobids)
 
+
 def start_workers(cluster, config, config_file, workers_needed=None,
                   task_module=None, queues=None):
     """Initiate worker nodes on cluster, returning jobs IDs for management.
@@ -54,6 +56,7 @@ def start_workers(cluster, config, config_file, workers_needed=None,
     args = config["distributed"]["platform_args"].split()
     return [cluster.submit_job(args, program_cl) for _ in range(num_workers)]
 
+
 def start_analysis_manager(cluster, args, config):
     """Start analysis manager node on cluster.
     """
@@ -65,11 +68,13 @@ def start_analysis_manager(cluster, args, config):
         time.sleep(5)
     return job_id
 
+
 def monitor_analysis(cluster, job_id):
     """Wait for manager cluster job to finish
     """
     while cluster.are_running([job_id]):
         time.sleep(5)
+
 
 def stop_workers(cluster, jobids):
     for jobid in jobids:
