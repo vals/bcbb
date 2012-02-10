@@ -91,7 +91,6 @@ def create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config):
         encoded_credentials = fh.read().strip()
 
     # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-    print(run_info)
     fc = Flowcell(fc_name, fc_date, run_info.get("details", []), work_dir)
 
     # Upload the data

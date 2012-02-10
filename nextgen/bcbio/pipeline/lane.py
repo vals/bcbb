@@ -26,7 +26,7 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
         config = _update_config_w_custom(config, item)
         # Can specify all barcodes but might not have actual sequences
         # Would be nice to have a good way to check this is okay here.
-        if bc_files.has_key(item["barcode_id"]):
+        if item["barcode_id"] in bc_files:
             fastq1, fastq2 = bc_files[item["barcode_id"]]
             cur_lane_name = lane_name
             cur_lane_desc = item["description"]
@@ -53,8 +53,8 @@ def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
     out_bam = ""
     if os.path.exists(fastq1) and aligner:
         logger.info("Aligning lane %s with %s aligner" % (lane_name, aligner))
-        out_bam = align_to_sort_bam(fastq1, fastq2, info["genome_build"], aligner,
-                                    lane_name, lane_desc, dirs, config)
+        out_bam = align_to_sort_bam(fastq1, fastq2, info["genome_build"], \
+                                aligner, lane_name, lane_desc, dirs, config)
     return [{"fastq": [fastq1, fastq2], "out_bam": out_bam, "info": info,
              "config": config}]
 
