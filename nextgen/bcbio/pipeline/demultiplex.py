@@ -11,6 +11,7 @@ from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 from bcbio.distributed.transaction import file_transaction
 
+
 def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     """Split a fastq file into multiplex pieces using barcode details.
     """
@@ -46,6 +47,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                     cl.append("--noindel")
                 if "bc_offset" in config["algorithm"]:
                     cl.append("--bc_offset=%s" % config["algorithm"]["bc_offset"])
+                print(cl)
                 subprocess.check_call(cl)
     else:
         with utils.curdir_tmpdir() as tmp_dir:
@@ -58,6 +60,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                 f1, f2 = _basic_trim(f1, f2, need_trim[b], config)
             out[b] = (f1, f2)
     return out
+
 
 def _basic_trim(f1, f2, trim_seq, config):
     """Chop off barcodes on sequences based on expected sequence size.
