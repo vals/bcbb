@@ -1,10 +1,8 @@
 """A module for writing lane QC data (typically from RTA) to google docs
 """
 
-import os
-import logbook 
+import os 
 from bcbio.log import create_log_handler
-from bcbio.pipeline import log
 from bcbio.pipeline.qcsummary import RTAQCMetrics
 from bcbio.pipeline.flowcell import Flowcell
 from bcbio.google import (_from_unicode,_to_unicode,get_credentials)
@@ -23,7 +21,7 @@ def write_run_report_to_gdocs(fc,qc,ssheet_title,encoded_credentials,wsheet_titl
     indexread = run_cfg.indexread()
     
     # Create the header row
-    header = [["Date"],["Flowcell"],["Lane"],["Description"]]
+    header = ["Lane","Description"]
     # Add the metric labels
     metric_lbl = []
     for metric in qc_metrics:
@@ -32,13 +30,13 @@ def write_run_report_to_gdocs(fc,qc,ssheet_title,encoded_credentials,wsheet_titl
         if metric[0] not in qc_stats:
             continue
         metric_lbl.append(metric[0])
-        header.append([metric[1]])
+        header.append(metric[1])
         
     # Iterate over the lanes of the flowcell and collect the data
     rows = []
     for lane in fc.get_lanes():
         # First the meta data
-        row = [fc.get_fc_date(),fc.get_fc_name(),lane.get_name(),lane.get_description()]
+        row = [lane.get_name(),lane.get_description()]
         # Then the QC data
         for metric in metric_lbl:
             value = qc_stats[metric]

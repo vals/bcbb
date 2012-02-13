@@ -9,8 +9,8 @@ import bcbio.google.bc_metrics
 import bcbio.google.qc_metrics
 from bcbio.pipeline.qcsummary import RTAQCMetrics
 from bcbio.pipeline.flowcell import Flowcell
-from bcbio.pipeline import log
 from bcbio.log import create_log_handler
+from bcbio.log import logger2 as log
 from logbook.handlers import GroupHandler
 
 def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
@@ -33,7 +33,7 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
         email = gdocs.get("gdocs_email_notification",None)
         smtp_host = config.get("smtp_host","")
         smtp_port = config.get("smtp_port","")
-        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port},"")
+        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port})
         # A GroupHandler that will wrap around the MailHandler and send a batch email after all reports have been written
         group_handler = GroupHandler(log_handler)
         
@@ -47,9 +47,7 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
                     
                     # Get a flowcell object 
                     fc = Flowcell(fc_name,fc_date,run_info.get("details",[]),dirs.get("work",None))
-                    # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-                    bc_metrics = bcbio.google.bc_metrics.get_bc_stats(fc_date,fc_name,dirs.get("work",None),copy.deepcopy(run_info))
-            
+                    
                     # Get the GDocs demultiplex result file title
                     gdocs_dmplx_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
                     # Get the GDocs QC file title
