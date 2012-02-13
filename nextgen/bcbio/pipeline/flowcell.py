@@ -162,7 +162,7 @@ class Flowcell:
     
     @staticmethod
     def columns():
-        cols = ["fc_date","fc_name"]
+        cols = []#"fc_date","fc_name"]
         cols.extend(Lane.columns())
         return cols
     
@@ -170,9 +170,9 @@ class Flowcell:
         rows = []
         for lane in self.get_lanes():
             for row in lane.to_rows():
-                l = [self.get_fc_date(),self.get_fc_name()]
-                l.extend(row)
-                rows.append(l)
+                #l = [self.get_fc_date(),self.get_fc_name()]
+                #l.extend(row)
+                rows.append(row)
         return rows
     
     def to_structure(self):
@@ -273,7 +273,7 @@ class Lane:
     
     @staticmethod
     def columns():
-        cols = ["lane"]
+        cols = ["lane","description"]
         cols.extend(BarcodedSample.columns())
         return cols
     
@@ -282,6 +282,7 @@ class Lane:
         for sample in self.get_samples():
             s = sample.to_rows()
             s.insert(0,self.get_name())
+            s.insert(1,self.get_description())
             rows.append(s)
         return rows
             
