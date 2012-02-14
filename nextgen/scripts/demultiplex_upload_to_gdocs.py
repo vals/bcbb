@@ -32,26 +32,11 @@ def main(run_name, gdocs_spreadsheet, encoded_credentials_file, run_info_yaml, a
     with open(run_info_yaml) as in_handle:
         run_info = {'details': yaml.load(in_handle)}
 
-    # Get the google docs crdentials
-    gdocs_credentials = ""
-    if not os.path.exists(encoded_credentials_file):
-        log.warn("The Google Docs credentials file could not be found. No demultiplex data was written")
-        return
-    with open(encoded_credentials_file) as fh:
-        gdocs_credentials = fh.read().strip()
-    
+    # Create a stripped down config using the supplied details
+    config = {'gdocs_upload': {'gdocs_dmplx_file': gdocs_spreadsheet, 'gdocs_credentials': encoded_credentials_file, 'gdocs_projects_folder': gdocs_projects_folder}}
 
-    fc_name, fc_date = get_flowcell_info(run_name)
-    
-    # Get the barcode statistics
-    bc_metrics = get_bc_stats(fc_date,fc_name,analysis_dir,run_info)
-    
-    # Write the report
-    write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_spreadsheet,gdocs_credentials,gdocs_worksheet,append,split_on_project)
-    
-    # Write the bc project summary report
-    if gdocs_projects_folder:
-        write_project_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_credentials,gdocs_projects_folder)
+    # Create the bc report    
+    create_bc_report_on_gdocs(fc_date,fc_name,analysis_dir,run_info,config)
     
 if __name__ == "__main__":
     usage = """

@@ -27,27 +27,28 @@ import yaml
 
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
-from bcbio.log import create_log_handler
+from bcbio.log import logger, setup_logging
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
-from bcbio.pipeline import log
 from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
 from bcbio.pipeline.merge import organize_samples
-from bcbio.pipeline.qcsummary import write_metrics
+from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
-from bcbio.variation.genotype import parallel_unified_genotyper
+from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
 from bcbio.google.bc_metrics import create_bc_report_on_gdocs
 
+
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
-    log_handler = create_log_handler(config, log.name)
-    with log_handler.applicationbound():
-        run_main(config, config_file, fc_dir, run_info_yaml)
-
-
-def run_main(config, config_file, fc_dir, run_info_yaml):
     work_dir = os.getcwd()
+    if config.get("log_dir", None) is None:
+        config["log_dir"] = os.path.join(work_dir, "log")
+    setup_logging(config)
+    run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
+
+
+def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -70,12 +71,14 @@ def run_main(config, config_file, fc_dir, run_info_yaml):
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
+    run_parallel("screen_sample_contaminants", samples)
     samples = run_parallel("recalibrate_sample", samples)
     samples = parallel_realign_sample(samples, run_parallel)
-    samples = parallel_unified_genotyper(samples, run_parallel)
+    samples = parallel_variantcall(samples, run_parallel)
+    samples = run_parallel("detect_sv", samples)
     samples = run_parallel("process_sample", samples)
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
-
+    write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
 
 
@@ -94,12 +97,12 @@ def _get_run_info(fc_name, fc_date, config, run_info_yaml):
     """Retrieve run information from a passed YAML file or the Galaxy API.
     """
     if run_info_yaml and os.path.exists(run_info_yaml):
-        log.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
+        logger.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
         with open(run_info_yaml) as in_handle:
             run_details = yaml.load(in_handle)
         return dict(details=run_details, run_id="")
     else:
-        log.info("Fetching run details from Galaxy instance")
+        logger.info("Fetching run details from Galaxy instance")
         galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
         return galaxy_api.run_details(fc_name, fc_date)
 

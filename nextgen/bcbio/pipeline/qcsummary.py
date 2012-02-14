@@ -29,8 +29,10 @@ def generate_align_summary(bam_file, is_paired, sam_ref, sample_name,
         return _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                              dirs, config)
 
-def screen_for_contamination(fastq1, fastq2, config, genome_build):
-    _run_fastq_screen(fastq1, fastq2, config, genome_build)
+
+def screen_for_contamination(fastq1, fastq2, config):
+    _run_fastq_screen(fastq1, fastq2, config)
+
 
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                   dirs, config):
@@ -82,6 +84,61 @@ def _update_summary_table(summary_table, ref_file, fastqc_stats):
     summary_table.insert(0, ("Reference organism",
         ref_org.replace("_", " "), ""))
     return summary_table
+
+
+# ## Generate project level QC summary for quickly assessing large projects
+
+def write_project_summary(samples):
+    """Write project summary information on the provided samples.
+    """
+    def _nocommas(x):
+        return x.replace(",", "")
+
+    def _percent(x):
+        return x.replace("(", "").replace(")", "").replace("\\", "")
+    out_file = os.path.join(samples[0][0]["dirs"]["work"], "project-summary.csv")
+    sample_info = _get_sample_summaries(samples)
+    header = ["Total", "Aligned", "Pair duplicates", "Insert size",
+              "On target bases", "Mean target coverage", "10x coverage targets",
+              "Zero coverage targets", "Total variations", "In dbSNP",
+              "Transition/Transversion (all)", "Transition/Transversion (dbSNP)",
+              "Transition/Transversion (novel)"]
+    select = [(0, _nocommas), (1, _percent), (1, _percent), (0, None),
+              (1, _percent), (0, None), (0, _percent),
+              (0, _percent), (0, None), (0, _percent),
+              (0, None), (0, None), (0, None)]
+    rows = [["Sample"] + header]
+    for name, info in sample_info:
+        cur = [name]
+        for col, (i, prep_fn) in zip(header, select):
+            val = info.get(col, ["", ""])[i]
+            if prep_fn and val:
+                val = prep_fn(val)
+            cur.append(val)
+        rows.append(cur)
+    with open(out_file, "w") as out_handle:
+        writer = csv.writer(out_handle)
+        for row in rows:
+            writer.writerow(row)
+
+
+def _get_sample_summaries(samples):
+    """Retrieve high level summary information for each sample.
+    """
+    out = []
+    with utils.curdir_tmpdir() as tmp_dir:
+        for sample in (x[0] for x in samples):
+            is_paired = sample.get("fastq2", None) not in ["", None]
+            _, summary, _ = _graphs_and_summary(sample["work_bam"], sample["sam_ref"],
+                                            is_paired, tmp_dir, sample["config"])
+            sample_info = {}
+            for xs in summary:
+                n = xs[0]
+                if n is not None:
+                    sample_info[n] = xs[1:]
+            sample_name = ";".join([x for x in sample["name"] if x])
+            out.append((sample_name, sample_info))
+    return out
 
 
 # ## Run and parse read information from FastQC
@@ -172,19 +229,28 @@ def _run_fastqc(bam_file, config):
         os.remove("%s.zip" % fastqc_out)
     return fastqc_out
 
-def _run_fastq_screen(fastq1, fastq2, config, genome_build):
+def _run_fastq_screen(fastq1, fastq2, config):
     """ Runs fastq_screen on a subset of a fastq file
     """
     out_base = "fastq_screen"
     utils.safe_makedir(out_base)
     program = config.get("program", {}).get("fastq_screen", "fastq_screen")
-    
-    if utils.file_exists(fastq2):
-    # paired end
-        cl = [program, "--outdir", out_base, "--subset", "2000000", "--multilib", fastq1, "--paired", fastq2]
+
+    if fastq2 is not None:
+        if os.path.exists(fastq2):
+        # paired end
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1, "--paired", fastq2]
+        else:
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1]
     else:
-        cl = [program, "--outdir", out_base, "--subset", "2000000", "--multilib", fastq1]
-    
+        cl = [program, "--outdir", out_base, "--subset", "2000000", \
+        "--multilib", fastq1]
+
+    if config["algorithm"].get("quality_format","").lower() == 'illumina':
+        cl.insert(1,"--illumina")
+         
     subprocess.check_call(cl)
 
 # ## High level summary in YAML format for loading into Galaxy.

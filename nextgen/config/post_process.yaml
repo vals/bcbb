@@ -13,6 +13,8 @@ program:
   fastqc: fastqc
   pdflatex: pdflatex
   barcode: barcode_sort_trim.py
+  freebayes: freebayes
+  mosaik: MosaikAligner
 algorithm:
   aligner: bowtie
   max_errors: 2
@@ -22,6 +24,7 @@ algorithm:
   snpcall: false
   bc_mismatch: 2
   bc_allow_indels: true
+  bc_illumina_no_trailing: true
   bc_read: 1
   bc_position: 3
   java_memory: 6g

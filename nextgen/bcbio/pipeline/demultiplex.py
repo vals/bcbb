@@ -30,7 +30,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     if not utils.file_exists(bc_dir):
         with file_transaction(bc_dir) as tx_bc_dir:
             with utils.chdir(tx_bc_dir):
-                tag_file, need_trim = _make_tag_file(multiplex, unmatched_str)
+                tag_file, need_trim = _make_tag_file(multiplex, unmatched_str, config)
                 cl = [config["program"]["barcode"], tag_file,
                       "%s_--b--_--r--_fastq.txt" % base_name,
                       fastq1]
@@ -38,17 +38,19 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                     cl.append(fastq2)
                 cl.append("--mismatch=%s" % config["algorithm"]["bc_mismatch"])
                 cl.append("--metrics=%s" % metrics_file)
-                if int(config["algorithm"]["bc_read"]) == 2:
-                    cl.append("--second")
+                if int(config["algorithm"]["bc_read"]) > 1:
+                    cl.append("--read=%s" % config["algorithm"]["bc_read"])
                 if int(config["algorithm"]["bc_position"]) == 5:
                     cl.append("--five")
                 if config["algorithm"].get("bc_allow_indels", True) is False:
                     cl.append("--noindel")
+                if "bc_offset" in config["algorithm"]:
+                    cl.append("--bc_offset=%s" % config["algorithm"]["bc_offset"])
                 subprocess.check_call(cl)
     else:
         with utils.curdir_tmpdir() as tmp_dir:
             with utils.chdir(tmp_dir):
-                _, need_trim = _make_tag_file(multiplex, unmatched_str)
+                _, need_trim = _make_tag_file(multiplex, unmatched_str, config)
     out = {}
     for b, f1, f2 in out_files:
         if os.path.exists(f1):
@@ -78,10 +80,10 @@ def _basic_trim(f1, f2, trim_seq, config):
                                                            trimmer(qual)))
     return (trim_file, f2) if is_first else (f1, trim_file)
 
-def _make_tag_file(barcodes, unmatched_str):
+def _make_tag_file(barcodes, unmatched_str, config):
     need_trim = {}
     tag_file = "%s-barcodes.cfg" % barcodes[0].get("barcode_type", "barcode")
-    barcodes = _adjust_illumina_tags(barcodes)
+    barcodes = _adjust_illumina_tags(barcodes,config)
     with open(tag_file, "w") as out_handle:
         for bc in barcodes:
             if bc["barcode_id"] != unmatched_str:
@@ -90,12 +92,14 @@ def _make_tag_file(barcodes, unmatched_str):
                 need_trim[bc["barcode_id"]] = bc["sequence"]
     return tag_file, need_trim
 
-def _adjust_illumina_tags(barcodes):
+def _adjust_illumina_tags(barcodes,config):    
     """Handle additional trailing A in Illumina barocdes.
 
     Illumina barcodes are listed as 6bp sequences but have an additional
     A base when coming off on the sequencer. This checks for this case and
-    adjusts the sequences appropriately if needed.
+    adjusts the sequences appropriately if needed. When the configuration 
+    option to disregard the additional A in barcode matching is set, the
+    added base is an ambigous N to avoid an additional mismatch.
     """
     illumina_size = 7
     all_illumina = True
@@ -107,14 +111,16 @@ def _adjust_illumina_tags(barcodes):
             len(bc["sequence"]) < illumina_size):
             need_a = True
     if all_illumina and need_a:
+        # If we skip the trailing A in barcode matching, set as ambiguous base
+        extra_base = "N" if config["algorithm"].get("bc_illumina_no_trailing", False) else "A"
         new = []
         for bc in barcodes:
             new_bc = copy.deepcopy(bc)
-            new_bc["sequence"] = "%sA" % new_bc["sequence"]
+            new_bc["sequence"] = "{seq}{extra_base}".format(seq=new_bc["sequence"],
+                                                            extra_base=extra_base)
             new.append(new_bc)
         barcodes = new
     return barcodes
-
 
 def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     """Add multiplex information to control and non-multiplexed lanes.
@@ -167,7 +173,7 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
 def _get_fastq_size(item, fastq_dir, fc_name):
     """Retrieve the size of reads from the first flowcell sequence.
     """
-    (fastq1, _) = get_fastq_files(fastq_dir, item, fc_name)
+    (fastq1, _) = get_fastq_files(fastq_dir, None, item, fc_name)
     with open(fastq1) as in_handle:
         try:
             rec = SeqIO.parse(in_handle, "fastq").next()

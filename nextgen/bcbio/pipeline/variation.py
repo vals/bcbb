@@ -8,7 +8,9 @@ from bcbio.variation.recalibrate import gatk_recalibrate
 from bcbio.variation.genotype import variant_filtration, gatk_evaluate_variants
 from bcbio.variation.effects import snpeff_effects
 from bcbio.variation.annotation import annotate_effects
+from bcbio.variation import freebayes, phasing
 from bcbio.pipeline.shared import (configured_vrn_files, configured_ref_file)
+from bcbio.structural import hydra
 
 # ## Recalibration
 
@@ -36,13 +38,17 @@ def _analyze_recalibration(recal_file, fastq1, fastq2, dirs, config):
 
 # ## Genotyping
 
-def finalize_genotyper(call_file, ref_file, config):
-    """Perform SNP genotyping and analysis using GATK.
+def finalize_genotyper(call_file, bam_file, ref_file, config):
+    """Perform SNP genotyping and analysis.
     """
     vrn_files = configured_vrn_files(config, ref_file)
+    variantcaller = config["algorithm"].get("variantcaller", "gatk")
+    if variantcaller == "freebayes":
+        call_file = freebayes.postcall_annotate(call_file, ref_file, vrn_files, config)
     filter_snp = variant_filtration(call_file, ref_file, vrn_files, config)
-    _eval_genotyper(filter_snp, ref_file, vrn_files.dbsnp, config)
-    return filter_snp
+    phase_snp = phasing.read_backed_phasing(filter_snp, bam_file, ref_file, config)
+    _eval_genotyper(phase_snp, ref_file, vrn_files.dbsnp, config)
+    return phase_snp
 
 def _eval_genotyper(vrn_file, ref_file, dbsnp_file, config):
     """Evaluate variant genotyping, producing a JSON metrics file with values.
@@ -65,3 +71,17 @@ def variation_effects(vrn_file, genome_file, genome_build, config):
     annotated_vcf = annotate_effects(vrn_file, snpeff_vcf, genome_file, config) \
                     if snpeff_vcf else None
     return annotated_vcf, snpeff_txt
+
+# ## Structural variation
+
+def detect_sv(data):
+    """Detect structural variation for input sample.
+    """
+    sv_todo = data["config"]["algorithm"].get("sv_detection", None)
+    if sv_todo is not None and data.get("fastq2"):
+        if sv_todo == "hydra":
+            sv_calls = hydra.detect_sv(data["work_bam"], data["genome_build"],
+                                       data["dirs"], data["config"])
+        else:
+            raise ValueError("Unexpected structural variation method:{}".format(sv_todo))
+    return [[data]]

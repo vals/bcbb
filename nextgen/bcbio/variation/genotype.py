@@ -77,11 +77,14 @@ def split_snps_indels(broad_runner, orig_file, ref_file):
     params = ["-T", "SelectVariants",
               "-R", ref_file,
               "--variant", orig_file]
-    for out_file, select_type in [(snp_file, "SNP"), (indel_file, "INDEL")]:
+    for out_file, select_type in [(snp_file, ["SNP"]),
+                                  (indel_file, ["INDEL", "MIXED", "MNP",
+                                                "SYMBOLIC", "NO_VARIATION"])]:
         if not file_exists(out_file):
             with file_transaction(out_file) as tx_out_file:
-                cur_params = params + ["--out", tx_out_file,
-                                       "--selectTypeToInclude", select_type]
+                cur_params = params + ["--out", tx_out_file]
+                for x in select_type:
+                    cur_params += ["--selectTypeToInclude", x]
                 broad_runner.run_gatk(cur_params)
     return snp_file, indel_file
 
@@ -148,12 +151,13 @@ def _shared_variant_filtration(filter_type, snp_file, ref_file):
               "--mode", filter_type]
     return params, recal_file, tranches_file
 
-def _variant_filtration_no_recal(broad_runner, snp_file, ref_file, filter_type,
-                                 expressions):
-    """Perform hard filtering if coverage is in limited regions.
+def variant_filtration_with_exp(broad_runner, snp_file, ref_file, filter_type,
+                                expressions):
+    """Perform hard filtering with GATK using JEXL expressions.
 
     Variant quality score recalibration will not work on some regions; it
-    requires enough positions to train the model.
+    requires enough positions to train the model. This provides a general wrapper
+    around GATK to do cutoff based filtering.
     """
     base, ext = os.path.splitext(snp_file)
     out_file = "{base}-filter{ftype}{ext}".format(base=base, ext=ext,
@@ -178,13 +182,17 @@ def _variant_filtration_snp(broad_runner, snp_file, ref_file, vrn_files,
     """
     filter_type = "SNP"
     cov_interval = config["algorithm"].get("coverage_interval", "exome").lower()
+    variantcaller = config["algorithm"].get("variantcaller", "gatk")
     params, recal_file, tranches_file = _shared_variant_filtration(
         filter_type, snp_file, ref_file)
     assert vrn_files.train_hapmap and vrn_files.train_1000g_omni, \
            "Need HapMap and 1000 genomes training files"
-    if cov_interval == "regional":
-        return _variant_filtration_no_recal(broad_runner, snp_file, ref_file, filter_type,
-                                            ["QD < 5.0", "HRun > 5", "FS > 200.0"])
+    if cov_interval == "regional" or variantcaller == "freebayes":
+        return variant_filtration_with_exp(broad_runner, snp_file, ref_file, filter_type,
+                                           ["QD < 2.0", "MQ < 40.0", "FS > 60.0",
+                                            "HaplotypeScore > 13.0",
+                                            "MQRankSum < -12.5",
+                                            "ReadPosRankSum < -8.0"])
     else:
         params.extend(
             ["-resource:hapmap,VCF,known=false,training=true,truth=true,prior=15.0",
@@ -203,6 +211,12 @@ def _variant_filtration_snp(broad_runner, snp_file, ref_file, vrn_files,
             params.extend(["--maxGaussians", "4", "--percentBadVariants", "0.05"])
         else:
             params.extend(["-an", "DP"])
+        # also check if we've failed recal and needed to do strict filtering
+        filter_file = "{base}-filterSNP.vcf".format(base = os.path.splitext(snp_file)[0])
+        if file_exists(filter_file):
+            config["algorithm"]["coverage_interval"] = "regional"
+            return _variant_filtration_snp(broad_runner, snp_file, ref_file, vrn_files,
+                                           config)
         if not file_exists(recal_file):
             with file_transaction(recal_file, tranches_file) as (tx_recal, tx_tranches):
                 params.extend(["--recal_file", tx_recal,
@@ -229,8 +243,8 @@ def _variant_filtration_indel(broad_runner, snp_file, ref_file, vrn_files,
     params, recal_file, tranches_file = _shared_variant_filtration(
         filter_type, snp_file, ref_file)
     if cov_interval in ["exome", "regional"]:
-        return _variant_filtration_no_recal(broad_runner, snp_file, ref_file, filter_type,
-                                            ["QD < 2.0", "ReadPosRankSum < -20.0", "FS > 200.0"])
+        return variant_filtration_with_exp(broad_runner, snp_file, ref_file, filter_type,
+                                           ["QD < 2.0", "ReadPosRankSum < -20.0", "FS > 200.0"])
     else:
         assert vrn_files.train_indels, \
                "Need indel training file specified"
@@ -304,12 +318,16 @@ def _extract_eval_stats(eval_file):
 def _eval_analysis_type(in_file, analysis_name):
     """Retrieve data lines associated with a particular analysis.
     """
+    supported_versions = ["v0.2"]
     with open(in_file) as in_handle:
         # read until we reach the analysis
         for line in in_handle:
-            if (line.startswith("##:GATKReport") and
-                line.find(analysis_name) > 0):
-                break
+            if line.startswith("##:GATKReport"):
+                version = line.split()[0].split(".", 1)[-1]
+                assert version in supported_versions, \
+                       "Unexpected GATKReport version: {0}".format(version)
+                if line.find(analysis_name) > 0:
+                    break
         # read off header lines
         for _ in range(1):
             in_handle.next()
@@ -332,8 +350,14 @@ def variant_eval(vcf_in, ref_file, dbsnp, target_intervals, picard):
                       "--dbsnp", dbsnp,
                       "-ST", "Filter",
                       "-o", tx_out_file,
-                      "-l", "INFO"
-                      ]
+                      "-l", "INFO",
+                      "--doNotUseAllStandardModules",
+                      "--evalModule", "CompOverlap",
+                      "--evalModule", "CountVariants",
+                      "--evalModule", "GenotypeConcordance",
+                      "--evalModule", "TiTvVariantEvaluator",
+                      "--evalModule", "ValidationReport",
+                      "--stratificationModule", "Filter"]
             if target_intervals:
                 # BED file target intervals are explicit with GATK 1.3
                 # http://getsatisfaction.com/gsa/topics/
@@ -367,8 +391,8 @@ def _is_bed_file(fname):
 
 # ## High level functionality to run genotyping in parallel
 
-def parallel_unified_genotyper(sample_info, parallel_fn):
-    """Realign samples, running in parallel over individual chromosomes.
+def parallel_variantcall(sample_info, parallel_fn):
+    """Provide sample genotyping, running in parallel over individual chromosomes.
     """
     to_process = []
     finished = []
@@ -380,19 +404,23 @@ def parallel_unified_genotyper(sample_info, parallel_fn):
     if len(to_process) > 0:
         split_fn = split_bam_by_chromosome("-variants.vcf", "work_bam")
         processed = parallel_split_combine(to_process, split_fn, parallel_fn,
-                                           "unified_genotyper_sample",
+                                           "variantcall_sample",
                                            "combine_variant_files",
                                            "vrn_file", ["sam_ref", "config"])
         finished.extend(processed)
     return finished
 
-def unified_genotyper_sample(data, region=None, out_file=None):
+def variantcall_sample(data, region=None, out_file=None):
     """Parallel entry point for doing genotyping of a region of a sample.
     """
+    from bcbio.variation import freebayes
+    caller_fns = {"gatk": unified_genotyper,
+                  "freebayes": freebayes.run_freebayes}
     if data["config"]["algorithm"]["snpcall"]:
         sam_ref = data["sam_ref"]
         config = data["config"]
-        data["vrn_file"] = unified_genotyper(data["work_bam"], sam_ref, config,
-                                             configured_ref_file("dbsnp", config, sam_ref),
-                                             region, out_file)
+        caller_fn = caller_fns[config["algorithm"].get("variantcaller", "gatk")]
+        data["vrn_file"] = caller_fn(data["work_bam"], sam_ref, config,
+                                     configured_ref_file("dbsnp", config, sam_ref),
+                                     region, out_file)
     return [data]

@@ -8,7 +8,7 @@ from collections import namedtuple
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
 from bcbio import utils, broad
-from bcbio.ngsalign import bowtie, bwa, tophat, bowtie2
+from bcbio.ngsalign import bowtie, bwa, tophat, bowtie2, mosaik, novoalign
 from bcbio.distributed.transaction import file_transaction
 
 # Define a next-generation sequencing tool to plugin:
@@ -25,6 +25,8 @@ _tools = {
     "bowtie": NgsTool(bowtie.align, bowtie.galaxy_location_file, None),
     "bowtie2": NgsTool(bowtie2.align, bowtie2.galaxy_location_file, bowtie2.remap_index_fn),
     "bwa": NgsTool(bwa.align, bwa.galaxy_location_file, None),
+    "mosaik": NgsTool(mosaik.align, mosaik.galaxy_location_file, None),
+    "novoalign": NgsTool(novoalign.align, bowtie.galaxy_location_file, novoalign.remap_index_fn),
     "tophat": NgsTool(tophat.align, tophat.galaxy_location_file, None),
     "samtools": NgsTool(None, "sam_fa_indices.loc", None),
     }
@@ -33,14 +35,20 @@ def align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
                       lane_name, sample_name, dirs, config):
     """Align to the named genome build, returning a sorted BAM file.
     """
+    rg_name = lane_name.split("_")[0]
     utils.safe_makedir(dirs["align"])
     align_ref, sam_ref = get_genome_ref(genome_build, aligner, dirs["galaxy"])
     align_fn = _tools[aligner].align_fn
-    sam_file = align_fn(fastq1, fastq2, align_ref, lane_name, dirs["align"], config)
+    sam_file = align_fn(fastq1, fastq2, align_ref, lane_name, dirs["align"], config,
+                        rg_name=rg_name)
     if fastq2 is None and aligner in ["bwa", "bowtie2"]:
         fastq1 = _remove_read_number(fastq1, sam_file)
-    return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
-                           lane_name, config)
+    sort_method = config["algorithm"].get("bam_sort", "coordinate")
+    if sort_method == "queryname":
+        return sam_to_querysort_bam(sam_file, config)
+    else:
+        return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
+                               rg_name, lane_name, config)
 
 def _remove_read_number(in_file, sam_file):
     """Work around problem with MergeBamAlignment with BWA and single end reads.
@@ -67,11 +75,19 @@ def _remove_read_number(in_file, sam_file):
                             out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
     return out_file
 
+def sam_to_querysort_bam(sam_file, config):
+    """Convert SAM file directly to a query sorted BAM without merging of FASTQ reads.
+
+    This allows merging of multiple mappers which do not work with MergeBamAlignment.
+    """
+    runner = broad.runner_from_config(config)
+    out_file = "{}.bam".format(os.path.splitext(sam_file)[0])
+    return runner.run_fn("picard_sort", sam_file, "queryname", out_file)
+
 def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
-                    lane_name, config):
+                    rg_name, lane_name, config):
     """Convert SAM file to merged and sorted BAM file.
     """
-    rg_name = lane_name.split("_")[0]
     picard = broad.runner_from_config(config)
     platform = config["algorithm"]["platform"]
     qual_format = config["algorithm"].get("quality_format", None)
@@ -89,8 +105,9 @@ def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
     utils.save_diskspace(out_fastq_bam, "Combined into output BAM %s" % out_bam, config)
     utils.save_diskspace(out_bam, "Sorted to %s" % sort_bam, config)
     # merge FASTQ files, only if barcoded samples in the work directory
-    if (os.path.commonprefix([fastq1, sort_bam]).startswith(os.path.dirname(sort_bam)) and
-          not config["algorithm"].get("upload_fastq", True)):
+    if (os.path.commonprefix([fastq1, sort_bam]) ==
+             os.path.split(os.path.dirname(sort_bam))[0]
+          and not config["algorithm"].get("upload_fastq", True)):
         utils.save_diskspace(fastq1, "Merged into output BAM %s" % out_bam, config)
         if fastq2:
             utils.save_diskspace(fastq2, "Merged into output BAM %s" % out_bam, config)
