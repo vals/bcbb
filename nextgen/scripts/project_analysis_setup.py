@@ -190,7 +190,7 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
         else:
             bcid2name = dict([(str(mp.get_barcode_id()), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
     fq = _get_barcoded_fastq_files(lane, multiplex, pruned_fc.get_fc_date(), pruned_fc.get_fc_name(), pruned_fc.get_fc_dir())
-    print bcid2name
+
     ## Move data along with fastq files
     fc_data_dir = rawdata_fc.get_fc_dir()
     _make_dir(fc_data_dir, "data delivery directory")

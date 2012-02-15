@@ -361,7 +361,6 @@ class Sample:
     def get_full_name(self):
         return _from_unicode(self.full_name)
     def set_full_name(self,name):
-        print "Setting full name to %s" % name
         self.full_name = _to_unicode(name)
 
     def get_comment(self):
@@ -406,7 +405,6 @@ class Sample:
         if (self.get_name()):
             struct["name"] = self.get_name()
         if (self.get_full_name()):
-            print "exporting %s" % self.get_full_name()
             struct["full_name"] = self.get_full_name()
         if (self.get_project()):
             struct["description"] = self.get_project()
