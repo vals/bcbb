@@ -5,7 +5,18 @@ Rename barcodes in file names.
 Usage:
   convert_barcode.py <YAML run information> <glob>
                      --dry_run --verbose --recursive
-                     --name_to_barcode
+                     --name_to_barcode --sample_prefix
+
+By default numerical barcode ids to barcode (sample) names, but the
+converse operation is also possible. sample_prefix adds the sample
+name after the lane id.
+
+Options:
+  -n, --dry_run            Don't actually do anything
+  -v, --verbose            Print more information
+  -b, --name_to_barcode    Convert from name to numerical barcode id
+  -p, --sample_prefix      Add sample prefix
+  -r, --recursive          Rename recursively
 """
 
 import os
@@ -28,7 +39,7 @@ def main(run_info_yaml, glob_str):
         bcmap = _name_to_barcode_id(fc)
     else:
         bcmap = _barcode_id_to_name(fc)
-    
+
     if options.recursive:
         for root, dirnames, filenames in os.walk("./"):
             for filename in fnmatch.filter(filenames, glob_str):
@@ -43,9 +54,13 @@ def rename_file(filename, bcmap):
         print filename
     lane, date, fc, bc = _get_flowcell_info(filename)
     from_str = "%s_%s_%s_%s" % (lane, date, fc, bc)
-    to_str  = "%s_%s_%s_%s" % (lane, date, fc, bcmap[lane][str(bc)])
+    to_str  = "%s_%s_%s_%s" % (lane, date, fc, bcmap[str(lane)][str(bc)])
     src = filename
     tgt = src.replace(from_str, to_str)
+    if options.sample_prefix:
+        from_str = "%s_" % (lane)
+        to_str   = "%s_%s_" % (lane, bc)
+        tgt = tgt.replace(from_str, to_str)
     if options.dry_run:
         print "DRY_RUN: renaming %s to %s" % (src, tgt)
     else:
@@ -61,20 +76,22 @@ def _barcode_id_to_name(fc):
 
 def _name_to_barcode_id(fc):
     name2bcid = dict()
-    for lane in run_info:
+    for lane in fc.get_lanes():
         multiplex = lane.get_samples()
-        bcid2name[lane] = dict([(mp.get_barcode_name(), str(mp.get_barcode_id())) for mp in multiplex])
+        name2bcid[lane.get_name()] = dict([(str(mp.get_barcode_name()), str(mp.get_barcode_id())) for mp in multiplex])
     return name2bcid
 
 def _get_flowcell_info(filename):
     fn = os.path.basename(filename)
-    regexp = r'^([0-9])_([0-9]{6})_([A-Za-z0-9]+)_([\_A-Za-z0-9]+)\.'
+    if options.name_to_barcode:
+        regexp = r'^([0-9])_([0-9]{6})_([A-Za-z0-9]+)_([\_A-Za-z0-9]+)_([0-9]+)\.'
+    else:
+        regexp = r'^([0-9])_([0-9]{6})_([A-Za-z0-9]+)_([0-9]+)\_'
     m = re.search(regexp, fn, re.I)
     if not m or len(m.groups()) == 0:
         print "regexp %s failed!" % regexp
         sys.exit()
     lane, date, fc, bc = m.group(1), m.group(2), m.group(3), m.group(4)
-
     assert int(lane) > 0 and int(lane) < 9, "lane is not between 1 and 8"
     return (str(lane), date, fc, str(bc))
 
@@ -82,7 +99,7 @@ if __name__ == "__main__":
     usage = """
     convert_barcode.py <YAML run information> <glob>
                        --dry_run --verbose --recursive
-                       --name_to_barcode
+                       --name_to_barcode --sample_prefix
 
     For more extensive help, type convert_barcode.py
     """
@@ -96,6 +113,9 @@ if __name__ == "__main__":
                       default=True)
     parser.add_option("-b", "--name_to_barcode", dest="name_to_barcode", action="store_true",
                       default=False)
+    parser.add_option("-p", "--sample_prefix", dest="sample_prefix", action="store_true",
+                      default=False)
+
     (options, args) = parser.parse_args()
     if len(args) < 2:
         print __doc__
