@@ -7,7 +7,7 @@ Usage:
                              --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
                              --install_data --move_data --symlink --only_install_run_info
                              --customer_delivery --barcode_id_to_name --sample_prefix
-                             --dry_run --verbose]
+                             --barcode_full_names --dry_run --verbose]
 
 
 Given a directory with demultiplexed flow cell data and a project id,
@@ -40,6 +40,7 @@ Options:
                                                 instead of LANE_DATE_FCID
   -m, --move_data                               Move data instead of copying
   -l, --symlink                                 Link data instead of copying
+      --barcode_full_names                      Don't strip index from barcode name
   -n, --dry_run                                 Don't do anything samples, just list what will happen
   -v, --verbose                                 Print some more information
 """
@@ -184,7 +185,10 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
              (lane.get_description(), lane.get_name(), lane.get_genome_build()))
     if multiplex:
         logger.debug("Project %s is multiplexed as: %s" % (lane.get_description(), multiplex))
-        bcid2name = dict([(str(mp.get_barcode_id()), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
+        if options.barcode_full_names:
+            bcid2name = dict([(str(mp.get_barcode_id()), mp.get_barcode_full_name()) for mp in multiplex])
+        else:
+            bcid2name = dict([(str(mp.get_barcode_id()), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
     fq = _get_barcoded_fastq_files(lane, multiplex, pruned_fc.get_fc_date(), pruned_fc.get_fc_name(), pruned_fc.get_fc_dir())
     print bcid2name
     ## Move data along with fastq files
@@ -356,6 +360,8 @@ if __name__ == "__main__":
     parser.add_option("-l", "--symlink", dest="link", action="store_true",
                       default=False)
     parser.add_option("-p", "--sample_prefix", dest="sample_prefix", action="store_true",
+                      default=False)
+    parser.add_option("--barcode_full_names", dest="barcode_full_names", action="store_true",
                       default=False)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       default=False)
