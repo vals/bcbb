@@ -318,7 +318,11 @@ def _sample_based_run_info(fc):
         for barcode_id in bcids:
             s = l.get_sample_by_barcode(barcode_id)
             lane_num = lane_num + 1
-            newl = Lane(data={"description":s.get_name(), "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build()})
+            if options.barcode_full_names:
+                desc = s.get_full_name()
+            else:
+                desc = s.get_name()
+            newl = Lane(data={"description":desc, "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build()})
             newl.set_name("%s" % lane_num)
             files = l.get_files()
             if options.customer_delivery or options.barcode_id_to_name:
