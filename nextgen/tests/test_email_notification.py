@@ -16,11 +16,8 @@ class TestEmailNotification(unittest.TestCase):
         assert os.path.exists(self.config_file), "Could not locate required configuration file %s" % self.config_file
  
     def _get_log_handler(self,config):
-        log_handler = create_log_handler(config)
-        # A GroupHandler that will wrap around the MailHandler and send a batch email after all reports have been written
-        group_handler = logbook.handlers.GroupHandler(log_handler)
-       
-        return group_handler
+        log_handler = create_log_handler(config,True)
+        return log_handler
 
     def _log_messages(self, log_handler, subject="Test email"):
         try:

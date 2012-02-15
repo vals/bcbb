@@ -31,7 +31,7 @@ import logbook
 logger2 = logbook.Logger(LOG_NAME)
 
 
-def create_log_handler(config):
+def create_log_handler(config,batch_records=False):
     log_dir = config.get("log_dir", None)
     email = config.get("email", None)
 
@@ -50,4 +50,7 @@ def create_log_handler(config):
         handler = logbook.MailHandler(email[0], email, server_addr=smtp_host,
                                       format_string=u'''Subject: [BCBB pipeline] {record.extra[run]} \n\n {record.message}''',
                                       level='INFO', bubble=True)
+    if batch_records:
+        handler = logbook.handlers.GroupHandler(handler)
+        
     return handler

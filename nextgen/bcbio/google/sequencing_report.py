@@ -11,7 +11,6 @@ from bcbio.pipeline.qcsummary import RTAQCMetrics
 from bcbio.pipeline.flowcell import Flowcell
 from bcbio.log import create_log_handler
 from bcbio.log import logger2 as log
-from logbook.handlers import GroupHandler
 
 def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
     """
@@ -33,11 +32,9 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
         email = gdocs.get("gdocs_email_notification",None)
         smtp_host = config.get("smtp_host","")
         smtp_port = config.get("smtp_port","")
-        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port})
-        # A GroupHandler that will wrap around the MailHandler and send a batch email after all reports have been written
-        group_handler = GroupHandler(log_handler)
+        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port},True)
         
-        with group_handler.applicationbound():
+        with log_handler.applicationbound():
             
             # Inject the fc_date and fc_name in the email subject
             with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
