@@ -162,7 +162,7 @@ class Flowcell:
     
     @staticmethod
     def columns():
-        cols = ["fc_date","fc_name"]
+        cols = []#"fc_date","fc_name"]
         cols.extend(Lane.columns())
         return cols
     
@@ -170,9 +170,9 @@ class Flowcell:
         rows = []
         for lane in self.get_lanes():
             for row in lane.to_rows():
-                l = [self.get_fc_date(),self.get_fc_name()]
-                l.extend(row)
-                rows.append(l)
+                #l = [self.get_fc_date(),self.get_fc_name()]
+                #l.extend(row)
+                rows.append(row)
         return rows
     
     def to_structure(self):
@@ -189,18 +189,19 @@ class Lane:
         self.set_description(data.get("description",None))
         self.set_name(data.get("lane",None))
         self.set_samples(data.get("multiplex",[]))
-    
+        self.set_files([])
+
     def get_analysis(self):
         return self.data.get("analysis",None)
     
     def set_data(self,data):
         self.data = copy.deepcopy(data)
-    
+
     def get_description(self):
         return _from_unicode(self.description)
     def set_description(self,description):
         self.description = _to_unicode(description)
-        
+
     def get_genome_build(self):
         return self.data.get("genome_build",None)
     
@@ -237,7 +238,12 @@ class Lane:
         self.multiplex = []
         for barcode in multiplex:
             self.add_sample(BarcodedSample(barcode,self))
-        
+
+    def set_files(self, files):
+        self.files = files
+    def get_files(self):
+        return self.files
+
     def get_samples_by_project(self,project):
         samples = []
         for sample in self.get_samples():
@@ -267,7 +273,7 @@ class Lane:
     
     @staticmethod
     def columns():
-        cols = ["lane"]
+        cols = ["lane","description"]
         cols.extend(BarcodedSample.columns())
         return cols
     
@@ -276,6 +282,7 @@ class Lane:
         for sample in self.get_samples():
             s = sample.to_rows()
             s.insert(0,self.get_name())
+            s.insert(1,self.get_description())
             rows.append(s)
         return rows
             
@@ -285,12 +292,31 @@ class Lane:
             struct["description"] = self.get_description()
         if (self.get_name()):
             struct["lane"] = self.get_name()
+        if (self.get_files()):
+            struct["files"] = self.get_files()
         if (self.get_samples()):
             struct["multiplex"] = []
             for sample in self.get_samples():
                 struct["multiplex"].append(sample.to_structure())
+        else:
+            if (self.get_analysis()):
+                struct["analysis"] = self.get_analysis()
+            if (self.get_genome_build()):
+                struct["genome_build"] = self.get_genome_build()
         return struct
-        
+
+    def get_barcode_ids(self):
+        bcids = None
+        if (self.get_samples()):
+            bcids = []
+            for sample in self.get_samples():
+                bcids.append(sample.get_barcode_id())
+        return bcids
+
+    def __str__(self):
+        s = "Lane: %s\n\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
+        return s
+
 class Sample:
     """A class for managing information about a sample"""
      
@@ -314,7 +340,6 @@ class Sample:
             self.set_project("%s%s%s" % (self.get_project(),delim,other.get_project()))
         if (self.get_lane() != other.get_lane()):
             self.set_lane("%s%s%s" % (self.get_lane(),delim,other.get_lane()))
-            print self.get_lane()
         if (other.get_read_count() is not None):
             self.set_read_count((self.get_read_count() or 0) + other.get_read_count())
             

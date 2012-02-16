@@ -4,7 +4,7 @@ import os
 import fabric.api as fabric
 import fabric.contrib.files as fabric_files
 import time
-from bcbio.pipeline import log
+from bcbio.log import logger
 from bcbio.pipeline.config_loader import load_config
 
 from bcbio.pipeline.toplevel import _copy_from_sequencer
@@ -71,7 +71,7 @@ def _remove_transferred_files(remote_info, config):
          (config["store_user"], config["store_host"])):
         rm_str = "rm -r %s/%s" % \
          (copy_to, os.path.split(remote_info["directory"])[1])
-        log.debug(rm_str)
+        logger.debug(rm_str)
         fabric.run(rm_str)
 
 

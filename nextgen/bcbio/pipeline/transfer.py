@@ -8,7 +8,7 @@ try:
 except ImportError:
     fabric, fabric_files = (None, None)
 
-from bcbio.pipeline import log
+from bcbio.log import logger
 
 
 def remote_copy(remote_info, base_dir, protocol):
@@ -32,7 +32,7 @@ def remote_copy(remote_info, base_dir, protocol):
                       remote_info["directory"], fcopy),
                       target_loc]
 
-                log.debug(cl)
+                logger.debug(cl)
                 fabric.run(" ".join(cl))
 
     elif protocol == "rsync":
@@ -51,7 +51,7 @@ def remote_copy(remote_info, base_dir, protocol):
                 "%s@%s:%s" % (remote_info["user"], remote_info["hostname"], \
                 remote_info["directory"]), fc_dir]
 
-        log.debug(cl)
+        logger.debug(cl)
         fabric.run(" ".join(cl))
 
     # Note: rdiff-backup doesn't have the ability to resume a partial transfer,
@@ -67,7 +67,7 @@ def remote_copy(remote_info, base_dir, protocol):
               "%s@%s::%s" % (remote_info["user"], remote_info["hostname"],
               remote_info["directory"]), fc_dir]
 
-        log.debug(cl)
+        logger.debug(cl)
         fabric.run(" ".join(cl))
 
     return os.path.join(fc_dir, os.path.basename(remote_info['directory']))

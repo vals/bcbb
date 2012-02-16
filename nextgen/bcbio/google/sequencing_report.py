@@ -9,9 +9,8 @@ import bcbio.google.bc_metrics
 import bcbio.google.qc_metrics
 from bcbio.pipeline.qcsummary import RTAQCMetrics
 from bcbio.pipeline.flowcell import Flowcell
-from bcbio.pipeline import log
 from bcbio.log import create_log_handler
-from logbook.handlers import GroupHandler
+from bcbio.log import logger2 as log
 
 def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
     """
@@ -33,11 +32,9 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
         email = gdocs.get("gdocs_email_notification",None)
         smtp_host = config.get("smtp_host","")
         smtp_port = config.get("smtp_port","")
-        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port},"")
-        # A GroupHandler that will wrap around the MailHandler and send a batch email after all reports have been written
-        group_handler = GroupHandler(log_handler)
+        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port},True)
         
-        with group_handler.applicationbound():
+        with log_handler.applicationbound():
             
             # Inject the fc_date and fc_name in the email subject
             with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
@@ -47,9 +44,7 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
                     
                     # Get a flowcell object 
                     fc = Flowcell(fc_name,fc_date,run_info.get("details",[]),dirs.get("work",None))
-                    # Get the barcode statistics. Get a deep copy of the run_info since we will modify it
-                    bc_metrics = bcbio.google.bc_metrics.get_bc_stats(fc_date,fc_name,dirs.get("work",None),copy.deepcopy(run_info))
-            
+                    
                     # Get the GDocs demultiplex result file title
                     gdocs_dmplx_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
                     # Get the GDocs QC file title
@@ -58,7 +53,7 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
                     # FIXME: Make the bc stuff use the Flowcell module
                     if gdocs_dmplx_spreadsheet is not None:    
                         # Upload the data
-                        success &= bcbio.google.bc_metrics.write_run_report_to_gdocs(fc_date,fc_name,bc_metrics,gdocs_dmplx_spreadsheet,encoded_credentials) 
+                        success &= bcbio.google.bc_metrics.write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_dmplx_spreadsheet, encoded_credentials) 
                     else:
                         log.warn("Could not find Google Docs demultiplex results file title in configuration. No demultiplex counts were written to Google Docs for %s_%s" % (fc_date,fc_name))
                         
@@ -74,7 +69,7 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
                     
                     # Write the bc project summary report
                     if projects_folder is not None:
-                        success &= create_project_report_on_gdocs(fc,bc_metrics,qc,encoded_credentials,projects_folder)
+                        success &= create_project_report_on_gdocs(fc,qc,encoded_credentials,projects_folder)
                     
                 except Exception as e:
                     success = False
@@ -92,7 +87,7 @@ def create_report_on_gdocs(fc_date,fc_name,run_info,dirs,config):
     return success
 
         
-def create_project_report_on_gdocs(fc,project_bc_metrics,qc,encoded_credentials,gdocs_folder):
+def create_project_report_on_gdocs(fc,qc,encoded_credentials,gdocs_folder):
     """Upload the sample read distribution for a project to google docs"""
     
     success = True
@@ -104,20 +99,12 @@ def create_project_report_on_gdocs(fc,project_bc_metrics,qc,encoded_credentials,
     # Get a reference to the parent folder
     parent_folder = bcbio.google.document.get_folder(doc_client,gdocs_folder)
     
-    # Group the barcode data by project
-    grouped = bcbio.google.bc_metrics.group_bc_stats(project_bc_metrics)
-    
     # Loop over the projects
     for project_name in fc.get_project_names():
         
         # Get a flowcell object containing just the data for the project
         project_fc = fc.prune_to_project(project_name)
-        pdata = {}
-        for group in grouped:
-            if group.get("project_name","") == project_name:
-                pdata = group
-                break
-            
+        
         folder_name = project_name
         folder = bcbio.google.document.get_folder(doc_client,folder_name)
         if not folder:
@@ -133,7 +120,7 @@ def create_project_report_on_gdocs(fc,project_bc_metrics,qc,encoded_credentials,
             ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)        
             log.info("Spreadsheet '%s' created in folder '%s'" % (_from_unicode(ssheet.title.text),_from_unicode(folder_name)))
             
-        success &= bcbio.google.bc_metrics._write_project_report_to_gdocs(client,ssheet,fc.get_fc_date(),fc.get_fc_name(),pdata)
+        success &= bcbio.google.bc_metrics._write_project_report_to_gdocs(client,ssheet,project_fc)
         success &= bcbio.google.bc_metrics._write_project_report_summary_to_gdocs(client,ssheet)
         success &= bcbio.google.qc_metrics.write_run_report_to_gdocs(project_fc,qc,ssheet_title,encoded_credentials)
         log.info("Sequencing results report written to spreadsheet '%s'" % _from_unicode(ssheet.title.text))
