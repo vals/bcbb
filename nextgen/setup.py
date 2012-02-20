@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 import os
 
 setup(name = "bcbio-nextgen",
-      version = "0.2",
+      version = "0.3a",
       author = "Brad Chapman",
       author_email = "chapmanb@50mail.com",
       description = "Automated, distributed next-gen sequencing pipeline; includes Galaxy interaction",
@@ -22,14 +22,15 @@ setup(name = "bcbio-nextgen",
                  'scripts/monthly_billing_report.py',
                  'scripts/project_fc_delivery_reports.py',
                  'scripts/project_analysis_setup.py',
-                 'scripts/project_exome_pipeline.py',
                  'scripts/mako2rst.py',
+                 'scripts/monthly_billing_report.py',
                  'scripts/illumina_finished_msg.py',
                  'scripts/nextgen_analysis_server.py',
                  'scripts/solexa_qseq_to_fastq.py',
                  'scripts/store_finished_sqn.py',
                  'scripts/upload_to_galaxy.py',
                  'scripts/variant_effects.py',
+                 'scripts/count_barcodes.py'  # temporary name
                  ],
       package_data = {
           'config' : ['*.yaml'],

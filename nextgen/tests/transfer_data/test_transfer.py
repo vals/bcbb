@@ -4,11 +4,63 @@ import os
 import fabric.api as fabric
 import fabric.contrib.files as fabric_files
 import time
-from bcbio.pipeline import log
+from bcbio.log import logger
 from bcbio.pipeline.config_loader import load_config
 
 from bcbio.pipeline.toplevel import _copy_from_sequencer
 from bcbio.pipeline.storage import _copy_for_storage
+
+from illumina_finished_msg import _files_to_copy
+
+test_dir_structure = \
+{"999999_XX999_9999_AC9999ACXX": [ \
+    {"Data": [ \
+        {"Intensities": [ \
+            {"BaseCalls": [ \
+                {"fastq": [ \
+                    "1_999999_AC9999ACXX_1_fastq.txt", \
+                    "1_999999_AC9999ACXX_2_fastq.txt", \
+                    "2_999999_AC9999ACXX_1_fastq.txt"
+                ]}, \
+                {"Plots": [ \
+                    "s_1_1101_all.png", \
+                    "s_1_1102_all.png", \
+                    "s_1_1103_all.png"
+                ]}, \
+                "All.htm", \
+                "BustasrdSummary.xsl", \
+                "BustasrdSummary.xml" \
+            ]} \
+        ]}, \
+        {"reports": [ \
+            {"level1": [ \
+                {"level2": [ \
+                    "file21", \
+                    "file22" \
+                ]}, \
+                "file11", \
+                "file12" \
+            ]}, \
+            "NumClusters_Chart.png", \
+            "NumClusters_Chart.xml", \
+            "NumPassedFilter25_Chart.png" \
+        ]}, \
+        {"Status_Files": [ \
+            "ByCycleFrame.htm", \
+            "ByCycle.htm", \
+            "ByCycle.js" \
+        ]}, \
+        "Status.htm" \
+    ]}, \
+    {"InterOp": [ \
+        "ControlMetricsOut.bin", \
+        "CorrectedIntMetricsOut.bin", \
+        "ErrorMetricsOut.bin" \
+    ]}, \
+    "RunInfo.xml", \
+    "run_info.yaml", \
+    "runParameters.xml" \
+]}
 
 
 def _remove_transferred_files(remote_info, config):
@@ -19,8 +71,37 @@ def _remove_transferred_files(remote_info, config):
          (config["store_user"], config["store_host"])):
         rm_str = "rm -r %s/%s" % \
          (copy_to, os.path.split(remote_info["directory"])[1])
-        log.debug(rm_str)
+        logger.debug(rm_str)
         fabric.run(rm_str)
+
+
+def make_dirs_or_files(argument, residue=""):
+    """Function for making the directories and files as defined in
+    a nesting of dictionaries, lists and strings.
+    """
+    if type(argument) == dict:
+        residue += argument.keys()[0] + "/"
+        a_list = argument.values()[0]
+        make_dirs_or_files(a_list, residue)
+    if type(argument) == list:
+        for elt in argument:
+            make_dirs_or_files(elt, residue)
+    if type(argument) == str:
+        try:
+            os.makedirs(residue)
+        except OSError as e:
+            if e.errno == 17:  # The directory already exists
+                pass
+            else:
+                raise e
+
+        open(residue + argument, 'w').close()
+
+
+def print_file_list():
+    for root, dirs, files in os.walk("999999_XX999_9999_AC9999ACXX"):
+        for f in files:
+            print(root + "/" + f)
 
 
 def perform_transfer(transfer_function, protocol_config, \
@@ -43,40 +124,59 @@ def perform_transfer(transfer_function, protocol_config, \
     which give the string
     of a transfer protocol.
     """
-    config = load_config("../data/automated/post_process.yaml")
+    config = load_config("transfer_test_post_process.yaml")
 
-    store_dir = os.path.realpath("../transfer_data/copy_to")
-    config["store_dir"] = store_dir
-
-    config.update(protocol_config)
-
-    copy_dir = os.path.realpath("../transfer_data/to_copy")
-
-    remote_info = {}
-    remote_info["directory"] = copy_dir
-    remote_info["to_copy"] = ["file1", "file2", "file3", "dir1"]
-    remote_info["user"] = config["store_user"]
-    remote_info["hostname"] = config["store_host"]
-
-    # Generate test files
-    for file_dir in store_dir, copy_dir:
+    for file_dir in "copy_to", "to_copy":
         if not os.path.isdir(file_dir):
             os.mkdir(file_dir)
 
-    test_data = {}
-    for test_file in remote_info["to_copy"][:3]:
-        test_file_path = "%s/%s" % (copy_dir, test_file)
-        if not os.path.isdir(test_file_path):
-            with open(test_file_path, 'w+') as file_to_write:
-                # We just use the current processor time as test data, the
-                # important part is that it will be different enough between
-                # test just so we know we are not comparing with files copied
-                # in a previous test during the assertion.
-                test_data[test_file] = str(time.clock())
-                file_to_write.write(test_data[test_file])
+    store_dir = os.path.realpath("copy_to")
+    config["store_dir"] = store_dir
+    config.update(protocol_config)
+    copy_dir = os.path.realpath("to_copy")
 
-    if not os.path.isdir("%s/%s" % (copy_dir, remote_info["to_copy"][3])):
-        os.mkdir("%s/%s" % (copy_dir, remote_info["to_copy"][3]))
+    # Generate test files
+    test_files = []
+    make_dirs_or_files(test_dir_structure, "to_copy/")
+    base = test_dir_structure.keys()[0]
+    for root, dirs, files in os.walk("to_copy" + "/" + base):
+        for f in files:
+            test_files.append(root[8:] + "/" + f)
+
+    test_data = {}
+    for test_file in test_files:
+        with open("to_copy/" + test_file, 'w+') as file_to_write:
+            # We just use the current processor time as test data, the
+            # important part is that it will be different enough between
+            # test just so we know we are not comparing with files copied
+            # in a previous test during the assertion.
+            test_data[test_file] = str(time.clock())
+            file_to_write.write(test_data[test_file])
+
+    remote_info = {}
+    remote_info["directory"] = copy_dir
+    remote_info["user"] = config["store_user"]
+    remote_info["hostname"] = config["store_host"]
+
+    files_to_copy = _files_to_copy("to_copy/" + base)
+    files_to_copy = list(set(sum(files_to_copy, [])))
+    files_to_copy = map(lambda fpath: base + "/" + fpath, files_to_copy)
+
+    # Trim out the unavailable files to copy
+    unavailable_files = []
+    for cfl in files_to_copy:
+        available_for_copy = False
+        for tfl in test_files:
+            if cfl in tfl:
+                available_for_copy = True
+
+        if not available_for_copy:
+            unavailable_files.append(cfl)
+
+    for ufl in unavailable_files:
+        files_to_copy.remove(ufl)
+
+    remote_info["to_copy"] = files_to_copy
 
     # Perform copy with settings
     with fabric.settings(host_string="%s@%s" % \
@@ -89,10 +189,9 @@ def perform_transfer(transfer_function, protocol_config, \
         # Copy
         transfer_function(remote_info, config)
 
-    # Check of the copy succeeded
-    for test_file in remote_info["to_copy"][:3]:
-        test_file_path = "%s/%s/%s" % \
-                         (store_dir, os.path.split(copy_dir)[1], test_file)
+    # Check if the copy succeeded
+    for test_file, test_value in test_data.items():
+        test_file_path = "%s/%s" % (store_dir, "to_copy/" + test_file)
         # Did the files get copied correctly
         assert os.path.isfile(test_file_path), "File not copied: %s" % test_file
         if os.path.isfile(test_file_path):
@@ -112,10 +211,6 @@ def perform_transfer(transfer_function, protocol_config, \
                 # directory of we specified that this should happen.
                 assert (read_data == test_data[test_file]) == \
                 (remove_before_copy or should_overwrite), fail_string
-        # Did the directories get copied correcty
-        if os.path.isdir(test_file_path):
-            # Not tested for yet
-            pass
 
 
 def test__copy_for_storage():
