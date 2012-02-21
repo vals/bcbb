@@ -1,0 +1,8 @@
+"FCID","Lane","SampleID","SampleRef","Index","Description","Control","Recipe","Operator","SampleProject"
+"TEST12345",1,"alp_index7","hg19","CAGATC","","N","R1","PJK","human"
+"TEST12345",1,"stuff_index1","hg19","ATCACG","","N","R1","PJK","human"
+"TEST12345",1,"stuff_index2","hg19","CGATGT","","N","R1","PJK","human"
+"TEST12345",1,"stuff_index3","hg19","TTAGGC","","N","R1","PJK","human"
+"TEST12345",1,"stuff_index6","hg19","GCCAAT","","N","R1","PJK","human"
+"TEST12345",3,"stuff_index1","hg19","ATCACG","","N","R1","PJK","human"
+"TEST12345",4,"stuff_index2","unknown","CGATGT","","N","R1","PJK","monkey"
