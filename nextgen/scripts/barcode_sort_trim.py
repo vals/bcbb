@@ -44,6 +44,7 @@ from optparse import OptionParser
 from Bio import pairwise2
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
+
 def main(barcode_file, out_format, in1, in2, in3, mismatch, bc_offset,
          bc_read_i, three_end, allow_indels,
          metrics_file, verbose, tag_title):
@@ -85,6 +86,7 @@ def main(barcode_file, out_format, in1, in2, in3, mismatch, bc_offset,
             writer = csv.writer(out_handle, dialect="excel-tab")
             for bc in sort_bcs:
                 writer.writerow([bc, stats[bc]])
+
 
 def best_match(end_gen, barcodes, mismatch, allow_indels=True):
     """Identify barcode best matching to the test sequence, with mismatch.
@@ -133,16 +135,19 @@ def best_match(end_gen, barcodes, mismatch, allow_indels=True):
     else:
         return "unmatched", "", ""
 
+
 def _barcode_very_ambiguous(barcodes):
     max_size = max(len(x) for x in barcodes.keys())
     max_ns = max(x.count("N") for x in barcodes.keys())
     return float(max_ns) / float(max_size) > 0.5
+
 
 def _barcode_has_ambiguous(barcodes):
     for seq in barcodes.keys():
         if "N" in seq:
             return True
     return False
+
 
 def end_generator(seq1, seq2=None, seq3=None, bc_read_i=1, three_end=True, bc_offset=0):
     """Function which pulls a barcode of a provided size from paired seqs.
@@ -157,22 +162,24 @@ def end_generator(seq1, seq2=None, seq3=None, bc_read_i=1, three_end=True, bc_of
     def _get_end(size):
         assert size > 0
         if three_end:
-            return seq[-size-bc_offset:len(seq)-bc_offset]
+            return seq[-size - bc_offset:len(seq) - bc_offset]
         else:
-            return seq[bc_offset:size+bc_offset]
+            return seq[bc_offset:size + bc_offset]
     return _get_end
+
 
 def _remove_from_end(seq, qual, match_seq, three_end, bc_offset):
     if match_seq:
         if three_end:
-            assert seq[-len(match_seq)-bc_offset:len(seq)-bc_offset] == match_seq
-            seq = seq[:-len(match_seq)-bc_offset]
-            qual = qual[:-len(match_seq)-bc_offset]
+            assert seq[-len(match_seq) - bc_offset:len(seq) - bc_offset] == match_seq
+            seq = seq[:-len(match_seq) - bc_offset]
+            qual = qual[:-len(match_seq) - bc_offset]
         else:
-            assert seq[bc_offset:len(match_seq)+bc_offset] == match_seq
-            seq = seq[len(match_seq)+bc_offset:]
-            qual = qual[len(match_seq)+bc_offset:]
+            assert seq[bc_offset:len(match_seq) + bc_offset] == match_seq
+            seq = seq[len(match_seq) + bc_offset:]
+            qual = qual[len(match_seq) + bc_offset:]
     return seq, qual
+
 
 def remove_barcode(seq1, qual1, seq2, qual2, seq3, qual3,
                    match_seq, bc_read_i, three_end, bc_offset=0):
@@ -266,14 +273,14 @@ class BarcodeTest(unittest.TestCase):
         end_gen = end_generator(seq1, seq2, None, 2, False)
         assert end_gen(3) == "GGG"
         # Test end generation with an offset
-        end_gen = end_generator(seq1, seq2, None, 1, True,1)
+        end_gen = end_generator(seq1, seq2, None, 1, True, 1)
         assert end_gen(3) == "ATT"
-        end_gen = end_generator(seq1, seq2, None, 1, False,1)
+        end_gen = end_generator(seq1, seq2, None, 1, False, 1)
         assert end_gen(3) == "AAT"
         assert end_gen(4) == "AATT"
-        end_gen = end_generator(seq1, seq2, None, 2, True,1)
+        end_gen = end_generator(seq1, seq2, None, 2, True, 1)
         assert end_gen(3) == "GCC"
-        end_gen = end_generator(seq1, seq2, None, 2, False,1)
+        end_gen = end_generator(seq1, seq2, None, 2, False, 1)
 
     def test_2_identical_match(self):
         """Ensure we can identify identical barcode matches.
@@ -330,10 +337,10 @@ class BarcodeTest(unittest.TestCase):
         for bc_seq, bc_id in self.barcodes.items():
             if bc_id == "2":
                 break
-            
+
         # Simulate an arbitrary read, attach barcode and add a trailing A
         seq = "GATTACA" * 5 + bc_seq + "A"
-        (bc_id, bc_seq, match_seq) = best_match(end_generator(seq,None,None,1,True,1), self.barcodes, 1)
+        (bc_id, bc_seq, match_seq) = best_match(end_generator(seq, None, None, 1, True, 1), self.barcodes, 1)
         (removed, _, _, _, _, _) = remove_barcode(seq, "B" * 9, seq, "g" * 9, None, None,
                                                   match_seq, True, True, 1)
         # Was the barcode properly identified and removed with 1 mismatch allowed ?

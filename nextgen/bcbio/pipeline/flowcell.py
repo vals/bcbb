@@ -1,4 +1,6 @@
-"""A module for managing metadata and layout, as specified in run_info.yaml, as well as read counts for the samples on a flowcell"""
+"""A module for managing metadata and layout, as specified in run_info.yaml,
+as well as read counts for the samples on a flowcell.
+"""
 
 import copy
 import re
@@ -6,29 +8,31 @@ import os
 import glob
 
 from bcbio.pipeline.run_info import get_run_info
-from bcbio.google import ( _to_unicode, _from_unicode )
+from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
+
 
 def format_project_name(unformated_name):
     """Make the project name adhere to a stricter formatting convention"""
     regexp = r'^(.+?)_(\d{2})_(\d{2})(.*)$'
-    m = re.match(regexp,unformated_name)
+    m = re.match(regexp, unformated_name)
     if not m or len(m.groups()) < 3:
         return unformated_name
-    
+
     name = m.group(1).strip()
     year = m.group(2).strip()
     month = m.group(3).strip()
     suffix = m.group(4).strip()
-   
+
     # Replace any non-period delimiters
     delimiter = "_"
-    p = re.compile('(_)')
-    name = p.sub('.',name)
-    
+    p = re.compile('(%s)' % delimiter)
+    name = p.sub('.', name)
+
     # Format the name
-    project_name = "%s_%s_%s%s" % (name,year,month,suffix)
+    project_name = "%s_%s_%s%s" % (name, year, month, suffix)
     return project_name
+
 
 def get_barcode_metrics(workdir):
     """Parse the [lane]_*_bc.metrics files in the *_barcode directories into a dictionary"""
@@ -73,48 +77,54 @@ def get_sample_name(barcode_name):
     if not m or len(m.groups()) == 0:
         return barcode_name
     return m.group(1)
-    
+
+
 class Flowcell:
     """A class for managing information about a flowcell"""
-    
-    def __init__(self,fc_name,fc_date,data,fc_dir=None):
+
+    def __init__(self, fc_name, fc_date, data, fc_dir=None):
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
         self.set_lanes(data)
         # Attempts to set the read counts on creation
         self.set_read_counts()
-                
+
     def get_fc_date(self):
         return self.fc_date
-    def set_fc_date(self,fc_date):
+
+    def set_fc_date(self, fc_date):
         self.fc_date = fc_date
-        
+
     def get_fc_dir(self):
         return self.fc_dir
-    def set_fc_dir(self,fc_dir):
+
+    def set_fc_dir(self, fc_dir):
         self.fc_dir = fc_dir
-        
+
     def get_fc_name(self):
         return self.fc_name
-    def set_fc_name(self,fc_name):
+
+    def set_fc_name(self, fc_name):
         self.fc_name = fc_name
-        
-    def get_lane_by_name(self,name):
+
+    def get_lane_by_name(self, name):
         for lane in self.get_lanes():
             if (lane.get_name() == name):
                 return lane
         return None
-    
-    def add_lane(self,lane):
+
+    def add_lane(self, lane):
         self.lanes.append(lane)
+
     def get_lanes(self):
         return self.lanes
-    def set_lanes(self,lanes):
+
+    def set_lanes(self, run_items):
         self.lanes = []
-        for lane in lanes:
+        for lane in run_items:
             self.add_lane(Lane(lane))
-        
+
     def get_project_names(self):
         pnames = {}
         for lane in self.get_lanes():
@@ -123,14 +133,14 @@ class Flowcell:
                     continue
                 pnames[pname] = 1
         return pnames.keys()
-    
+
     def get_samples(self):
         samples = []
         for lane in self.get_lanes():
             samples.extend(lane.get_samples())
         return samples
-            
-    def prune_to_project(self,project):
+
+    def prune_to_project(self, project):
         """Return a new Flowcell object just containing the lanes and samples belonging to a specific project"""
         lanes = []
         fc = None
@@ -174,57 +184,60 @@ class Flowcell:
                 #l.extend(row)
                 rows.append(row)
         return rows
-    
+
     def to_structure(self):
         struct = []
         for lane in self.get_lanes():
             struct.append(lane.to_structure())
         return {"details": struct}
-        
+
+
 class Lane:
     """A class for managing information about a lane"""
-    
-    def __init__(self,data):
+
+    def __init__(self, data):
         self.set_data(data)
-        self.set_description(data.get("description",None))
-        self.set_name(data.get("lane",None))
-        self.set_samples(data.get("multiplex",[]))
+        self.set_description(data.get("description", None))
+        self.set_name(data.get("lane", None))
+        self.set_samples(data.get("multiplex", []))
         self.set_files([])
 
     def get_analysis(self):
-        return self.data.get("analysis",None)
-    
-    def set_data(self,data):
+        return self.data.get("analysis", None)
+
+    def set_data(self, data):
         self.data = copy.deepcopy(data)
 
     def get_description(self):
         return _from_unicode(self.description)
-    def set_description(self,description):
+
+    def set_description(self, description):
         self.description = _to_unicode(description)
 
     def get_genome_build(self):
-        return self.data.get("genome_build",None)
-    
+        return self.data.get("genome_build", None)
+
     def get_name(self):
         return _from_unicode(self.name)
-    def set_name(self,name):
+
+    def set_name(self, name):
         self.name = _to_unicode(str(name))
-        
+
     def get_project_names(self):
         pnames = {}
         for sample in self.get_samples():
             pnames[sample.get_project()] = 1
         return pnames.keys()
-        
-    def set_read_counts(self,read_counts):
+
+    def set_read_counts(self, read_counts):
         for barcode_id in read_counts.keys():
             sample = self.get_sample_by_barcode(barcode_id)
             if (sample is None):
                 sample = BarcodedSample({"name": "Unexpected barcode", "barcode_id": barcode_id})
                 self.add_sample(sample)
             sample.set_read_count(read_counts[barcode_id])
-                
-    def get_sample_by_barcode(self,barcode_id):
+
+    def get_sample_by_barcode(self, barcode_id):
         for sample in self.get_samples():
             if (str(sample.get_barcode_id()) == str(barcode_id)):
                 return sample
