@@ -324,6 +324,7 @@ class Sample:
         self.set_analysis(data.get("analysis",lane.get_analysis()))
         self.set_genome_build(data.get("genome_build",lane.get_genome_build()))
         self.set_name(data.get("name",None))
+        self.set_full_name(data.get("full_name",data.get("name", None)))
         self.set_project(data.get("description",lane.get_description()))
         self.set_read_count(data.get("read_count",None))
         self.set_lane(lane.get_name())
@@ -357,7 +358,12 @@ class Sample:
         return _from_unicode(self.name)
     def set_name(self,name):
         self.name = get_sample_name(_to_unicode(name))
-        
+
+    def get_full_name(self):
+        return _from_unicode(self.full_name)
+    def set_full_name(self,name):
+        self.full_name = _to_unicode(name)
+
     def get_comment(self):
         return self.comment
     def set_comment(self,comment):
@@ -399,6 +405,8 @@ class Sample:
             struct["genome_build"] = self.get_genome_build()
         if (self.get_name()):
             struct["name"] = self.get_name()
+        if (self.get_full_name()):
+            struct["full_name"] = self.get_full_name()
         if (self.get_project()):
             struct["description"] = self.get_project()
         if (self.get_read_count() is not None):
@@ -414,6 +422,7 @@ class BarcodedSample(Sample):
         self.set_barcode_name(data.get("name",None))
         self.set_barcode_sequence(data.get("sequence",None))
         self.set_barcode_type(data.get("barcode_type",None))
+        self.set_barcode_full_name(data.get("full_name",None))
 
     def get_barcode_id(self):
         return _from_unicode(self.barcode_id)
@@ -424,7 +433,12 @@ class BarcodedSample(Sample):
         return _from_unicode(self.barcode_name)
     def set_barcode_name(self,barcode_name):
         self.barcode_name = _to_unicode(barcode_name)
-               
+
+    def get_barcode_full_name(self):
+        return _from_unicode(self.barcode_full_name)
+    def set_barcode_full_name(self,barcode_full_name):
+        self.barcode_full_name = _to_unicode(barcode_full_name)
+
     def get_barcode_sequence(self):
         return _from_unicode(self.barcode_sequence)
     def set_barcode_sequence(self,barcode_sequence):
