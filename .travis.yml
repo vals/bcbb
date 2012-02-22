@@ -1,0 +1,6 @@
+before_script:
+    - python setup.py install
+script:
+    - cd tests && nosetests -v -s
+notifications:
+  email: false
