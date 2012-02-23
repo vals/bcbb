@@ -21,13 +21,14 @@ Workflow:
 """
 import os
 import sys
+import socket
 from optparse import OptionParser
 
 import yaml
 
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
-from bcbio.log import logger, setup_logging
+from bcbio.log import logger, setup_logging, create_log_handler, logger2
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
@@ -49,6 +50,9 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
+    
+    print "Exceuting automated_initial_analysis on %s" % socket.gethostname()
+    
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -57,16 +61,30 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     config_file = os.path.join(config_dir, os.path.basename(config_file))
     dirs = {"fastq": fastq_dir, "galaxy": galaxy_dir, "align": align_dir,
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
+    logger2.info("Getting parallell runner")
     run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
     # process each flowcell lane
+    logger2.info("Getting run items")
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
+    logger2.info("Splitting run items by lane")
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
+    
+    tmp_handler = create_log_handler({'email': 'pontus.larsson@scilifelab.se', 'smtp_host': 'smtp.uu.se'})
+    with tmp_handler.applicationbound():
+        logger2.info("Demultiplexing lanes")
+    
     lane_items = run_parallel("process_lane", lanes)
 
     # upload the sequencing report to Google Docs
-    create_report_on_gdocs(fc_date, fc_name, run_info, dirs, config)
+    #create_report_on_gdocs(fc_date, fc_name, run_info, dirs, config)
 
+    # Remove spiked in controls, contaminants etc.
+    
+    logger2.info("Removing contaminants")
+    lane_items = run_parallel("remove_contaminants",lane_items)
+    logger2.info("Processing alignments")
+        
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)

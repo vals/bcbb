@@ -36,6 +36,11 @@ def process_lane(*args):
 
 
 @task
+def remove_contaminants(*args):
+    return lane.remove_contaminants(*args)
+
+
+@task
 def process_alignment(*args):
     return lane.process_alignment(*args)
 

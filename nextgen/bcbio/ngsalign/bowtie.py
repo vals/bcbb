@@ -49,3 +49,37 @@ def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
             subprocess.check_call(cl)
     return out_file
 
+
+def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, config,
+                        extra_args=None, rg_name=None):
+    """Remove reads aligning to the contaminating reference genome 
+    """
+    
+    tmp_file = os.path.join(fastq_dir, "%s_clean" % out_base)
+    out_file = []
+    if not len(glob.glob("%s*" % tmp_file)) > 0:
+        with file_transaction(tmp_file) as tx_out_file:
+            cl = [config["program"]["bowtie"]]
+            cl += _bowtie_args_from_config(config)
+            cl += extra_args if extra_args is not None else []
+            cl += ["-un", tx_out_file,
+                   ref_file]
+            if pair_file:
+                cl += ["-1", fastq_file, "-2", pair_file]
+            else:
+                cl += [fastq_file]
+            cl += ["/dev/null"]
+            cl = [str(i) for i in cl]
+            subprocess.check_call(cl)
+            
+            # Rename the temporary files
+            if pair_file:
+                for i in ("1","2"):
+                    tfile = "%s_%s" % (tmp_file,i)
+                    out_file.append("%s_fastq.txt" % tfile)
+                    os.rename(tfile,out_file[-1])
+            else:
+                out_file = ["%s_fastq.txt" % tmp_file,None]
+                os.rename(tmp_file,out_file[0])
+            
+    return out_file

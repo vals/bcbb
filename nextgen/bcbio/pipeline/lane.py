@@ -3,11 +3,12 @@
 import os
 import copy
 import glob
+import socket
 
-from bcbio.log import logger
+from bcbio.log import logger, logger2, create_log_handler
 from bcbio.pipeline.fastq import get_fastq_files, get_multiplex_items
 from bcbio.pipeline.demultiplex import split_by_barcode
-from bcbio.pipeline.alignment import align_to_sort_bam
+from bcbio.pipeline.alignment import align_to_sort_bam, remove_contaminants as rc
 from bcbio.solexa.flowcell import get_flowcell_info
 from bcbio.bam.trim import brun_trim_fastq
 
@@ -15,6 +16,11 @@ from bcbio.bam.trim import brun_trim_fastq
 def process_lane(lane_items, fc_name, fc_date, dirs, config):
     """Prepare lanes, potentially splitting based on barcodes.
     """
+    
+    tmp_handler = create_log_handler({'email': 'pontus.larsson@scilifelab.se', 'smtp_host': 'smtp.uu.se'})
+    with tmp_handler.applicationbound():
+        logger2.info("%s on %s" % (fc_name,socket.gethostname()))
+        
     lane_name = "%s_%s_%s" % (lane_items[0]['lane'], fc_date, fc_name)
     logger.info("Demultiplexing %s" % lane_name)
     full_fastq1, full_fastq2 = get_fastq_files(dirs["fastq"], dirs["work"],
@@ -44,6 +50,22 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
                         dirs, config))
     return out
 
+
+def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
+                      dirs, config):
+    """Remove reads mapping to the specified contaminating reference
+    """
+    
+    tmp_handler = create_log_handler({'email': 'pontus.larsson@scilifelab.se', 'smtp_host': 'smtp.uu.se'})
+    with tmp_handler.applicationbound():
+        logger2.info("Removing contaminants on file %s" % fastq1)
+        
+    for genome_build in info.get("genomes_filter_out","").split(","):
+        if os.path.exists(fastq1):
+            program = config["algorithm"].get("remove_contaminants","bowtie")
+            logger.info("Removing %s contaminants on sample %s in lane %s, using %s" % (genome_build,info["name"],lane_name,program))
+            fastq1, fastq2 = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
+    return [fastq1, fastq2, info, lane_name, lane_desc, dirs, config]
 
 def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
                       dirs, config):

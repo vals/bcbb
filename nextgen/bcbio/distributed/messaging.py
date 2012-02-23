@@ -9,8 +9,8 @@ import time
 import contextlib
 import multiprocessing
 import subprocess
-logger = multiprocessing.log_to_stderr()
-logger.setLevel(multiprocessing.SUBDEBUG)
+#logger = multiprocessing.log_to_stderr()
+#logger.setLevel(multiprocessing.SUBDEBUG)
 
 from mako.template import Template
 
@@ -22,6 +22,9 @@ def parallel_runner(module, dirs, config, config_file):
     """
     def run_parallel(fn_name, items, metadata=None):
         parallel = config["algorithm"]["num_cores"]
+        
+        print "Parallell cores: %s" % str(parallel)
+        
         if str(parallel).lower() == "messaging":
             task_module = "{base}.tasks".format(base=module)
             runner_fn = runner(task_module, dirs, config, config_file)
@@ -32,8 +35,14 @@ def parallel_runner(module, dirs, config, config_file):
                                     fromlist=["multitasks"]),
                          fn_name)
             cores = cores_including_resources(int(parallel), metadata, config)
+            
+            print "Cores: %s" % str(cores)
+            
             with utils.cpmap(cores) as cpmap:
                 for data in cpmap(fn, filter(lambda x: x is not None, items)):
+                    
+                    print "Calling function %s" % fn
+                    
                     if data:
                         out.extend(data)
             return out

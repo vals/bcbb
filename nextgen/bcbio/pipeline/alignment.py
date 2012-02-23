@@ -23,7 +23,9 @@ NgsTool = namedtuple("NgsTool", ["align_fn", "galaxy_loc_file",
                                  "remap_index_fn"])
 _tools = {
     "bowtie": NgsTool(bowtie.align, bowtie.galaxy_location_file, None),
+    "bowtie_rmcont": NgsTool(bowtie.remove_contaminants, None, None),
     "bowtie2": NgsTool(bowtie2.align, bowtie2.galaxy_location_file, bowtie2.remap_index_fn),
+    "bowtie2_rmcont": NgsTool(bowtie2.remove_contaminants, None, None),
     "bwa": NgsTool(bwa.align, bwa.galaxy_location_file, None),
     "mosaik": NgsTool(mosaik.align, mosaik.galaxy_location_file, None),
     "novoalign": NgsTool(novoalign.align, bowtie.galaxy_location_file, novoalign.remap_index_fn),
@@ -50,6 +52,21 @@ def align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
         return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
                                rg_name, lane_name, config)
 
+def remove_contaminants(fastq1, fastq2, genome_build, aligner,
+                      lane_name, dirs, config):
+    """Remove reads mapping to the specified contaminating reference
+    """
+    align_ref, _ = get_genome_ref(genome_build, aligner, dirs["galaxy"])
+    
+    # If reference file could not be found, do nothing
+    if align_ref is None or not os.path.exists(align_ref):
+        logger.warn("No alignment reference file could be located, %s contaminants could not be removed" % genome_build)
+        return [fastq1, fastq2]
+    
+    rmcont_fn = _tools["%s_rmcont" % aligner].align_fn
+    return rmcont_fn(fastq1, fastq2, align_ref, lane_name, os.path.dirname(fastq1), config)
+    
+    
 def _remove_read_number(in_file, sam_file):
     """Work around problem with MergeBamAlignment with BWA and single end reads.
 
