@@ -67,7 +67,6 @@ class BroadRunner:
             local_args.append("-Djava.io.tmpdir=%s" % tmp_dir)
         cl = ["java"] + self._memory_args + local_args + \
                 ["-jar", gatk_jar] + [str(x) for x in params]
-        #print " ".join(cl)
         subprocess.check_call(cl)
 
     def _get_jar(self, command):
