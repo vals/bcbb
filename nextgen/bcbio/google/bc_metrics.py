@@ -57,17 +57,17 @@ def _create_header(header, columns):
 
 def get_spreadsheet(ssheet_title,encoded_credentials):
     """Connect to Google docs and get a spreadsheet"""
-    
+
     # Convert the spreadsheet title to unicode
     ssheet_title = _to_unicode(ssheet_title)
-    
+
     # Create a client class which will make HTTP requests with Google Docs server.
     client = bcbio.google.spreadsheet.get_client()
-    bcbio.google.connection.authenticate(client,encoded_credentials)
-    
+    bcbio.google.connection.authenticate(client, encoded_credentials)
+
     # Locate the spreadsheet
-    ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
-    
+    ssheet = bcbio.google.spreadsheet.get_spreadsheet(client, ssheet_title)
+
     # Check that we got a result back
     if not ssheet:
         logger2.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)
