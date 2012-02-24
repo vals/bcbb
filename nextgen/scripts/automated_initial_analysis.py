@@ -65,7 +65,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     lane_items = run_parallel("process_lane", lanes)
 
     # upload the sequencing report to Google Docs
-    create_report_on_gdocs(fc_date, fc_name, run_info, dirs, config)
+    create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config)
 
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes

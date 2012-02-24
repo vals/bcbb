@@ -29,8 +29,8 @@ class GDocsUploadTest(unittest.TestCase):
         self.data_dir = os.path.join(os.path.dirname(__file__), "data", "automated")
         
         # Parse the run_info
-        run_info_file = os.path.join(self.data_dir, "run_info-gdocs.yaml")
-        with open(run_info_file) as fh:
+        self.run_info_file = os.path.join(self.data_dir, "run_info-gdocs.yaml")
+        with open(self.run_info_file) as fh:
             self.run_info = yaml.load(fh)
             
         # Make up bogus run names
@@ -107,4 +107,4 @@ class GDocsUploadTest(unittest.TestCase):
             print "\nProcessing %s" % name
             fc_name, fc_date = get_flowcell_info(name)
             analysisdir = os.path.join(self.workdir, name)
-            assert create_report_on_gdocs(fc_date, fc_name, {'details': self.run_info}, {"work": analysisdir, "flowcell": analysisdir}, self.config), "Report creation failed"
+            assert create_report_on_gdocs(fc_date, fc_name, self.run_info_file, {"work": analysisdir, "flowcell": analysisdir}, self.config), "Report creation failed"
