@@ -188,28 +188,9 @@ class Lane:
         self.set_data(data)
         self.set_description(data.get("description",None))
         self.set_name(data.get("lane",None))
-        self.set_samples(data.get("multiplex",[]))
+        self.set_samples(data)
         self.set_files([])
 
-    def get_analysis(self):
-        return self.data.get("analysis",None)
-    
-    def set_data(self,data):
-        self.data = copy.deepcopy(data)
-
-    def get_description(self):
-        return _from_unicode(self.description)
-    def set_description(self,description):
-        self.description = _to_unicode(description)
-
-    def get_genome_build(self):
-        return self.data.get("genome_build",None)
-    
-    def get_name(self):
-        return _from_unicode(self.name)
-    def set_name(self,name):
-        self.name = _to_unicode(str(name))
-        
     def get_project_names(self):
         pnames = {}
         for sample in self.get_samples():
@@ -230,20 +211,6 @@ class Lane:
                 return sample
         return None
     
-    def add_sample(self,sample):
-        self.multiplex.append(sample)
-    def get_samples(self):
-        return self.multiplex
-    def set_samples(self,multiplex):
-        self.multiplex = []
-        for barcode in multiplex:
-            self.add_sample(BarcodedSample(barcode,self))
-
-    def set_files(self, files):
-        self.files = files
-    def get_files(self):
-        return self.files
-
     def get_samples_by_project(self,project):
         samples = []
         for sample in self.get_samples():
@@ -316,144 +283,212 @@ class Lane:
     def __str__(self):
         s = "Lane: %s\n\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
         return s
+        
+    def set_data(self,data):
+        self.data = copy.deepcopy(data)
+
+    def _get_analysis(self):
+        return self._analysis
+    def _set_analysis(self,analysis):
+        self._analysis = analysis
+
+    def _get_genome_build(self):
+        return self._genome_build
+    def _set_genome_build(self,genome_build):
+        self._genome_build = genome_build
+
+    def _get_description(self):
+        return _from_unicode(self._description)
+    def _set_description(self,description):
+        self._description = _to_unicode(description)
+    
+    def _get_name(self):
+        return _from_unicode(self._name)
+    def set_name(self,name):
+        self._name = _to_unicode(str(name))
+ 
+    def add_sample(self,sample):
+        self._multiplex.append(sample)
+    def _get_samples(self):
+        return self._multiplex
+    def _set_samples(self,multiplex):
+        self._multiplex = []
+        for barcode in multiplex:
+            self.add_sample(BarcodedSample(barcode,self))
+
+    def _set_files(self, files):
+        self._files = files
+    def _get_files(self):
+        return self._files
+       
+    analysis = property(_get_analysis,_set_analysis)
+    genome_build = property(_get_genome_build,_set_genome_build)
+    description = property(_get_description,_set_description)
+    name = property(_get_name,_set_name)
+    sample = property(_get_sample,_set_sample)
 
 class Sample:
     """A class for managing information about a sample"""
      
     def __init__(self,data,lane=Lane({}),comment=None):
-        self.set_analysis(data.get("analysis",lane.get_analysis()))
-        self.set_genome_build(data.get("genome_build",lane.get_genome_build()))
-        self.set_name(data.get("name",None))
-        self.set_project(data.get("description",lane.get_description()))
-        self.set_read_count(data.get("read_count",None))
-        self.set_lane(lane.get_name())
-        self.set_comment(comment)
+        
+        for (yaml,attribute) in self.yaml2attribute():
+            setattr(self,attribute,data.get(yaml,getattr(lane,attribute)))
+        setattr(self,"lane",lane.name)
+        setattr(self,"comment",comment)
         
     def add_sample(self,other,delim=', '):
-        if (self.get_analysis() != other.get_analysis()):
-            self.set_analysis("%s%s%s" % (self.get_analysis(),delim,other.get_analysis()))
-        if (self.get_genome_build() != other.get_genome_build()):
-            self.set_genome_build("%s%s%s" % (self.get_genome_build(),delim,other.get_genome_build()))
-        if (self.get_name() != other.get_name()):
-            self.set_name("%s%s%s" % (self.get_name(),delim,other.get_name()))
-        if (self.get_project() != other.get_project()):
-            self.set_project("%s%s%s" % (self.get_project(),delim,other.get_project()))
-        if (self.get_lane() != other.get_lane()):
-            self.set_lane("%s%s%s" % (self.get_lane(),delim,other.get_lane()))
-        if (other.get_read_count() is not None):
-            self.set_read_count((self.get_read_count() or 0) + other.get_read_count())
-            
-    def get_analysis(self):
-        return _from_unicode(self.analysis)
-    def set_analysis(self,analysis):
-        self.analysis = _to_unicode(analysis)
-        
-    def get_genome_build(self):
-        return _from_unicode(self.genome_build)
-    def set_genome_build(self,genome_build):
-        self.genome_build = _to_unicode(genome_build)
-        
-    def get_name(self):
-        return _from_unicode(self.name)
-    def set_name(self,name):
-        self.name = get_sample_name(_to_unicode(name))
-        
-    def get_comment(self):
-        return self.comment
-    def set_comment(self,comment):
-        self.comment = comment
-        
-    def get_lane(self):
-        return self.lane
-    def set_lane(self,lane):
-        self.lane = lane
-        
-    def get_project(self):
-        return _from_unicode(self.project)
-    def set_project(self,project):
-        self.project = get_project_name(_to_unicode(project))
-        
-    def get_read_count(self):
-        if self.read_count:
-            return int(self.read_count)
-        return None
-    def get_rounded_read_count(self,unit=1000000,decimals=2):
-        return round((self.get_read_count() or 0)/float(unit),int(decimals))
-    def set_read_count(self,read_count):
-        self.read_count = read_count
-    
+        if self.analysis != other.analysis:
+            self.analysis("%s%s%s" % (self.analysis,delim,other.analysis))
+        if self.genome_build != other.genome_build:
+            self.genome_build("%s%s%s" % (self.genome_build,delim,other.genome_build))
+        if self.sample_name != other.sample_name:
+            self.sample_name("%s%s%s" % (self.sample_name,delim,other.sample_name))
+        if self.project_name != other.project_name:
+            self.project_name("%s%s%s" % (self.project_name,delim,other.project_name))
+        if self.lane != other.lane:
+            self.lane("%s%s%s" % (self.lane,delim,other.lane))
+        if other.read_count is not None:
+            self.read_count((self.read_count or 0) + other.read_count)
+  
+    @staticmethod
+    def yaml2attribute():
+        return [["description", "project_name"],
+                ["name","sample_name"],
+                #["sample_prj", "project_name"],
+                ["read_count", "read_count"],
+                ["rounded_read_count", "rounded_read_count"],
+                ["analysis", "analysis"],
+                ["genome_build", "genome_build"]]
+          
     @staticmethod
     def columns():
-        cols = ["project_name","sample_name","read_count","rounded_read_count"]
-        return cols
-    
+        return [attribute for [yaml, attribute] in self.yaml2attribute()]
+        
     def to_rows(self):
-        rows = [self.get_project(),self.get_name(),self.get_read_count(),self.get_rounded_read_count()]
-        return rows
-    
+        return [getattr(self,attribute,None) for [yaml, attribute] in self.yaml2attribute()]
+        
     def to_structure(self):
         struct = {}
-        if (self.get_analysis()):
-            struct["analysis"] = self.get_analysis()
-        if (self.get_genome_build()):
-            struct["genome_build"] = self.get_genome_build()
-        if (self.get_name()):
-            struct["name"] = self.get_name()
-        if (self.get_project()):
-            struct["description"] = self.get_project()
-        if (self.get_read_count() is not None):
-            struct["read_count"] = self.get_read_count()
+        for (yaml,attribute) in self.yaml2attribute():
+            val = getattr(self,attribute)
+            if val is not None:
+                struct[yaml] = val
         return struct
+    
+    def _get_analysis(self):
+        return _from_unicode(self._analysis)
+    def _set_analysis(self,analysis):
+        self._analysis = _to_unicode(analysis)
+        
+    def _get_genome_build(self):
+        return _from_unicode(self._genome_build)
+    def _set_genome_build(self,genome_build):
+        self._genome_build = _to_unicode(genome_build)
+         
+    def _get_sample_name(self):
+        return _from_unicode(self._sample_name)
+    def _set_sample_name(self,sample_name):
+        self._sample_name = get_sample_name(_to_unicode(sample_name))
+        
+    def _get_comment(self):
+        return self._comment
+    def _set_comment(self,comment):
+        self._comment = comment
+        
+    def _get_lane(self):
+        return self._lane
+    def _set_lane(self,lane):
+        self._lane = lane
+          
+    def _get_read_count(self):
+        if self._read_count:
+            try:
+                rc = int(self._read_count)
+                return rc
+            except ValueError:
+                pass
+        return None
+    def _set_read_count(self,read_count):
+        self._read_count = read_count
+
+    def _get_rounded_read_count(self,unit=1000000,decimals=2):
+        return round((self.read_count or 0)/float(unit),int(decimals))
+    def _set_rounded_read_count(self,rounded_read_count):
+        # Do nothing, we will always calculate this on the fly to ensure consistency
+        pass
+    
+    def _get_sample_project(self):
+        return _from_unicode(self._sample_project)
+    def _set_sample_project(self,sample_project):
+        self._sample_project = get_project_name(_to_unicode(sample_project))
+        
+    analysis = property(_get_analysis,_set_analysis)
+    genome_build = property(_get_genome_build,_set_genome_build)
+    sample_name = property(_get_sample_name,_set_sample_name)
+    comment = property(_get_comment,_set_comment)
+    lane = property(_get_lane,_set_lane)
+    read_count = property(_get_read_count,_set_read_count)
+    rounded_read_count = property(_get_rounded_read_count,_set_rounded_read_count)
+    sample_project = property(_get_sample_project,_set_sample_project)
     
 class BarcodedSample(Sample):
     """A subclass of Sample for managing information about a barcoded sample"""
     
-    def __init__(self,data,lane=Lane({})):
+    def __init__(self,data,lane):
         Sample.__init__(self,data,lane)
-        self.set_barcode_id(data.get("barcode_id",None))
-        self.set_barcode_name(data.get("name",None))
-        self.set_barcode_sequence(data.get("sequence",None))
-        self.set_barcode_type(data.get("barcode_type",None))
+        
+        for (yaml,attribute) in self.yaml2attribute():
+            setattr(self,attribute,data.get(yaml,None))
 
-    def get_barcode_id(self):
-        return _from_unicode(self.barcode_id)
-    def set_barcode_id(self,barcode_id):
-        self.barcode_id = _to_unicode(barcode_id)
-               
-    def get_barcode_name(self):
-        return _from_unicode(self.barcode_name)
-    def set_barcode_name(self,barcode_name):
-        self.barcode_name = _to_unicode(barcode_name)
-               
-    def get_barcode_sequence(self):
-        return _from_unicode(self.barcode_sequence)
-    def set_barcode_sequence(self,barcode_sequence):
-        self.barcode_sequence = _to_unicode(barcode_sequence)
-             
-    def get_barcode_type(self):
-        return _from_unicode(self.barcode_type)
-    def set_barcode_type(self,barcode_type):
-        self.barcode_type = _to_unicode(barcode_type)
+    @staticmethod
+    def yaml2attribute():
+        return [["barcode_id","barcode_id"],
+                ["name", "barcode_name"],
+                ["sequence", "barcode_sequence"],
+                ["barcode_type", "barcode_type"]]
     
     @staticmethod
     def columns():
         cols = Sample.columns()
-        cols.extend(["bcbb_barcode_id","barcode_name","barcode_sequence","barcode_type"])
+        cols.extend([attribute for [yaml, attribute] in self.yaml2attribute()])
         return cols
-    
+        
     def to_rows(self):
         rows = Sample.to_rows(self)
-        rows.extend([self.get_barcode_id(), self.get_barcode_name(), self.get_barcode_sequence(), self.get_barcode_type()])
+        rows.extend([getattr(self,attribute,None) for [yaml, attribute] in self.yaml2attribute()])
         return rows
-    
+        
     def to_structure(self):
         struct = Sample.to_structure(self)
-        if (self.get_barcode_id()):
-            struct["barcode_id"] = self.get_barcode_id()
-        if (self.get_barcode_sequence()):
-            struct["sequence"] = self.get_barcode_sequence()
-        if (self.get_barcode_type()):
-            struct["barcode_type"] = self.get_barcode_type()
+        for (yaml,attribute) in self.yaml2attribute():
+            val = getattr(self,attribute)
+            if val is not None:
+                struct[yaml] = val
         return struct
   
+    def _get_barcode_id(self):
+        return _from_unicode(self._barcode_id)
+    def _set_barcode_id(self,barcode_id):
+        self._barcode_id = _to_unicode(barcode_id)
+               
+    def _get_barcode_name(self):
+        return _from_unicode(self._barcode_name)
+    def _set_barcode_name(self,barcode_name):
+        self._barcode_name = _to_unicode(barcode_name)
+               
+    def _get_barcode_sequence(self):
+        return _from_unicode(self._barcode_sequence)
+    def _set_barcode_sequence(self,barcode_sequence):
+        self._barcode_sequence = _to_unicode(barcode_sequence)
+             
+    def _get_barcode_type(self):
+        return _from_unicode(self._barcode_type)
+    def _set_barcode_type(self,barcode_type):
+        self._barcode_type = _to_unicode(barcode_type)
+        
+    barcode_id = property(_get_barcode_id,_set_barcode_id)
+    barcode_name = property(_get_barcode_name,_set_barcode_name)
+    barcode_sequence = property(_get_barcode_sequence,_set_barcode_sequence)
+    barcode_type = property(_get_barcode_type,_set_barcode_type)
     
