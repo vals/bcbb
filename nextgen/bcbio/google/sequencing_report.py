@@ -4,7 +4,9 @@ Create reports on google docs
 import copy
 import logbook
 import time
-from bcbio.google import (_from_unicode, _to_unicode, get_credentials)
+import yaml
+
+from bcbio.google import (_from_unicode,_to_unicode,get_credentials)
 import bcbio.google.bc_metrics
 import bcbio.google.qc_metrics
 from bcbio.pipeline.qcsummary import RTAQCMetrics
@@ -12,14 +14,17 @@ from bcbio.pipeline.flowcell import Flowcell
 from bcbio.log import create_log_handler
 from bcbio.log import logger2 as log
 
-
-def create_report_on_gdocs(fc_date, fc_name, run_info, dirs, config):
+def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
     """
     Create reports on gdocs containing both demultiplexed read counts and QC data
     """
 
     success = True
     try:
+        # Parse the run_info.yaml file
+        with open(run_info_yaml,"r") as fh:
+            run_info = yaml.load(fh)
+            
         # Get the gdocs account credentials
         encoded_credentials = get_credentials(config)
         if not encoded_credentials:
@@ -42,9 +47,9 @@ def create_report_on_gdocs(fc_date, fc_name, run_info, dirs, config):
                 
                 try:
                     log.info("Started creating sequencing report on Google docs for %s_%s on %s" % (fc_date,fc_name,time.strftime("%x @ %X")))
-
-                    # Get a flowcell object
-                    fc = Flowcell(fc_name, fc_date, run_info.get("details", []), dirs.get("work", None))
+                    
+                    # Get a flowcell object 
+                    fc = Flowcell(fc_name,fc_date,run_info,dirs.get("work",None))
 
                     # Get the GDocs demultiplex result file title
                     gdocs_dmplx_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
