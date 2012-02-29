@@ -29,6 +29,7 @@ from bcbio.distributed.messaging import create_celeryconfig
 from bcbio.pipeline.config_loader import load_config
 from bcbio.log import logger, setup_logging
 
+
 def main(config_file, queues=None, task_module=None, base_dir=None):
     if base_dir is None:
         base_dir = os.getcwd()
@@ -47,10 +48,12 @@ def main(config_file, queues=None, task_module=None, base_dir=None):
                                      os.path.abspath(config_file)):
                 run_celeryd(work_dir, queues)
 
+
 def celery_logger(config):
     def _worker(**kwds):
         setup_logging(config)
     return _worker
+
 
 def run_celeryd(work_dir, queues):
     with utils.chdir(work_dir):

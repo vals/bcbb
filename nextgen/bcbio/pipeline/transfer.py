@@ -21,7 +21,8 @@ def remote_copy(remote_info, base_dir, protocol):
 
     if protocol == "scp" or protocol == None:
         for fcopy in remote_info["to_copy"]:
-            target_loc = os.path.join(fc_dir, os.path.basename(remote_info['directory']), fcopy)
+            target_loc = os.path.join(fc_dir, \
+            os.path.basename(remote_info['directory']), fcopy)
             if not fabric_files.exists(target_loc):
                 target_dir = os.path.dirname(target_loc)
                 if not fabric_files.exists(target_dir):
@@ -69,5 +70,7 @@ def remote_copy(remote_info, base_dir, protocol):
 
         logger.debug(cl)
         fabric.run(" ".join(cl))
-
+        
+    fc_dir = os.path.join(fc_dir, os.path.basename(remote_info['directory']))
     return fc_dir
+

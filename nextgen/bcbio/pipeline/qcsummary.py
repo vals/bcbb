@@ -97,6 +97,11 @@ def write_project_summary(samples):
 
     def _percent(x):
         return x.replace("(", "").replace(")", "").replace("\\", "")
+
+    # In case of empty fastq input
+    if len(samples) == 0:
+        return
+
     out_file = os.path.join(samples[0][0]["dirs"]["work"], "project-summary.csv")
     sample_info = _get_sample_summaries(samples)
     header = ["Total", "Aligned", "Pair duplicates", "Insert size",

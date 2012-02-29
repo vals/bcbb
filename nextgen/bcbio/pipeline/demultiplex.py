@@ -11,6 +11,7 @@ from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 from bcbio.distributed.transaction import file_transaction
 
+
 def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     """Split a fastq file into multiplex pieces using barcode details.
     """
@@ -46,6 +47,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                     cl.append("--noindel")
                 if "bc_offset" in config["algorithm"]:
                     cl.append("--bc_offset=%s" % config["algorithm"]["bc_offset"])
+                print(cl)
                 subprocess.check_call(cl)
     else:
         with utils.curdir_tmpdir() as tmp_dir:
@@ -58,6 +60,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                 f1, f2 = _basic_trim(f1, f2, need_trim[b], config)
             out[b] = (f1, f2)
     return out
+
 
 def _basic_trim(f1, f2, trim_seq, config):
     """Chop off barcodes on sequences based on expected sequence size.
@@ -122,6 +125,7 @@ def _adjust_illumina_tags(barcodes,config):
         barcodes = new
     return barcodes
 
+
 def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     """Add multiplex information to control and non-multiplexed lanes.
 
@@ -139,14 +143,15 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             has_barcodes = True
             tag_sizes.extend([len(x["sequence"]) for x in xs])
             fastq_sizes.append(_get_fastq_size(xs[0], fastq_dir, fc_name))
-    if not has_barcodes: # nothing to worry about
+    if not has_barcodes:  # nothing to worry about
         return run_items
     fastq_sizes = list(set(fastq_sizes))
 
     # discard 0 sizes to handle the case where lane(s) are empty or failed
     try:
         fastq_sizes.remove(0)
-    except ValueError: pass
+    except ValueError:
+        pass
 
     tag_sizes = list(set(tag_sizes))
     final_items = []
