@@ -97,6 +97,11 @@ def write_project_summary(samples):
 
     def _percent(x):
         return x.replace("(", "").replace(")", "").replace("\\", "")
+
+    # In case of empty fastq input
+    if len(samples) == 0:
+        return
+
     out_file = os.path.join(samples[0][0]["dirs"]["work"], "project-summary.csv")
     sample_info = _get_sample_summaries(samples)
     header = ["Total", "Aligned", "Pair duplicates", "Insert size",
@@ -217,6 +222,7 @@ class FastQCParser:
             to_fix = to_fix.replace(char, "\\%s" % char)
         return to_fix
 
+
 def _run_fastqc(bam_file, config):
     out_base = "fastqc"
     utils.safe_makedir(out_base)
@@ -253,6 +259,31 @@ def _run_fastq_screen(fastq1, fastq2, config):
         cl.insert(1,"--illumina")
          
     subprocess.check_call(cl)
+
+def _run_fastq_screen(fastq1, fastq2, config):
+    """ Runs fastq_screen on a subset of a fastq file
+    """
+    out_base = "fastq_screen"
+    utils.safe_makedir(out_base)
+    program = config.get("program", {}).get("fastq_screen", "fastq_screen")
+
+    if fastq2 is not None:
+        if os.path.exists(fastq2):
+        # paired end
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1, "--paired", fastq2]
+        else:
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1]
+    else:
+        cl = [program, "--outdir", out_base, "--subset", "2000000", \
+        "--multilib", fastq1]
+
+    if config["algorithm"].get("quality_format","").lower() == 'illumina':
+        cl.insert(1,"--illumina")
+         
+    subprocess.check_call(cl)
+
 
 # ## High level summary in YAML format for loading into Galaxy.
 

@@ -33,6 +33,7 @@ _tools = {
     "samtools": NgsTool(None, "sam_fa_indices.loc", None),
     }
 
+
 def align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
                       lane_name, sample_name, dirs, config):
     """Align to the named genome build, returning a sorted BAM file.
@@ -66,7 +67,7 @@ def remove_contaminants(fastq1, fastq2, genome_build, aligner,
     rmcont_fn = _tools["%s_rmcont" % aligner].align_fn
     return rmcont_fn(fastq1, fastq2, align_ref, lane_name, os.path.dirname(fastq1), config)
     
-    
+
 def _remove_read_number(in_file, sam_file):
     """Work around problem with MergeBamAlignment with BWA and single end reads.
 
@@ -92,6 +93,7 @@ def _remove_read_number(in_file, sam_file):
                             out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
     return out_file
 
+
 def sam_to_querysort_bam(sam_file, config):
     """Convert SAM file directly to a query sorted BAM without merging of FASTQ reads.
 
@@ -100,6 +102,7 @@ def sam_to_querysort_bam(sam_file, config):
     runner = broad.runner_from_config(config)
     out_file = "{}.bam".format(os.path.splitext(sam_file)[0])
     return runner.run_fn("picard_sort", sam_file, "queryname", out_file)
+
 
 def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
                     rg_name, lane_name, config):
@@ -129,6 +132,7 @@ def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
         if fastq2:
             utils.save_diskspace(fastq2, "Merged into output BAM %s" % out_bam, config)
     return sort_bam
+
 
 def get_genome_ref(genome_build, aligner, galaxy_base):
     """Retrieve the reference genome file location from galaxy configuration.
@@ -162,4 +166,3 @@ def get_genome_ref(genome_build, aligner, galaxy_base):
                 (genome_build, aligner))
     else:
         return tuple(out_info)
-
