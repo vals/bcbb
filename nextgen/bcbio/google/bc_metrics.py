@@ -260,7 +260,7 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, encoded_creden
         success &= _write_to_worksheet(client,ssheet,wsheet_title,fc.to_rows(),header,append)
 
     return success
-
+    
 def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
     """Generic method to write a set of rows to a worksheet on google docs"""
     

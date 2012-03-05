@@ -6,9 +6,10 @@ import copy
 import re
 import os
 import glob
+import yaml
 
-from bcbio.pipeline.run_info import get_run_info
-from bcbio.google import (_to_unicode, _from_unicode)
+from bcbio.solexa.flowcell import get_flowcell_info
+from bcbio.google import ( _to_unicode, _from_unicode )
 from bcbio.utils import UnicodeReader
 
 
@@ -58,9 +59,11 @@ def get_barcode_metrics(workdir):
 
 def get_flowcell(fc_dir, run_info_yaml, config={}):
     # Just get the name of the flowcell directory minus the path
-    dirname = os.path.basename(os.path.normpath(fc_dir))
-    fc_name, fc_date, run_info = get_run_info(dirname,config,run_info_yaml)
-    return Flowcell(fc_name,fc_date,run_info.get("details",[]),fc_dir)
+    fc_name, fc_date = get_flowcell_info(os.path.basename(os.path.normpath(fc_dir)))
+    with open(run_info_yaml,"r") as fh:
+        run_info = yaml.load(fh)
+        
+    return Flowcell(fc_name,fc_date,run_info,fc_dir)
 
 def get_project_name(description):
     """Parse out the project name from the lane description"""
@@ -387,8 +390,13 @@ class Sample:
         
     def get_read_count(self):
         if self.read_count:
-            return int(self.read_count)
+            try:
+                rc = int(self.read_count)
+                return rc
+            except ValueError:
+                pass
         return None
+    
     def get_rounded_read_count(self,unit=1000000,decimals=2):
         return round((self.get_read_count() or 0)/float(unit),int(decimals))
     def set_read_count(self,read_count):

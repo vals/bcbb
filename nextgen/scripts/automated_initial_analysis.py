@@ -36,7 +36,7 @@ from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
-from bcbio.google.bc_metrics import create_bc_report_on_gdocs
+from bcbio.google.sequencing_report import create_report_on_gdocs
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
@@ -64,8 +64,8 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
 
-    # upload the demultiplex counts to Google Docs
-    create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config)
+    # upload the sequencing report to Google Docs
+    create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config)
 
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes

@@ -45,17 +45,17 @@ log = logbook.Logger(LOG_NAME)
 
 
 def main(local_config, post_config_file=None,
-         process_msg=True, store_msg=True, qseq=True, fastq=True):
+         fetch_msg=True, process_msg=True, store_msg=True, qseq=True, fastq=True):
     config = load_config(local_config)
     log_handler = create_log_handler(config)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
-                       process_msg, store_msg, qseq, fastq)
+                       fetch_msg, process_msg, store_msg, qseq, fastq)
 
 
 def search_for_new(config, config_file, post_config_file,
-                   process_msg, store_msg, qseq, fastq):
+                   fetch_msg, process_msg, store_msg, qseq, fastq):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
@@ -77,12 +77,12 @@ def search_for_new(config, config_file, post_config_file,
                         fastq_dir = _generate_fastq(dname, config)
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
-                                      process_msg, store_msg)
+                                      fetch_msg, process_msg, store_msg)
                 # Re-read the reported database to make sure it hasn't changed while processing
                 reported = _read_reported(config["msg_db"])
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
-                      process_msg, store_msg):
+                      fetch_msg, process_msg, store_msg):
     """With a finished directory, send out message or process directly.
     """
     run_module = "bcbio.distributed.tasks"
@@ -91,6 +91,9 @@ def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
         store_files, process_files = _files_to_copy(dname)
         if process_msg:
             finished_message("analyze_and_upload", run_module, dname,
+                             process_files, config, config_file)
+        elif fetch_msg:
+            finished_message("fetch_data", run_module, dname,
                              process_files, config, config_file)
         if store_msg:
             raise NotImplementedError("Storage server needs update.")
@@ -189,7 +192,7 @@ def _is_finished_dumping(directory):
     """
     #if _is_finished_dumping_checkpoint(directory):
     #    return True
-    # Check final output files; handles both HiSeq and GAII
+    # Check final output files; handles both HiSeq, MiSeq and GAII
     run_info = os.path.join(directory, "RunInfo.xml")
     hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
                         _expected_reads(run_info)
@@ -254,7 +257,9 @@ def _files_to_copy(directory):
                          glob.glob("*.csv"),
                         ])
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
-        fastq = ["Data/Intensities/BaseCalls/fastq"]
+        fastq = reduce(operator.add, 
+                       [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
+                        ["Data/Intensities/BaseCalls/fastq"]])
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
             sorted(reports + fastq + run_info))
 
@@ -272,7 +277,11 @@ def _read_reported(msg_db):
 
 def _get_directories(config):
     for directory in config["dump_directories"]:
-        for dname in sorted(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]"))):
+        globs = []
+        globs.extend(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]")))
+        # Glob to capture MiSeq flowcells
+        globs.extend(glob.glob(os.path.join(directory, "*_M*AMS*")))
+        for dname in sorted(globs):
             if os.path.isdir(dname):
                 yield dname
 
@@ -304,6 +313,8 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
 
 if __name__ == "__main__":
     parser = OptionParser()
+    parser.add_option("-d", "--nofetch", dest="fetch_msg",
+            action="store_false", default=True)
     parser.add_option("-p", "--noprocess", dest="process_msg",
             action="store_false", default=True)
     parser.add_option("-s", "--nostore", dest="store_msg",
@@ -314,6 +325,6 @@ if __name__ == "__main__":
             action="store_false", default=True)
 
     (options, args) = parser.parse_args()
-    kwargs = dict(process_msg=options.process_msg, store_msg=options.store_msg,
+    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg, store_msg=options.store_msg,
                   fastq=options.fastq, qseq=options.qseq)
     main(*args, **kwargs)
