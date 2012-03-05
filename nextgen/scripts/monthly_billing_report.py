@@ -40,7 +40,7 @@ def main(config_file, month, year):
         writer.writerow([
             "Date", "Product", "Payment", "Researcher", "Lab", "Email",
             "Project", "Sample", "Description", "Genome", "Flowcell",
-            "Lane", "Received", "Notes"])
+            "Lane", "Notes"])
         for s in galaxy_api.sqn_report(start_date.isoformat(),
                 end_date.isoformat()):
             f_parts = s["sqn_run"]["run_folder"].split("_")
@@ -58,14 +58,7 @@ def main(config_file, month, year):
                 s["genome_build"],
                 flowcell,
                 s["sqn_run"]["lane"],
-                _received_date(s["events"]),
                 s["sqn_run"]["results_notes"]])
-
-def _received_date(events):
-    for event in events:
-        if event["event"] == "arrived":
-            return event["time"]
-    return ""
 
 if __name__ == "__main__":
     parser = OptionParser()
