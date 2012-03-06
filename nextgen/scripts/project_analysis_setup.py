@@ -6,7 +6,7 @@ Usage:
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
                              --install_data --move_data --symlink --only_install_run_info
-                             --customer_delivery --barcode_id_to_name --sample_prefix
+                             --customer_delivery --barcode_id_to_name 
                              --barcode_full_names --dry_run --verbose]
 
 
@@ -23,9 +23,7 @@ is output to the project directory. The pruning is based on the options
 
 In order to avoid downstream demultiplexing, a file
 sample_project_run_info.yaml is created, in which each sample is put
-in a separate lane. Each lane is identified by a number. The option
---sample_prefix renames the files to LANE_SAMPLE_DATE_FCID as there by
-default is no information about sample in the file names.
+in a separate lane. Each lane is identified by a number.
 
 Options:
   -a, --flowcell_alias=<flowcell alias>         By default, samples are moved to a directory named
@@ -36,8 +34,6 @@ Options:
                                                 to one directory <flowcell_dir> or <flowcell_alias>.
   -b, --barcode_id_to_name                      Convert barcode ids to sample names
   -i, --only_install_run_info                   Only install pruned run_info file.
-  -p, --sample_prefix                           Add sample name so that output file is named LANE_SAMPLE_DATE_FCID
-                                                instead of LANE_DATE_FCID
   -m, --move_data                               Move data instead of copying
   -l, --symlink                                 Link data instead of copying
       --barcode_full_names                      Don't strip index from barcode name
@@ -201,8 +197,8 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     for fqpair in fq:
         for fastq_src in fqpair:
             fastq_tgt = fastq_src
-            if options.sample_prefix:
-                fastq_tgt = _add_sample_prefix(bcid2name, fastq_tgt)
+            # if options.sample_prefix:
+            #     fastq_tgt = _add_sample_prefix(bcid2name, fastq_tgt)
             if options.customer_delivery or options.barcode_id_to_name:
                 fastq_tgt = _convert_barcode_id_to_name(bcid2name, rawdata_fc.get_fc_name(), fastq_tgt)
             _deliver_fastq_file(fastq_src, os.path.basename(fastq_tgt), fc_data_dir)
@@ -224,16 +220,16 @@ def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
             fq.append(get_fastq_files(bc_dir, None, item, fc_name, bc_name=bc.get_barcode_id()))
     return fq
 
-def _add_sample_prefix(bcid2name, fq):
-    res = re.search("^(\d+)_(\d{6})_[A-Za-z0-9]+_(\d+)_\d+_fastq.txt", os.path.basename(fq))
-    if not res:
-        raise IOError("infile name %s does no conform to format LANE_DATE_FLOWCELL_SAMPLENAME(_BARCODE)_fastq.txt" % fq)
-    lane = res.group(1)
-    date = res.group(2)
-    samplename = bcid2name[res.group(3)]
-    from_str = "%s_%s" % (lane, date)
-    to_str = "%s_%s_%s" % (lane, samplename, date)
-    return fq.replace(from_str, to_str)
+# def _add_sample_prefix(bcid2name, fq):
+#     res = re.search("^(\d+)_(\d{6})_[A-Za-z0-9]+_(\d+)_\d+_fastq.txt", os.path.basename(fq))
+#     if not res:
+#         raise IOError("infile name %s does no conform to format LANE_DATE_FLOWCELL_SAMPLENAME(_BARCODE)_fastq.txt" % fq)
+#     lane = res.group(1)
+#     date = res.group(2)
+#     samplename = bcid2name[res.group(3)]
+#     from_str = "%s_%s" % (lane, date)
+#     to_str = "%s_%s_%s" % (lane, samplename, date)
+#     return fq.replace(from_str, to_str)
 
 def _convert_barcode_id_to_name(bcid2name, fc_name, fq):
     bcid = re.search("_(\d+)_(\d+)_fastq.txt", fq)
@@ -343,7 +339,7 @@ if __name__ == "__main__":
                              --flowcell_alias=<flowcell_alias>
                              --project_desc=<project_desc> --symlink
                              --move_data --only_install_run_info --install_data
-                             --sample_prefix --dry_run --verbose]
+                             --verbose]
 
     For more extensive help type project_analysis_setup.py
 """
@@ -362,8 +358,6 @@ if __name__ == "__main__":
     parser.add_option("-m", "--move_data", dest="move", action="store_true",
                       default=False)
     parser.add_option("-l", "--symlink", dest="link", action="store_true",
-                      default=False)
-    parser.add_option("-p", "--sample_prefix", dest="sample_prefix", action="store_true",
                       default=False)
     parser.add_option("--barcode_full_names", dest="barcode_full_names", action="store_true",
                       default=False)
