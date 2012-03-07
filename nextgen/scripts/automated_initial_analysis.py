@@ -28,7 +28,7 @@ import yaml
 
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
-from bcbio.log import logger, setup_logging, create_log_handler, logger2
+from bcbio.log import logger, setup_logging
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
@@ -61,18 +61,15 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
     run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
-    # process each flowcell lane
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
-    sys.exit(0)
     
     # upload the sequencing report to Google Docs
-  
-    #create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config)
+    create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config)
 
     # Remove spiked in controls, contaminants etc.
-    #lane_items = run_parallel("remove_contaminants",lane_items)
+    lane_items = run_parallel("remove_contaminants",lane_items)
     
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes

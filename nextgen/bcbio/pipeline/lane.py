@@ -34,12 +34,11 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
         logger.info("Filtering phiX from %s" % lane_name)
         info = {"genomes_filter_out": "phix", "description": lane_items[0].get("description",lane_name)}
         processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, config)
-        (full_fastq1, full_fastq2) = processed[0:2]
-    base_name = (_get_base_name(os.path.basename(full_fastq1), os.path.basename(full_fastq2)) or lane_name)
-    
+        (full_fastq1, full_fastq2, _, lane_name) = processed[0:4]
+        
     logger.info("Demultiplexing %s" % base_name)
     bc_files = split_by_barcode(full_fastq1, full_fastq2, lane_items,
-                                base_name, dirs, config)
+                                lane_name, dirs, config)
     out = []
     for item in lane_items:
         config = _update_config_w_custom(config, item)
@@ -68,13 +67,16 @@ def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
                       dirs, config):
     """Remove reads mapping to the specified contaminating reference
     """
-        
-    for genome_build in info.get("genomes_filter_out","").split(","):
-        if os.path.exists(fastq1):
-            program = config["algorithm"].get("remove_contaminants","bowtie")
-            logger.info("Removing %s contaminants on sample %s in lane %s, using %s" % (genome_build,info["description"],lane_name,program))
-            fastq1, fastq2 = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
-    return [fastq1, fastq2, info, lane_name, lane_desc, dirs, config]
+    
+    base_name = None
+    genome_build = info.get("genomes_filter_out",None)
+    # Skip filtering of phix in case we have already done that for the lane
+    if genome_build is not None and not (genome_build == "phix" and config["algorithm"].get("filter_phix",False)) and os.path.exists(fastq1):
+        program = config["algorithm"].get("remove_contaminants","bowtie")
+        logger.info("Removing %s contaminants on sample %s in lane %s, using %s" % (genome_build,info["description"],lane_name,program))
+        fastq1, fastq2 = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
+        base_name = _get_base_name(os.path.basename(fastq1), os.path.basename(fastq2))
+    return [fastq1, fastq2, info, (base_name or lane_name), lane_desc, dirs, config]
 
 def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
                       dirs, config):
