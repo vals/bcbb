@@ -12,7 +12,6 @@ def process_lane(*args):
 
 @utils.map_wrap
 def remove_contaminants(*args):
-    logger.info("Calling remove_contaminants with arguments: %s" % args)
     return lane.remove_contaminants(*args)
 
 

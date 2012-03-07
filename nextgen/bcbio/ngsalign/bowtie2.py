@@ -51,8 +51,8 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
     """Remove contaminants with bowtie2.
     """
     
-    logger.warn("Contaminant removal using bowtie2 has not yet been implemented... using bowtie instead!")
-    return bowtie.remove_contaminants(fastq_file,pair_file,ref_file,out_base,fastq_dir,config,extra_args,rg_name)
+    raise NotImplementedError("Contaminant removal using bowtie2 has not yet been implemented... use bowtie instead!")
+    #return bowtie.remove_contaminants(fastq_file,pair_file,ref_file,out_base,fastq_dir,config,extra_args,rg_name)
 
 
 def remap_index_fn(ref_file):

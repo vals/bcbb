@@ -2,6 +2,7 @@
 """
 import os
 import subprocess
+import glob
 
 from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
@@ -55,14 +56,23 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
     """Remove reads aligning to the contaminating reference genome 
     """
     
-    tmp_file = os.path.join(fastq_dir, "%s_clean" % out_base)
-    out_file = []
-    if not len(glob.glob("%s*" % tmp_file)) > 0:
-        with file_transaction(tmp_file) as tx_out_file:
+    out_root = os.path.join(fastq_dir,out_base)
+    out_files = ["%s_1.ext" % out_root,
+                 "%s_2.ext" % out_root,
+                 "%s_filter.metrics" % out_root]
+        
+    if not len(glob.glob("%s*" % out_root)) > 0:
+        with file_transaction(out_files) as (tx_out_file1, tx_out_file2, tx_metrics_file):
+            out = tx_out_file1
+            if pair_file:
+                out = out.replace("_1.ext",".ext")
+            
             cl = [config["program"]["bowtie"]]
             cl += _bowtie_args_from_config(config)
             cl += extra_args if extra_args is not None else []
-            cl += ["-un", tx_out_file,
+            # Allow for read pairs mapping at opposite ends of e.g. the phiX genome
+            cl += ["--best", "-X", "6000"]
+            cl += ["--un", out,
                    ref_file]
             if pair_file:
                 cl += ["-1", fastq_file, "-2", pair_file]
@@ -70,16 +80,18 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
                 cl += [fastq_file]
             cl += ["/dev/null"]
             cl = [str(i) for i in cl]
-            subprocess.check_call(cl)
             
-            # Rename the temporary files
-            if pair_file:
-                for i in ("1","2"):
-                    tfile = "%s_%s" % (tmp_file,i)
-                    out_file.append("%s_fastq.txt" % tfile)
-                    os.rename(tfile,out_file[-1])
-            else:
-                out_file = ["%s_fastq.txt" % tmp_file,None]
-                os.rename(tmp_file,out_file[0])
+            # Get the output, echo it as well as write it to the metrics file
+            output = subprocess.check_output(cl,stderr=subprocess.STDOUT)
+            print output
             
-    return out_file
+            with open(tx_metrics_file,"w") as fh:
+                fh.write("%s\n" % str(output))
+            
+        for i, out_file in enumerate(out_files):
+            if not out_file.endswith(".ext") or not os.path.exists(out_file): continue
+            dest = out_file.replace(".ext","_fastq.txt")
+            os.rename(out_file,dest)
+            out_files[i] = dest
+                
+    return out_files[0:2]
