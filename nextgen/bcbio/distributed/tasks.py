@@ -98,6 +98,7 @@ def combine_variant_files(*args):
 def detect_sv(*args):
     return variation.detect_sv(*args)
 
+
 @task
 def test(x):
     print x

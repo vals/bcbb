@@ -104,8 +104,8 @@ def picard_bam_to_fastq(picard, in_bam, fastq_one, fastq_two=None):
                 picard.run("SamToFastq", opts)
     return (fastq_one, fastq_two)
 
-def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file,
-                      is_paired=False):
+
+def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file, is_paired=False):
     """Convert SAM to BAM, including unmapped reads from fastq BAM file.
     """
     if align_sam.endswith(".sam"):
