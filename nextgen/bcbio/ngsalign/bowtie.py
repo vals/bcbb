@@ -88,10 +88,16 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
             with open(tx_metrics_file,"w") as fh:
                 fh.write("%s\n" % str(output))
             
+        dest_files = []
         for i, out_file in enumerate(out_files):
-            if not out_file.endswith(".ext") or not os.path.exists(out_file): continue
-            dest = out_file.replace(".ext","_fastq.txt")
-            os.rename(out_file,dest)
-            out_files[i] = dest
+            if not out_file.endswith(".ext"): continue
+            if not os.path.exists(out_file):
+                if i == 1 and not pair_file:
+                    dest_files.append(pair_file)
+                    continue 
+                open(out_file,"w").close()
+            dest_file = out_file.replace(".ext","_fastq.txt")
+            os.rename(out_file,dest_file)
+            dest_files.append(dest_file)
                 
-    return out_files[0:2]
+    return dest_files

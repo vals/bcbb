@@ -7,7 +7,6 @@ from collections import namedtuple
 
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 
-from bcbio.log import logger
 from bcbio import utils, broad
 from bcbio.ngsalign import bowtie, bwa, tophat, bowtie2, mosaik, novoalign
 from bcbio.distributed.transaction import file_transaction
@@ -61,7 +60,6 @@ def remove_contaminants(fastq1, fastq2, genome_build, aligner,
     align_ref, _ = get_genome_ref(genome_build, aligner, dirs["galaxy"])
     # If reference file could not be found, do nothing
     if align_ref is None:
-        logger.warn("No alignment reference file could be located, %s contaminants could not be removed." % genome_build)
         return [fastq1, fastq2]
     
     rmcont_fn = _tools["%s_rmcont" % aligner].align_fn

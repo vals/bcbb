@@ -104,22 +104,22 @@ def generate_bigwig(data):
     return [[data]]
 
 
-def _filter_out_genomes(data):
-    """ Filters out genomes found in run_info.yaml
-    """
-    #genome_build, sam_ref = ref_genome_info(data["info"], config, data["dirs"])
-    sam_ref = data["sam_ref"]
-    
-    log.info("Removing genome from sample %s" % str(data["name"]))
-    try:
-        # XXX should be able to reach run_info.yaml info instead of data here
-        if data["filter_out_genomes"]:
-            for genome in data["filter_out_genomes"].split(","):
-                (out_file, ext) = os.path.splitext(os.path.basename(fastq1))
-                out_file = out_file+"-stripped-"+genome+ext
-                cl = ["bowtie", "--solexa1.3-quals", "--un", out_file, sam_ref, "-1", data["fastq1"], "-2", data["fastq2"], "/dev/null"]
-                log.info("Running %s" % cl)
-                subprocess.check_call(cl)
-    except KeyError:
-        log.error("Not removing genomes, directive filter_out_genomes undefined in run_info.yaml")
-        pass
+#def _filter_out_genomes(data):
+#    """ Filters out genomes found in run_info.yaml
+#    """
+#    #genome_build, sam_ref = ref_genome_info(data["info"], config, data["dirs"])
+#    sam_ref = data["sam_ref"]
+#    
+#    log.info("Removing genome from sample %s" % str(data["name"]))
+#    try:
+#        # XXX should be able to reach run_info.yaml info instead of data here
+#        if data["filter_out_genomes"]:
+#            for genome in data["filter_out_genomes"].split(","):
+#                (out_file, ext) = os.path.splitext(os.path.basename(fastq1))
+#                out_file = out_file+"-stripped-"+genome+ext
+#                cl = ["bowtie", "--solexa1.3-quals", "--un", out_file, sam_ref, "-1", data["fastq1"], "-2", data["fastq2"], "/dev/null"]
+#                log.info("Running %s" % cl)
+#                subprocess.check_call(cl)
+#    except KeyError:
+#        log.error("Not removing genomes, directive filter_out_genomes undefined in run_info.yaml")
+#        pass
