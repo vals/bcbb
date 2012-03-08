@@ -10,6 +10,54 @@ other architectures as well.
 """
 import time
 import math
+import subprocess
+
+
+def run_on_slurm(config, config_file, args, workers_needed=None,
+                    task_module=None, queues=None):
+    "Run distributed analysis in one SLURM job with multiple nodes."
+    settings = config["distributed"]["platform_args"]
+    assert type(settings) == dict, \
+    "SLURM jobs needs a dict of platform arguments, unlike other platforms."
+
+    num_workers = config["distributed"].get("num_workers", None)
+    if num_workers in [None, "all"]:
+        # TODO: Assertions and such
+        cores_per_host = config["distributed"].get("cores_per_host", 1)
+        num_workers = int(math.ceil(float(workers_needed) / cores_per_host))
+
+    # Provide filenames for files to send to the batch job system.
+    srun_script_name = "srun.sh"
+    sbatch_script_name = "run_srun.sh"
+
+    # Create a shell script which executes different programs depending on
+    # which node the program is running.
+    analysis = config["analysis"]
+    manager_case = "0) {process_program} ".format(**analysis) + args
+    worker_case = "%i) {worker_program}".format(**analysis) + config_file
+
+    with open(srun_script_name, "w") as script:
+        script.write("#!/bin/sh\n\n")
+        script.write(r"case $SLURM_NODEID in")
+        script.write("\n")
+        script.write("  " + manager_case + " ;;\n")
+        for i in range(num_workers):
+            script.write("  " + worker_case % (i + 1,) + " ;;\n")
+        script.write("esac\n")
+
+    subprocess.call(["chmod", "+x", srun_script_name])
+
+    # Create an sbatch script to be sent to SLURM
+    with open(sbatch_script_name, "w") as script:
+        script.write("#!/bin/sh\n")
+        s = "#SBATCH"
+        script.write(" ".join([s, "-N", str(num_workers + 1)]) + "\n")
+        for prop, arg in settings.items():
+            script.write(" ".join([s, prop, arg]) + "\n")
+        script.write("\n" + " ".join(["srun", srun_script_name]) + "\n")
+
+    # Send things to the job system
+    subprocess.call(["sbatch", sbatch_script_name])
 
 
 def run_and_monitor(config, config_file, args, workers_needed=None,
