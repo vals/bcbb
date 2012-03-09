@@ -46,6 +46,15 @@ def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
             subprocess.check_call(cl)
     return out_file
 
+def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, config,
+          extra_args=None, rg_name=None):
+    """Remove contaminants with bowtie2.
+    """
+    
+    raise NotImplementedError("Contaminant removal using bowtie2 has not yet been implemented... use bowtie instead!")
+    #return bowtie.remove_contaminants(fastq_file,pair_file,ref_file,out_base,fastq_dir,config,extra_args,rg_name)
+
+
 def remap_index_fn(ref_file):
     """Map bowtie references to equivalent bowtie2 indexes.
     """
