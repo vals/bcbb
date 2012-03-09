@@ -3,7 +3,6 @@
 import os
 import copy
 import glob
-import socket
 
 from bcbio.log import logger
 from bcbio.pipeline.fastq import get_fastq_files, get_multiplex_items
