@@ -66,8 +66,8 @@ def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
         if genome_build == "spiked_phix": genome_build = "phix"
         program = config["algorithm"].get("remove_contaminants","bowtie")
         logger.info("Removing %s contaminants on %s, using %s" % (genome_build,info["description"],program))
-        fastq1, fastq2 = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
-        base_name = os.path.commonprefix([os.path.basename(fastq1), os.path.basename(fastq2)]).rstrip("_")
+        fastq1, fastq2, base_name = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
+            
     return [[fastq1, fastq2, info, (base_name or lane_name), lane_desc, dirs, config]]
 
 def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,

@@ -99,5 +99,6 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
             dest_file = out_file.replace(".ext","_fastq.txt")
             os.rename(out_file,dest_file)
             dest_files.append(dest_file)
-                
+    
+    dest_files.append(out_base)
     return dest_files
