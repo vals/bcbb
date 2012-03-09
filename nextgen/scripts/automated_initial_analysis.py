@@ -21,6 +21,7 @@ Workflow:
 """
 import os
 import sys
+import socket
 from optparse import OptionParser
 
 import yaml
@@ -49,6 +50,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
+    
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -59,14 +61,16 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
     run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
-    # process each flowcell lane
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
-
+    
     # upload the sequencing report to Google Docs
     create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config)
 
+    # Remove spiked in controls, contaminants etc.
+    lane_items = run_parallel("remove_contaminants",lane_items)
+    
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)

@@ -2,6 +2,7 @@
 """
 import os
 import subprocess
+import glob
 
 from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
@@ -49,3 +50,55 @@ def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
             subprocess.check_call(cl)
     return out_file
 
+
+def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, config,
+                        extra_args=None, rg_name=None):
+    """Remove reads aligning to the contaminating reference genome 
+    """
+    
+    out_root = os.path.join(fastq_dir,out_base)
+    out_files = ["%s_1.ext" % out_root,
+                 "%s_2.ext" % out_root,
+                 "%s_filter.metrics" % out_root]
+        
+    if not len(glob.glob("%s*" % out_root)) > 0:
+        with file_transaction(out_files) as (tx_out_file1, tx_out_file2, tx_metrics_file):
+            out = tx_out_file1
+            if pair_file:
+                out = out.replace("_1.ext",".ext")
+            
+            cl = [config["program"]["bowtie"]]
+            cl += _bowtie_args_from_config(config)
+            cl += extra_args if extra_args is not None else []
+            # Allow for read pairs mapping at opposite ends of e.g. the phiX genome
+            cl += ["--best", "-X", "6000"]
+            cl += ["--un", out,
+                   ref_file]
+            if pair_file:
+                cl += ["-1", fastq_file, "-2", pair_file]
+            else:
+                cl += [fastq_file]
+            cl += ["/dev/null"]
+            cl = [str(i) for i in cl]
+            
+            # Get the output, echo it as well as write it to the metrics file
+            output = subprocess.check_output(cl,stderr=subprocess.STDOUT)
+            print output
+            
+            with open(tx_metrics_file,"w") as fh:
+                fh.write("%s\n" % str(output))
+            
+        dest_files = []
+        for i, out_file in enumerate(out_files):
+            if not out_file.endswith(".ext"): continue
+            if not os.path.exists(out_file):
+                if i == 1 and not pair_file:
+                    dest_files.append(pair_file)
+                    continue 
+                open(out_file,"w").close()
+            dest_file = out_file.replace(".ext","_fastq.txt")
+            os.rename(out_file,dest_file)
+            dest_files.append(dest_file)
+    
+    dest_files.append(out_base)
+    return dest_files
