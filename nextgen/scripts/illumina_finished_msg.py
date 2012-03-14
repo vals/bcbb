@@ -47,7 +47,7 @@ log = logbook.Logger(LOG_NAME)
 def main(local_config, post_config_file=None,
          fetch_msg=True, process_msg=True, store_msg=True, qseq=True, fastq=True):
     config = load_config(local_config)
-    log_handler = create_log_handler(config)
+    log_handler = create_log_handler(config,True)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
