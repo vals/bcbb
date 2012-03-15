@@ -23,7 +23,7 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     if config["algorithm"].get("filter_phix",False):
         logger.info("Filtering phiX from %s" % lane_name)
         info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
-        processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, config)
+        processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, _update_config_w_custom(config, lane_items[0]))
         (full_fastq1, full_fastq2, _, lane_name) = processed[0][0:4]
         
     logger.info("Demultiplexing %s" % lane_name)
