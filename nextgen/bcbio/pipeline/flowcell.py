@@ -7,6 +7,7 @@ import re
 import os
 import glob
 import yaml
+import string
 
 from bcbio.solexa.flowcell import get_flowcell_info
 from bcbio.google import ( _to_unicode, _from_unicode )
@@ -30,6 +31,9 @@ def format_project_name(unformated_name):
     p = re.compile('(%s)' % delimiter)
     name = p.sub('.', name)
 
+    # Make sure that the initial letters are in capitals
+    name = string.capwords(name,".")
+        
     # Format the name
     project_name = "%s_%s_%s%s" % (name, year, month, suffix)
     return project_name
@@ -341,8 +345,9 @@ class Sample:
         self.set_genome_build(data.get("genome_build",lane.get_genome_build()))
         self.set_name(data.get("name",None))
         self.set_full_name(data.get("full_name",data.get("name", None)))
-        self.set_project(data.get("description",lane.get_description()))
+        self.set_project(data.get("sample_prj",data.get("description",lane.get_description())))
         self.set_read_count(data.get("read_count",None))
+        self.set_description(data.get("description",None))
         self.set_lane(lane.get_name())
         self.set_comment(comment)
         
@@ -395,6 +400,11 @@ class Sample:
     def set_project(self,project):
         self.project = get_project_name(_to_unicode(project))
         
+    def get_description(self):
+        return _from_unicode(self.description)
+    def set_description(self,description):
+        self.description = _to_unicode(description)
+        
     def get_read_count(self):
         if self.read_count:
             try:
@@ -429,7 +439,9 @@ class Sample:
         if (self.get_full_name()):
             struct["full_name"] = self.get_full_name()
         if (self.get_project()):
-            struct["description"] = self.get_project()
+            struct["sample_prj"] = self.get_project()
+        if (self.get_description()):
+            struct["description"] = self.get_description()
         if (self.get_read_count() is not None):
             struct["read_count"] = self.get_read_count()
         return struct
