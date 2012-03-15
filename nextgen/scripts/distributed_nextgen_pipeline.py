@@ -8,8 +8,6 @@ Usage:
 import sys
 from optparse import OptionParser
 
-import yaml
-
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.distributed.manage import run_and_monitor
 from bcbio.pipeline.config_loader import load_config

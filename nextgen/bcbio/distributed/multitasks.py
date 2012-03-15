@@ -11,6 +11,11 @@ def process_lane(*args):
 
 
 @utils.map_wrap
+def remove_contaminants(*args):
+    return lane.remove_contaminants(*args)
+
+
+@utils.map_wrap
 def process_alignment(*args):
     return lane.process_alignment(*args)
 

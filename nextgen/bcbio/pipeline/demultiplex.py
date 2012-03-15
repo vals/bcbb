@@ -47,7 +47,6 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                     cl.append("--noindel")
                 if "bc_offset" in config["algorithm"]:
                     cl.append("--bc_offset=%s" % config["algorithm"]["bc_offset"])
-                print(cl)
                 subprocess.check_call(cl)
     else:
         with utils.curdir_tmpdir() as tmp_dir:

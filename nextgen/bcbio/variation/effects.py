@@ -15,8 +15,8 @@ from bcbio.distributed.transaction import file_transaction
 # remap Galaxy genome names to the ones used by snpEff. Not nice code.
 SNPEFF_GENOME_REMAP = {
         "GRCh37": ["GRCh37.64", "GRCh37.63"],
-        "hg19" : ["GRCh37.64", "GRCh37.63"],
-        "mm9" : ["NCBIM37.64", "NCBIM37.63"],
+        "hg19": ["GRCh37.64", "GRCh37.63"],
+        "mm9": ["NCBIM37.64", "NCBIM37.63"],
         "araTha_tair9": ["athalianaTair10"],
         "araTha_tair10": ["athalianaTair10"],
         }

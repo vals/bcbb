@@ -45,6 +45,11 @@ def process_lane(*args):
 
 
 @task
+def remove_contaminants(*args):
+    return lane.remove_contaminants(*args)
+
+
+@task
 def process_alignment(*args):
     return lane.process_alignment(*args)
 
@@ -97,6 +102,7 @@ def combine_variant_files(*args):
 @task
 def detect_sv(*args):
     return variation.detect_sv(*args)
+
 
 @task
 def test(x):
