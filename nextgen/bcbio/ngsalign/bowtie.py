@@ -71,7 +71,8 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
             cl += _bowtie_args_from_config(config)
             cl += extra_args if extra_args is not None else []
             # Allow for read pairs mapping at opposite ends of e.g. the phiX genome
-            cl += ["--best", "-X", "6000"]
+            # Trim 7bp from 3'end corresponding to the barcode
+            cl += ["--best", "-X", "6000","-3","7"]
             cl += ["--un", out,
                    ref_file]
             if pair_file:
