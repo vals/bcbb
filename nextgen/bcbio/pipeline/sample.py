@@ -65,6 +65,7 @@ def screen_sample_contaminants(data):
 def process_sample(data):
     """Finalize processing for a sample, potentially multiplexed.
     """
+
     if data["config"]["algorithm"]["snpcall"]:
         logger.info("Finalizing variant calls: %s" % str(data["name"]))
         data["vrn_file"] = finalize_genotyper(data["vrn_file"], data["work_bam"],

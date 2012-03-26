@@ -9,7 +9,6 @@ Usage:
                              --customer_delivery --barcode_id_to_name 
                              --barcode_full_names --dry_run --verbose]
 
-
 Given a directory with demultiplexed flow cell data and a project id,
 project specific files will be copied to a project directory. The
 optional <YAML run information> file specifies details about the
@@ -20,6 +19,7 @@ For a multiproject run_info file, only a subset of the lanes can be
 used. The run_info file is therefore pruned, and the pruned file project_run_info.yaml 
 is output to the project directory. The pruning is based on the options
 <project_desc>. 
+
 
 In order to avoid downstream demultiplexing, a file
 sample_project_run_info.yaml is created, in which each sample is put
@@ -36,7 +36,8 @@ Options:
   -i, --only_install_run_info                   Only install pruned run_info file.
   -m, --move_data                               Move data instead of copying
   -l, --symlink                                 Link data instead of copying
-      --barcode_full_names                      Don't strip index from barcode name
+  -i, --numerical_lanes                         Use numerical lanes for sample_project_run_info.yaml. Otherwise uses
+                                                number_samplename
   -n, --dry_run                                 Don't do anything samples, just list what will happen
   -v, --verbose                                 Print some more information
 """
@@ -176,15 +177,10 @@ def run_main(pruned_fc, rawdata_fc, analysis_fc):
 def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     """Models bcbio process lane"""
     multiplex = lane.get_samples()
-    bcid2name = None
     logger.info("Processing project: %s; lane %s; reference genome %s" %
              (lane.get_description(), lane.get_name(), lane.get_genome_build()))
     if multiplex:
         logger.debug("Project %s is multiplexed as: %s" % (lane.get_description(), multiplex))
-        if options.barcode_full_names:
-            bcid2name = dict([(str(mp.get_barcode_id()), mp.get_barcode_full_name()) for mp in multiplex])
-        else:
-            bcid2name = dict([(str(mp.get_barcode_id()), get_sample_name(mp.get_barcode_name())) for mp in multiplex])
     fq = _get_barcoded_fastq_files(lane, multiplex, pruned_fc.get_fc_date(), pruned_fc.get_fc_name(), pruned_fc.get_fc_dir())
 
     ## Move data along with fastq files
@@ -200,7 +196,7 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
             # if options.sample_prefix:
             #     fastq_tgt = _add_sample_prefix(bcid2name, fastq_tgt)
             if options.customer_delivery or options.barcode_id_to_name:
-                fastq_tgt = _convert_barcode_id_to_name(bcid2name, rawdata_fc.get_fc_name(), fastq_tgt)
+                fastq_tgt = _convert_barcode_id_to_name(multiplex, rawdata_fc.get_fc_name(), fastq_src)
             _deliver_fastq_file(fastq_src, os.path.basename(fastq_tgt), fc_data_dir)
             fastq_targets.append(os.path.join(fc_data_dir, os.path.basename(fastq_tgt)))
     lane.set_files(fastq_targets)
@@ -233,9 +229,8 @@ def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
 
 def _convert_barcode_id_to_name(bcid2name, fc_name, fq):
     bcid = re.search("_(\d+)_(\d+)_fastq.txt", fq)
-    samplename = bcid.group(1)
-    from_str = "%s_%s_fastq.txt" % (samplename, bcid.group(2))
-    to_str   = "%s_%s.fastq" % (bcid2name[samplename], bcid.group(2))
+    from_str = "%s_%s_fastq.txt" % (bcid.group(1), bcid.group(2))
+    to_str   = "%s_%s.fastq" % (bcid2name[bcid.group(1)], bcid.group(2))
     return fq.replace(from_str, to_str)
  
 def _deliver_fastq_file(fq_src, fq_tgt, outdir, fc_link_dir=None):
@@ -314,12 +309,11 @@ def _sample_based_run_info(fc):
         for barcode_id in bcids:
             s = l.get_sample_by_barcode(barcode_id)
             lane_num = lane_num + 1
-            if options.barcode_full_names:
-                desc = s.get_full_name()
+            newl = Lane(data={"description":s.get_name(), "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build()})
+            if not options.numerical_lanes:
+                newl.set_name("%s_%s" %(lane_num, s.get_name()))
             else:
-                desc = s.get_name()
-            newl = Lane(data={"description":desc, "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build()})
-            newl.set_name("%s" % lane_num)
+                newl.set_name("%s" % lane_num)
             files = l.get_files()
             if options.customer_delivery or options.barcode_id_to_name:
                 pat = "%s.*_%s_[12].*$" % (l.get_name(), get_sample_name(s.get_barcode_name()))

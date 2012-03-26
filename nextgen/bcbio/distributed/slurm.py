@@ -6,24 +6,31 @@ import subprocess
 
 _jobid_pat = re.compile("Submitted batch job (?P<jobid>\d+)")
 
+
 def submit_job(scheduler_args, command):
     """Submit a job to the scheduler, returning the supplied job ID.
     """
     # If a job name was not specified, generate a unique name
     if ("-J" not in scheduler_args):
-        job_name = "bcbb-job-%s" % random.randint(10000,99999)
-        scheduler_args.extend(["-J",job_name])
-        
+        job_name = "bcbb-job-%s" % random.randint(10000, 99999)
+        scheduler_args.extend(["-J", job_name])
+
     cl = ["sbatch"] + scheduler_args
-    p = subprocess.Popen(cl,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    (status,err) = p.communicate("#! /bin/sh\n%s" % " ".join(command))
+    p = subprocess.Popen(cl, stdin=subprocess.PIPE, stdout=subprocess.PIPE, \
+        stderr=subprocess.PIPE)
+    (status, err) = p.communicate("#! /bin/sh\n%s" % " ".join(command))
     match = _jobid_pat.search(status)
-    return match.groups("jobid")[0]
+    try:
+        return match.groups("jobid")[0]
+    except:
+        raise Exception("Error when submitting job: '%s'" % err)
+
 
 def stop_job(jobid):
     if exists(jobid):
         cl = ["scancel", jobid]
         subprocess.check_call(cl)
+
 
 def are_running(jobids):
     """Check if all of the submitted job IDs are running.
@@ -38,6 +45,7 @@ def are_running(jobids):
     want_running = set(running).intersection(set(jobids))
     return len(want_running) == len(jobids)
 
+
 def exists(jobid):
     """Check if the job IDs exist.
     """
@@ -48,3 +56,7 @@ def exists(jobid):
             if (pid == jobid and status.upper() not in ["CG"]):
                 return True
     return False
+
+
+def available_nodes(platform_args):
+    return None
