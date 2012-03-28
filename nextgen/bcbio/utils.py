@@ -133,6 +133,11 @@ def file_exists(fname):
     """
     return os.path.exists(fname) and os.path.getsize(fname) > 0
 
+def touch_file(fname):
+    """Create an empty file 
+    """
+    open(fname,"w").close()
+
 def create_dirs(config, names=None):
     if names is None:
         names = config["dir"].keys()
