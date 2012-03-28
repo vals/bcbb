@@ -10,7 +10,7 @@ other architectures as well.
 """
 import time
 import math
-
+import subprocess
 
 def run_and_monitor(config, config_file, args, workers_needed=None,
                     task_module=None, queues=None):
