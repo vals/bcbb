@@ -59,7 +59,7 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
     out_root = os.path.join(fastq_dir,out_base)
     out_files = ["%s_1.ext" % out_root,
                  "%s_2.ext" % out_root,
-                 "%s_filter.metrics" % out_root]
+                 "%s.filter_metrics" % out_root]
     suffix = "_fastq.txt"
     
     if not len(glob.glob("%s*%s" % (out_root,suffix))) > 0:
