@@ -116,7 +116,7 @@ class PicardMetricsParser:
         def try_float_format(in_string, float_format, multiplier=1.):
             in_string = in_string.replace(",", ".")
             try:
-                out_string = "float_format" % (float(in_string) * multiplier)
+                out_string = float_format % (float(in_string) * multiplier)
             except ValueError:
                 out_string = in_string
 
