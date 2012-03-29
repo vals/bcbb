@@ -56,7 +56,7 @@ from itertools import izip
 from bcbio.log import logger, setup_logging
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.lane import get_flowcell_id
-from bcbio.pipeline.fastq import get_single_fastq_files, get_fastq_files
+from bcbio.pipeline.fastq import get_single_fastq_files#, get_fastq_files
 from bcbio.pipeline.config_loader import load_config
 from bcbio.pipeline.flowcell import Flowcell, Lane, get_sample_name
 from bcbio import utils
@@ -202,16 +202,16 @@ def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
 
 def _get_barcoded_fastq_files(lane, multiplex, fc_date, fc_name, fc_dir=None):
     fq = list()
-    bc_dir = "%s_%s_%s_barcode" % (lane.get_name(), fc_date, fc_name)
+    bc_dir = "%s_%s_%s_nophix_barcode" % (lane.get_name(), fc_date, fc_name)
     bc_dir = os.path.join(fc_dir, bc_dir)
     if multiplex is None:
-        fq.append(get_fastq_files(bc_dir, {'lane':lane.get_name()}, fc_name))
+        fq.append(_get_fastq_files(bc_dir, {'lane':lane.get_name()}, fc_name))
     else:
         for bc in multiplex:
             if not os.path.exists(bc_dir):
                 raise IOError("No barcode directory found: " + str(bc_dir))
             item = {'lane':lane.get_name()}
-            fq.append(get_fastq_files(bc_dir, None, item, fc_name, bc_name=bc.get_barcode_id()))
+            fq.append(_get_fastq_files(bc_dir, None, item, fc_name, bc_name=bc.get_barcode_id()))
     return fq
 
 def _convert_barcode_id_to_name(multiplex, fc_name, fq):
@@ -313,6 +313,43 @@ def _sample_based_run_info(fc):
             sample_fc.add_lane(newl)
     _save_run_info(sample_fc, "sample_project_run_info.yaml")
         
+
+def _get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="_fastq.txt",
+                    config=None):
+    """Retrieve fastq files for the given lane, ready to process.
+    """
+    if item.has_key("files") and bc_name is None:
+        names = item["files"]
+        if isinstance(names, basestring):
+            names = [names]
+        files = [x if os.path.isabs(x) else os.path.join(directory, x) for x in names]
+    else:
+        assert fc_name is not None
+        lane = item["lane"]
+        if bc_name:
+            glob_str = "%s_*%s_*%s_*%s" % (lane, fc_name, bc_name, glob_ext)
+        else:
+            glob_str = "%s_*%s*%s" % (lane, fc_name, glob_ext)
+        files = glob.glob(os.path.join(directory, glob_str))
+        files.sort()
+        if len(files) > 2 or len(files) == 0:
+            raise ValueError("Did not find correct files for %s %s %s %s" %
+                    (directory, lane, fc_name, files))
+    ready_files = []
+    for fname in files:
+        if fname.endswith(".gz"):
+            # TODO: Parallelize using pgzip
+            cl = ["gunzip", fname]
+            subprocess.check_call(cl)
+            ready_files.append(os.path.splitext(fname)[0])
+        elif fname.endswith(".bam"):
+            ready_files = convert_bam_to_fastq(fname, work_dir, config)
+        else:
+            assert os.path.exists(fname), fname
+            ready_files.append(fname)
+    ready_files = [x for x in ready_files if x is not None]
+    return ready_files[0], (ready_files[1] if len(ready_files) > 1 else None)
+
 
 if __name__ == "__main__":
     usage = """
