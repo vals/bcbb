@@ -147,12 +147,12 @@ class Flowcell:
             samples.extend(lane.get_samples())
         return samples
 
-    def prune_to_project(self, project):
+    def prune_to_project(self, project, exclude_unmatched=False):
         """Return a new Flowcell object just containing the lanes and samples belonging to a specific project"""
         lanes = []
         fc = None
         for lane in self.get_lanes():
-            l = lane.prune_to_project(project)
+            l = lane.prune_to_project(project, exclude_unmatched)
             if (l):
                 lanes.append(l.to_structure())
         if (len(lanes)):
@@ -502,5 +502,3 @@ class BarcodedSample(Sample):
         if (self.get_barcode_type()):
             struct["barcode_type"] = self.get_barcode_type()
         return struct
-  
-    
