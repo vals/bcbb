@@ -5,6 +5,10 @@ import unittest
 
 from bcbio.pipeline.run_info import _generate_lane, get_run_info
 
+from nose.plugins.attrib import attr
+
+
+@attr("standard")
 class RunInfoTest(unittest.TestCase):
     def setUp(self):
         self.data_dir = os.path.join(os.path.dirname(__file__), "data")
