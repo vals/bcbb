@@ -9,6 +9,8 @@ import shutil
 import contextlib
 import collections
 
+from nose.plugins.attrib import attr
+
 
 @contextlib.contextmanager
 def make_workdir():
@@ -110,6 +112,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
                   os.path.join(self.data_dir, "run_info-rnaseq.yaml")]
             subprocess.check_call(cl)
 
+    @attr("standard")
     def test_1_variantcall(self):
         """Test variant calling with GATK pipeline.
         """
