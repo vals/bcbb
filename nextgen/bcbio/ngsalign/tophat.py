@@ -18,6 +18,7 @@ galaxy_location_file = "bowtie_indices.loc"
 
 _out_fnames = ["accepted_hits.sam", "junctions.bed", "insertions.bed", "deletions.bed"]
 
+
 def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
           rg_name=None):
     qual_format = config["algorithm"].get("quality_format", None)

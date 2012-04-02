@@ -57,6 +57,8 @@ def _has_barcode(sample):
     else:  # lane is not multiplexed
         pass
 
+
+
 def _generate_barcode_ids(info_iter):
     """Create unique barcode IDs assigned to sequences
     """

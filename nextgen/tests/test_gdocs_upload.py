@@ -1,11 +1,11 @@
 """A test that will attempt to generate demultiplex reports and upload to Google Docs
 """
 import os
-import subprocess
+#import subprocess
 import unittest
 import shutil
-import contextlib
-import collections
+#import contextlib
+#import collections
 import yaml
 import random
 from test_automated_analysis import make_workdir
@@ -19,6 +19,7 @@ read_qc = ('<!--Illumina RTA Data--><Summary Read="1" densityRatio="0.173619792"
            '<!--Illumina RTA Data--><Summary Read="2" ReadType=" (Index)" densityRatio="0.173619792"><Lane key="1" TileCount="48" ClustersRaw="1860069" ClustersRawSD="361361.1" ClustersPF="1831969" ClustersPFSD="352563.3" PrcPFClusters="98.5" PrcPFClustersSD="0.22" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="7045" FirstCycleIntPFSD="185.0" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="2" TileCount="48" ClustersRaw="1892872" ClustersRawSD="357670.3" ClustersPF="1863913" ClustersPFSD="348240.3" PrcPFClusters="98.5" PrcPFClustersSD="0.20" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="6989" FirstCycleIntPFSD="230.2" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="3" TileCount="48" ClustersRaw="5882812" ClustersRawSD="859392.4" ClustersPF="4526246" ClustersPFSD="1773558.1" PrcPFClusters="77.1" PrcPFClustersSD="29.36" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="2457" FirstCycleIntPFSD="198.5" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="4" TileCount="48" ClustersRaw="5139881" ClustersRawSD="867157.5" ClustersPF="4029611" ClustersPFSD="1747588.3" PrcPFClusters="79.2" PrcPFClustersSD="31.65" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="7045" FirstCycleIntPFSD="386.9" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="5" TileCount="48" ClustersRaw="5744301" ClustersRawSD="538240.6" ClustersPF="4696004" ClustersPFSD="453621.1" PrcPFClusters="82.0" PrcPFClustersSD="6.67" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="5827" FirstCycleIntPFSD="214.7" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="6" TileCount="48" ClustersRaw="6001645" ClustersRawSD="457375.5" ClustersPF="4866307" ClustersPFSD="293214.2" PrcPFClusters="81.2" PrcPFClustersSD="1.65" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="5945" FirstCycleIntPFSD="230.8" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="7" TileCount="48" ClustersRaw="5006987" ClustersRawSD="977030.1" ClustersPF="24481" ClustersPFSD="167834.1" PrcPFClusters="0.4" PrcPFClustersSD="2.94" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="13" FirstCycleIntPFSD="64.0" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /><Lane key="8" TileCount="48" ClustersRaw="6154610" ClustersRawSD="193792.1" ClustersPF="2011986" ClustersPFSD="1202392.4" PrcPFClusters="32.6" PrcPFClustersSD="19.34" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="1111" FirstCycleIntPFSD="49.8" PrcIntensityAfter20CyclesPF="0.0" PrcIntensityAfter20CyclesPFSD="0.00" /></Summary>',
            '<!--Illumina RTA Data--><Summary Read="3" densityRatio="0.173619792"><Lane key="1" TileCount="48" ClustersRaw="1860069" ClustersRawSD="361361.1" ClustersPF="1831969" ClustersPFSD="352563.3" PrcPFClusters="98.5" PrcPFClustersSD="0.22" Phasing="0.190" Prephasing="0.557" CalledCyclesMin="208" CalledCyclesMax="208" PrcAlign="1.28" PrcAlignSD="0.056" ErrRatePhiX="0.44" ErrRatePhiXSD="0.160" ErrRate35="0.11" ErrRate35SD="0.039" ErrRate75="0.25" ErrRate75SD="0.115" ErrRate100="0.44" ErrRate100SD="0.160" FirstCycleIntPF="6093" FirstCycleIntPFSD="242.3" PrcIntensityAfter20CyclesPF="76.0" PrcIntensityAfter20CyclesPFSD="1.05" /><Lane key="2" TileCount="48" ClustersRaw="1892872" ClustersRawSD="357670.3" ClustersPF="1863913" ClustersPFSD="348240.3" PrcPFClusters="98.5" PrcPFClustersSD="0.20" Phasing="0.190" Prephasing="0.556" CalledCyclesMin="208" CalledCyclesMax="208" PrcAlign="1.27" PrcAlignSD="0.068" ErrRatePhiX="0.47" ErrRatePhiXSD="0.146" ErrRate35="0.11" ErrRate35SD="0.012" ErrRate75="0.24" ErrRate75SD="0.042" ErrRate100="0.47" ErrRate100SD="0.146" FirstCycleIntPF="6095" FirstCycleIntPFSD="260.7" PrcIntensityAfter20CyclesPF="75.5" PrcIntensityAfter20CyclesPFSD="1.21" /><Lane key="3" TileCount="48" ClustersRaw="5882812" ClustersRawSD="859392.4" ClustersPF="4526246" ClustersPFSD="1773558.1" PrcPFClusters="77.1" PrcPFClustersSD="29.36" Phasing="0.276" Prephasing="0.477" CalledCyclesMin="0" CalledCyclesMax="208" PrcAlign="0.25" PrcAlignSD="0.076" ErrRatePhiX="3.51" ErrRatePhiXSD="7.658" ErrRate35="0.63" ErrRate35SD="1.157" ErrRate75="2.35" ErrRate75SD="5.385" ErrRate100="3.51" ErrRate100SD="7.658" FirstCycleIntPF="1875" FirstCycleIntPFSD="693.7" PrcIntensityAfter20CyclesPF="340.7" PrcIntensityAfter20CyclesPFSD="378.91" /><Lane key="4" TileCount="48" ClustersRaw="5139881" ClustersRawSD="867157.5" ClustersPF="4029611" ClustersPFSD="1747588.3" PrcPFClusters="79.2" PrcPFClustersSD="31.65" Phasing="0.265" Prephasing="0.445" CalledCyclesMin="0" CalledCyclesMax="208" PrcAlign="0.27" PrcAlignSD="0.111" ErrRatePhiX="0.64" ErrRatePhiXSD="0.181" ErrRate35="0.24" ErrRate35SD="0.099" ErrRate75="0.40" ErrRate75SD="0.148" ErrRate100="0.64" ErrRate100SD="0.181" FirstCycleIntPF="2084" FirstCycleIntPFSD="82.7" PrcIntensityAfter20CyclesPF="192.7" PrcIntensityAfter20CyclesPFSD="13.38" /><Lane key="5" TileCount="48" ClustersRaw="5744301" ClustersRawSD="538240.6" ClustersPF="4696004" ClustersPFSD="453621.1" PrcPFClusters="82.0" PrcPFClustersSD="6.67" Phasing="0.188" Prephasing="0.478" CalledCyclesMin="208" CalledCyclesMax="208" PrcAlign="0.27" PrcAlignSD="0.027" ErrRatePhiX="0.92" ErrRatePhiXSD="0.212" ErrRate35="0.38" ErrRate35SD="0.276" ErrRate75="0.56" ErrRate75SD="0.164" ErrRate100="0.92" ErrRate100SD="0.212" FirstCycleIntPF="5332" FirstCycleIntPFSD="240.1" PrcIntensityAfter20CyclesPF="70.1" PrcIntensityAfter20CyclesPFSD="1.53" /><Lane key="6" TileCount="48" ClustersRaw="6001645" ClustersRawSD="457375.5" ClustersPF="4866307" ClustersPFSD="293214.2" PrcPFClusters="81.2" PrcPFClustersSD="1.65" Phasing="0.183" Prephasing="0.433" CalledCyclesMin="208" CalledCyclesMax="208" PrcAlign="0.23" PrcAlignSD="0.029" ErrRatePhiX="1.01" ErrRatePhiXSD="0.157" ErrRate35="0.36" ErrRate35SD="0.090" ErrRate75="0.63" ErrRate75SD="0.133" ErrRate100="1.01" ErrRate100SD="0.157" FirstCycleIntPF="5351" FirstCycleIntPFSD="234.9" PrcIntensityAfter20CyclesPF="67.5" PrcIntensityAfter20CyclesPFSD="0.72" /><Lane key="7" TileCount="48" ClustersRaw="5006987" ClustersRawSD="977030.1" ClustersPF="24481" ClustersPFSD="167834.1" PrcPFClusters="0.4" PrcPFClustersSD="2.94" Phasing="0.000" Prephasing="0.000" CalledCyclesMin="0" CalledCyclesMax="0" PrcAlign="0.00" PrcAlignSD="0.000" ErrRatePhiX="0.00" ErrRatePhiXSD="0.000" ErrRate35="0.00" ErrRate35SD="0.000" ErrRate75="0.00" ErrRate75SD="0.000" ErrRate100="0.00" ErrRate100SD="0.000" FirstCycleIntPF="4804" FirstCycleIntPFSD="1839.4" PrcIntensityAfter20CyclesPF="1.3" PrcIntensityAfter20CyclesPFSD="8.55" /><Lane key="8" TileCount="48" ClustersRaw="6154610" ClustersRawSD="193792.1" ClustersPF="2011986" ClustersPFSD="1202392.4" PrcPFClusters="32.6" PrcPFClustersSD="19.34" Phasing="0.442" Prephasing="0.931" CalledCyclesMin="0" CalledCyclesMax="208" PrcAlign="0.03" PrcAlignSD="0.040" ErrRatePhiX="4.10" ErrRatePhiXSD="0.540" ErrRate35="1.89" ErrRate35SD="0.216" ErrRate75="2.54" ErrRate75SD="0.606" ErrRate100="4.10" ErrRate100SD="0.540" FirstCycleIntPF="4737" FirstCycleIntPFSD="1966.5" PrcIntensityAfter20CyclesPF="47.3" PrcIntensityAfter20CyclesPFSD="25.19" /></Summary>')
 
+
 class GDocsUploadTest(unittest.TestCase):
     """Setup a full automated analysis and run the pipeline.
     """
@@ -27,73 +28,72 @@ class GDocsUploadTest(unittest.TestCase):
         # Make up some barcode numbers
         self.workdir = os.path.join(os.path.dirname(__file__), "test_automated_output")
         self.data_dir = os.path.join(os.path.dirname(__file__), "data", "automated")
-        
+
         # Parse the run_info
-        run_info_file = os.path.join(self.data_dir, "run_info-gdocs.yaml")
-        with open(run_info_file) as fh:
+        self.run_info_file = os.path.join(self.data_dir, "run_info-gdocs.yaml")
+        with open(self.run_info_file) as fh:
             self.run_info = yaml.load(fh)
-            
+
         # Make up bogus run names
-        self.runname = ("111014_SN0000_0001_AB0AAAACXX","111014_SN0000_0002_BB0AAAACXX")
-        
+        self.runname = ("111014_SN0000_0001_AB0AAAACXX", "111014_SN0000_0002_BB0AAAACXX")
+
         # Create the run directories (create them if necessary)
         for name in self.runname:
             analysisdir = os.path.join(self.workdir, name)
             if os.path.exists(analysisdir):
                 shutil.rmtree(analysisdir)
             os.makedirs(analysisdir)
-            self._make_bc_metrics(name,analysisdir)
-            self._make_qc_metrics(name,analysisdir)
-        
+            self._make_bc_metrics(name, analysisdir)
+            self._make_qc_metrics(name, analysisdir)
 
     def _make_qc_metrics(self, runname, analysisdir):
         """Writes RTA quality data for each read"""
-        
+
         fc_name, fc_date = get_flowcell_info(runname)
-        run_info_file = os.path.join(analysisdir,"RunInfo.xml")
-        run_info_xml = "<RunInfo><Run Id=\"%s\" Number=\"%s\"><Flowcell>%s</Flowcell><Instrument>SN0000</Instrument><Date>%s</Date><Reads><Read Number=\"1\" NumCycles=\"101\" IsIndexedRead=\"N\" /><Read Number=\"2\" NumCycles=\"7\" IsIndexedRead=\"Y\" /><Read Number=\"3\" NumCycles=\"101\" IsIndexedRead=\"N\" /></Reads><FlowcellLayout LaneCount=\"8\" SurfaceCount=\"2\" SwathCount=\"3\" TileCount=\"8\" /><AlignToPhiX><Lane>1</Lane><Lane>2</Lane><Lane>3</Lane><Lane>4</Lane><Lane>5</Lane><Lane>6</Lane><Lane>7</Lane><Lane>8</Lane></AlignToPhiX></Run></RunInfo>" % (runname,1,fc_name,fc_date)
+        run_info_file = os.path.join(analysisdir, "RunInfo.xml")
+        run_info_xml = "<RunInfo><Run Id=\"%s\" Number=\"%s\"><Flowcell>%s</Flowcell><Instrument>SN0000</Instrument><Date>%s</Date><Reads><Read Number=\"1\" NumCycles=\"101\" IsIndexedRead=\"N\" /><Read Number=\"2\" NumCycles=\"7\" IsIndexedRead=\"Y\" /><Read Number=\"3\" NumCycles=\"101\" IsIndexedRead=\"N\" /></Reads><FlowcellLayout LaneCount=\"8\" SurfaceCount=\"2\" SwathCount=\"3\" TileCount=\"8\" /><AlignToPhiX><Lane>1</Lane><Lane>2</Lane><Lane>3</Lane><Lane>4</Lane><Lane>5</Lane><Lane>6</Lane><Lane>7</Lane><Lane>8</Lane></AlignToPhiX></Run></RunInfo>" % (runname, 1, fc_name, fc_date)
         xmlobj = xml.etree.ElementTree.fromstring(run_info_xml)
-        xml.etree.ElementTree.ElementTree(xmlobj).write(run_info_file,"utf-8",True)
-        
-        qc_dir = os.path.join(analysisdir,"Data","reports","Summary")
+        xml.etree.ElementTree.ElementTree(xmlobj).write(run_info_file, "utf-8", True)
+
+        qc_dir = os.path.join(analysisdir, "Data", "reports", "Summary")
         # Create the directory if it doesn't exist
-        if not os.path.exists(qc_dir):      
+        if not os.path.exists(qc_dir):
             os.makedirs(qc_dir)
-            
-        for read in (1,2,3):
-            xmlfile = os.path.join(qc_dir,"read%s.xml" % read)
-            xmlobj = xml.etree.ElementTree.fromstring(read_qc[read-1])
-            xml.etree.ElementTree.ElementTree(xmlobj).write(xmlfile,"utf-8",True)
-            
+
+        for read in (1, 2, 3):
+            xmlfile = os.path.join(qc_dir, "read%s.xml" % read)
+            xmlobj = xml.etree.ElementTree.fromstring(read_qc[read - 1])
+            xml.etree.ElementTree.ElementTree(xmlobj).write(xmlfile, "utf-8", True)
+
     def _make_bc_metrics(self, runname, analysisdir):
         """Parses the run_info and generates lane folders and barcode metrics corresponding to the lanes and barcodes used"""
         fc_name, fc_date = get_flowcell_info(runname)
-        barcode_dir_suffix = "_%s_%s_barcode" % (fc_date,fc_name)
-        
+        barcode_dir_suffix = "_%s_%s_barcode" % (fc_date, fc_name)
+
         for lane in self.run_info:
             lane_name = str(lane['lane'])
-            bc_dir = os.path.join(analysisdir,"%s%s" % (lane_name,barcode_dir_suffix))
-            
+            bc_dir = os.path.join(analysisdir, "%s%s" % (lane_name, barcode_dir_suffix))
+
             # Create the directory if it doesn't exist
-            if not os.path.exists(bc_dir):      
+            if not os.path.exists(bc_dir):
                 os.makedirs(bc_dir)
-            
+
             # Create, or if it exists, append to the bc_metrics file
-            bc_file = os.path.join(bc_dir,"%s_%s_%s_bc.metrics" % (lane_name,fc_date,fc_name))
-            with open(bc_file,"a") as fh:
-                bcw = UnicodeWriter(fh,dialect='excel-tab')
-                
+            bc_file = os.path.join(bc_dir, "%s_%s_%s_bc.metrics" % (lane_name, fc_date, fc_name))
+            with open(bc_file, "a") as fh:
+                bcw = UnicodeWriter(fh, dialect='excel-tab')
+
                 # Loop over the barcodes and generate random read counts
-                bcs = lane.get("multiplex",[])
+                bcs = lane.get("multiplex", [])
                 for bc in bcs:
                     bc_id = str(bc['barcode_id'])
-                    bc_count = random.randint(1,10000000)
-                    bcw.writerow([bc_id,bc_count])
+                    bc_count = random.randint(1, 10000000)
+                    bcw.writerow([bc_id, bc_count])
                 # Lastly write some unmatched counts, or in case no multiplex data was given, a 'trim' entry
                 if len(bcs):
-                    bcw.writerow(['unmatched',random.randint(1,10000000)])
+                    bcw.writerow(['unmatched', random.randint(1, 10000000)])
                 else:
-                    bcw.writerow(['trim',random.randint(1,100000000)])
+                    bcw.writerow(['trim', random.randint(1, 100000000)])
 
     def test_create_bc_report(self):
         """Create a demultiplex report and upload it to gdocs
@@ -107,4 +107,4 @@ class GDocsUploadTest(unittest.TestCase):
             print "\nProcessing %s" % name
             fc_name, fc_date = get_flowcell_info(name)
             analysisdir = os.path.join(self.workdir, name)
-            assert create_report_on_gdocs(fc_date, fc_name, {'details': self.run_info}, {"work": analysisdir, "flowcell": analysisdir}, self.config), "Report creation failed"
+            assert create_report_on_gdocs(fc_date, fc_name, self.run_info_file, {"work": analysisdir, "flowcell": analysisdir}, self.config), "Report creation failed"

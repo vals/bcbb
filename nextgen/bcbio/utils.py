@@ -133,6 +133,11 @@ def file_exists(fname):
     """
     return os.path.exists(fname) and os.path.getsize(fname) > 0
 
+def touch_file(fname):
+    """Create an empty file 
+    """
+    open(fname,"w").close()
+
 def create_dirs(config, names=None):
     if names is None:
         names = config["dir"].keys()
@@ -161,12 +166,14 @@ def read_galaxy_amqp_config(galaxy_config, base_dir):
         amqp_config[option] = config.get("galaxy_amqp", option)
     return amqp_config
 
+
 def add_full_path(dirname, basedir=None):
     if basedir is None:
         basedir = os.getcwd()
     if not dirname.startswith("/"):
         dirname = os.path.join(basedir, dirname)
     return dirname
+
 
 # ## Dealing with configuration files
 

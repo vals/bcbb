@@ -10,7 +10,10 @@ import yaml
 
 from bcbio.solexa import samplesheet
 
+from nose.plugins.attrib import attr
 
+
+@attr("standard")
 class SampleSheetTest(unittest.TestCase):
     """Deal with Illumina SampleSheets and convert to YAML input.
     """
@@ -23,7 +26,6 @@ class SampleSheetTest(unittest.TestCase):
         self.ss_unbalanced = os.path.join(ssheets_dir, "illumina_samplesheet_unbalanced_quotes.csv")
         self.ss_unicode = os.path.join(ssheets_dir, "illumina_samplesheet_unicode.csv")
         self.ss_nonbarcoded = os.path.join(ssheets_dir, "illumina_samplesheet_nonbarcoded_lanes.csv")
-        self.ss_projectid = os.path.join(ssheets_dir, "illumina_samplesheet_with_project_id.csv")
 
         self.out_file = ""
 
@@ -71,16 +73,6 @@ class SampleSheetTest(unittest.TestCase):
             info = yaml.load(in_handle)
 
         assert not "multiplex" in info[0]
-
-    def test_projectid(self):
-       """Check for new column project id, introduced in CASAVA 1.8 workflow
-       """
-       info = self.toyaml(self.ss_projectid)
-       assert os.path.exists(self.out_file)
-       with open(self.out_file) as in_handle:
-           info = yaml.load(in_handle)
-       
-       assert info[2]["multiplex"][0]["sample_prj"] == "monkey"
 
     def test_checkforrun(self):
         """Check for the presence of runs in an Illumina SampleSheet.

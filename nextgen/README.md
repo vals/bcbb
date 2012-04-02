@@ -283,11 +283,12 @@ to ease your development needs using the following script:
 
 ### Next gen analysis
 
-* [Picard][3]
+* [Picard][3] (version 1.64)
 * [bowtie][5] or [bwa][5b]
 * [FastQC][6]
-* [GATK][4] (version 1.2; only for variant calling)
-* [snpEff][16] (version 2.0.2; only for variant calling)
+* [GATK][4] (at least version 1.4)
+* [snpEff][16] (at least version 2.0.5)
+* fastqscreen (version 0.2.1)
 
 [3]: http://picard.sourceforge.net/
 [4]: http://www.broadinstitute.org/gsa/wiki/index.php/The_Genome_Analysis_Toolkit

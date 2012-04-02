@@ -9,6 +9,8 @@ import shutil
 import contextlib
 import collections
 
+from nose.plugins.attrib import attr
+
 
 @contextlib.contextmanager
 def make_workdir():
@@ -89,6 +91,8 @@ class AutomatedAnalysisTest(unittest.TestCase):
     def test_4_empty_fastq(self):
         """Handle analysis of empty fastq inputs from failed runs.
         """
+        self.setUp()
+        self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
                   self._get_post_process_yaml(),
@@ -99,6 +103,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
     def test_2_rnaseq(self):
         """Run an RNA-seq analysis with TopHat and Cufflinks.
         """
+        self.setUp()
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
@@ -107,9 +112,11 @@ class AutomatedAnalysisTest(unittest.TestCase):
                   os.path.join(self.data_dir, "run_info-rnaseq.yaml")]
             subprocess.check_call(cl)
 
+    @attr("standard")
     def test_1_variantcall(self):
         """Test variant calling with GATK pipeline.
         """
+        self.setUp()
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",

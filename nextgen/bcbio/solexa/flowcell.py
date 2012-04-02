@@ -18,6 +18,9 @@ def get_flowcell_info(fc_dir):
         # Support for Hiseq 2000 flowcell id updates
         if p.endswith(("XX", "xx")):
             name = p
+        # MiSeq flowcell ids
+        elif p.startswith("AMS"):
+            name = p
         elif len(p) == 6:
             try:
                 int(p)
@@ -25,7 +28,6 @@ def get_flowcell_info(fc_dir):
             except ValueError:
                 pass
     if name is None or date is None:
-        print fc_dir
         raise ValueError("Did not find flowcell name: %s" % fc_dir)
     return name, date
 
