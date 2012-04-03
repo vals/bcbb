@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""Deliver data based on project identifiers
+"""Data management based on project identifiers
 
 Usage:
-  project_analysis_setup.py <YAML config file> <flowcell_dir> <project_dir>
+  project_management.py     <YAML config file> <flowcell_dir> <project_dir>
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
                              --install_data --move_data --symlink --only_install_run_info
@@ -146,6 +146,7 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
     if pruned_fc is None or len(pruned_fc.get_lanes()) == 0:
         if not project_desc is None:
             logger.error("No lanes found with matching description %s: please check your flowcell run information" % project_desc)
+            print >> sys.stderr, "Available projects: \n\t%s" %  ("\n\t".join(original_fc.get_project_names()))
             sys.exit()
         if not lanes  is None:
             logger.error("No lanes found with numbers %s: please check your flowcell run information" % " ".join(lanes))
@@ -353,14 +354,14 @@ def _get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext=
 
 if __name__ == "__main__":
     usage = """
-    project_analysis_setup.py <YAML config file> <flowcell_dir> <project_dir>
+    project_management.py   <YAML config file> <flowcell_dir> <project_dir>
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias>
                              --project_desc=<project_desc> --symlink
                              --move_data --only_install_run_info --install_data
                              --dry_run --verbose]
 
-    For more extensive help type project_analysis_setup.py
+    For more extensive help type project_management.py
 """
 
     parser = OptionParser(usage=usage)
