@@ -31,7 +31,7 @@ Options:
                                                 <flowcell_alias>.
   -y, --project_desc=<project_desc>             Project description in description field of run_info file, or ALL.
   -c, --customer_delivery                       Deliver data to customer. Delivers all demuxed fastq data and results
-                                                to one directory <flowcell_dir> or <flowcell_alias>.
+                                                to one directory <project_desc/flowcell_dir>.
   -b, --barcode_id_to_name                      Convert barcode ids to sample names
   -i, --only_install_run_info                   Only install pruned run_info file.
   -m, --move_data                               Move data instead of copying
@@ -159,7 +159,7 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
 
     # If customer delivery setup some special options
     if options.customer_delivery:
-        rawdata_fc.set_fc_dir(os.path.abspath(project_dir))
+        rawdata_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, rawdata_fc.get_project_name(), rawdata_fc.get_fc_id())))
         rawdata_fc.set_fc_alias(rawdata_fc.get_fc_id())
         analysis_fc = rawdata_fc
 
@@ -239,7 +239,8 @@ def _make_delivery_directory(fc):
 
 def _make_dir(dir, label):
     if not os.path.exists(dir):
-        os.makedirs(dir)
+        if not options.dry_run:
+            os.makedirs(dir)
         logger.info("Creating %s directory %s" % (label, dir))
     else:
         logger.warn("%s already exists: not creating new directory" % (dir))
