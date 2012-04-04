@@ -283,7 +283,7 @@ to ease your development needs using the following script:
 
 ### Next gen analysis
 
-* [Picard][3]
+* [Picard][3] (version 1.64)
 * [bowtie][5] or [bwa][5b]
 * [FastQC][6]
 * [GATK][4] (at least version 1.4)
