@@ -27,6 +27,7 @@ import socket
 import glob
 import getpass
 import subprocess
+import time
 from optparse import OptionParser
 from xml.etree.ElementTree import ElementTree
 
@@ -60,7 +61,7 @@ def search_for_new(config, config_file, post_config_file,
     """
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
-        if os.path.isdir(dname) and dname not in reported:
+        if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
             if _is_finished_dumping(dname):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
@@ -78,6 +79,8 @@ def search_for_new(config, config_file, post_config_file,
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       fetch_msg, process_msg, store_msg)
+                    # Update the reported database after successful processing
+                    _update_reported(config["msg_db"], dname)
                 # Re-read the reported database to make sure it hasn't changed while processing
                 reported = _read_reported(config["msg_db"])
 
@@ -289,8 +292,15 @@ def _get_directories(config):
 def _update_reported(msg_db, new_dname):
     """Add a new directory to the database of reported messages.
     """
-    with open(msg_db, "a") as out_handle:
-        out_handle.write("%s\n" % new_dname)
+    reported = _read_reported(msg_db)
+    for d in [dir for dir in reported if dir.startswith(new_dname)]:
+        new_dname = d
+        reported.remove(d)
+    reported.append("%s\t%s" % (new_dname,time.strftime("%x-%X")))
+    
+    with open(msg_db, "w") as out_handle:
+        for dir in reported:
+            out_handle.write("%s\n" % dir)
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
                      config, config_file):
