@@ -90,6 +90,13 @@ class Flowcell:
     """A class for managing information about a flowcell"""
 
     def __init__(self, fc_name, fc_date, data, fc_dir=None):
+        # Extract the run_items if we are passed a dictionary
+        try:
+            d = data.get('details',[])
+            data = d
+        except AttributeError:
+            pass
+        
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
