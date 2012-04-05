@@ -64,8 +64,12 @@ def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
                         log.warn("Could not find Google Docs demultiplex results file title in configuration. No demultiplex counts were written to Google Docs for %s_%s" % (fc_date,fc_name))
                         
                     # Parse the QC metrics
-                    qc = RTAQCMetrics(dirs.get("flowcell",None))   
-                    if gdocs_qc_spreadsheet is not None:
+                    try:
+                        qc = RTAQCMetrics(dirs.get("flowcell",None))
+                    except:
+                        qc = None
+                           
+                    if gdocs_qc_spreadsheet is not None and qc is not None:
                         success &= bcbio.google.qc_metrics.write_run_report_to_gdocs(fc,qc,gdocs_qc_spreadsheet,encoded_credentials)
                     else:
                         log.warn("Could not find Google Docs QC file title in configuration. No QC data were written to Google Docs for %s_%s" % (fc_date,fc_name))
