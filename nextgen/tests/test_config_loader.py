@@ -4,7 +4,10 @@
 import os
 from bcbio.pipeline.config_loader import load_config
 
+from nose.plugins.attrib import attr
 
+
+@attr("standard")
 def test_loading():
     """Test loading a given file.
     """
@@ -12,6 +15,7 @@ def test_loading():
     assert(isinstance(config, dict))
 
 
+@attr("standard")
 def test_variable_expansion():
     """Test expanding the environment variables in the
     test yaml.
