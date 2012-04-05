@@ -1,6 +1,7 @@
 """Helpful utilities for building analysis pipelines.
 """
 import os
+import stat
 import tempfile
 import shutil
 import contextlib
@@ -96,6 +97,8 @@ def curdir_tmpdir(remove=True):
     safe_makedir(tmp_dir_base)
     tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
     safe_makedir(tmp_dir)
+    # Explicitly change the permissions on the temp directory to make it writable by group
+    os.chmod(tmp_dir,stat.S_IRWXU | stat.S_IRWXG)
     try :
         yield tmp_dir
     finally :
