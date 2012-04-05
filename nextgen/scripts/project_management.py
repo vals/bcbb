@@ -6,7 +6,7 @@ Usage:
                             [<YAML run information>
                              --flowcell_alias=<flowcell_alias> --project_desc=<project_desc>
                              --install_data --move_data --symlink --only_install_run_info
-                             --customer_delivery --barcode_id_to_name --numerical_lanes
+                             --customer_delivery --barcode_id_to_name
                              --dry_run --verbose]
 
 
@@ -29,15 +29,13 @@ Options:
   -a, --flowcell_alias=<flowcell alias>         By default, samples are moved to a directory named
                                                 <flowcell_dir>. This option links the output directory to
                                                 <flowcell_alias>.
-  -y, --project_desc=<project_desc>             Project description in description field of run_info file, or ALL.
+  -y, --project_desc=<project_desc>             Project description in sample_prj field of run_info file, or ALL.
   -c, --customer_delivery                       Deliver data to customer. Delivers all demuxed fastq data and results
                                                 to one directory <project_desc/flowcell_dir>.
   -b, --barcode_id_to_name                      Convert barcode ids to sample names
   -i, --only_install_run_info                   Only install pruned run_info file.
   -m, --move_data                               Move data instead of copying
   -l, --symlink                                 Link data instead of copying
-  -i, --numerical_lanes                         Use numerical lanes for sample_project_run_info.yaml. Otherwise uses
-                                                number_samplename
   -n, --dry_run                                 Don't do anything samples, just list what will happen
   -v, --verbose                                 Print some more information
 """
@@ -159,10 +157,9 @@ def main(config_file, fc_dir, project_dir, run_info_yaml=None, fc_alias=None, pr
 
     # If customer delivery setup some special options
     if options.customer_delivery:
-        rawdata_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, rawdata_fc.get_project_name(), rawdata_fc.get_fc_id())))
+        rawdata_fc.set_fc_dir(os.path.abspath(os.path.join(project_dir, project_desc, rawdata_fc.get_fc_id())))
         rawdata_fc.set_fc_alias(rawdata_fc.get_fc_id())
         analysis_fc = rawdata_fc
-
     _make_delivery_directory(rawdata_fc)
     _make_delivery_directory(analysis_fc)
     run_main(pruned_fc, rawdata_fc, analysis_fc)
@@ -178,10 +175,10 @@ def run_main(pruned_fc, rawdata_fc, analysis_fc):
 def process_lane(lane, pruned_fc, rawdata_fc, analysis_fc):
     """Models bcbio process lane"""
     multiplex = lane.get_samples()
-    logger.info("Processing project: %s; lane %s; reference genome %s" %
-             (lane.get_description(), lane.get_name(), lane.get_genome_build()))
+    logger.info("Processing lane %s; reference genome %s" %
+             (lane.get_name(), lane.get_genome_build()))
     if multiplex:
-        logger.debug("Project %s is multiplexed as: %s" % (lane.get_description(), multiplex))
+        logger.debug("Project %s is multiplexed as: %s" % (lane.get_name(), multiplex))
     fq = _get_barcoded_fastq_files(lane, multiplex, pruned_fc.get_fc_date(), pruned_fc.get_fc_name(), pruned_fc.get_fc_dir())
 
     ## Move data along with fastq files
@@ -299,11 +296,8 @@ def _sample_based_run_info(fc):
         for barcode_id in bcids:
             s = l.get_sample_by_barcode(barcode_id)
             lane_num = lane_num + 1
-            newl = Lane(data={"description":s.get_name(), "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build()})
-            if not options.numerical_lanes:
-                newl.set_name("%s_%s" %(lane_num, s.get_name()))
-            else:
-                newl.set_name("%s" % lane_num)
+            newl = Lane(data={"description":s.get_name(), "lane" :lane_num, "multiplex":[], "analysis":"Minimal", "genome_build":s.get_genome_build(), "sample_prj":s.get_project()})
+            newl.set_name("%s" % lane_num)
             files = l.get_files()
             if options.customer_delivery or options.barcode_id_to_name:
                 pat = "%s.*_%s_[12].*$" % (l.get_name(), get_sample_name(s.get_barcode_name()))
@@ -329,9 +323,9 @@ def _get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext=
         assert fc_name is not None
         lane = item["lane"]
         if bc_name:
-            glob_str = "%s_*%s_*%s_*%s" % (lane, fc_name, bc_name, glob_ext)
+            glob_str = "%s_*%s_nophix_%s_*%s" % (lane, fc_name, bc_name, glob_ext)
         else:
-            glob_str = "%s_*%s*%s" % (lane, fc_name, glob_ext)
+            glob_str = "%s_*%s_nophix_*%s" % (lane, fc_name, glob_ext)
         files = glob.glob(os.path.join(directory, glob_str))
         files.sort()
         if len(files) > 2 or len(files) == 0:
@@ -379,8 +373,6 @@ if __name__ == "__main__":
     parser.add_option("-m", "--move_data", dest="move", action="store_true",
                       default=False)
     parser.add_option("-l", "--symlink", dest="link", action="store_true",
-                      default=False)
-    parser.add_option("-i", "--numerical_lanes", dest="numerical_lanes", action="store_true",
                       default=False)
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       default=False)
