@@ -12,7 +12,7 @@ def write_run_report_to_gdocs(fc,qc,ssheet_title,encoded_credentials,wsheet_titl
     
     # Connect to google and get the spreadsheet
     client, ssheet = get_spreadsheet(ssheet_title,encoded_credentials)
-    if not client or not ssheet:
+    if not client or not ssheet or qc is None:
         return False
 
     qc_metrics = qc.metrics()
