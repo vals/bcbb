@@ -35,6 +35,15 @@ def fetch_data(remote_info, config_file):
     """
     config = load_config(config_file)
     fc_dir = _copy_from_sequencer(remote_info, config)
+    _run_post_analysis(fc_dir, remote_info, config, config_file)
+
+
+def backup_data(remote_info, config_file):
+    """Main entry point for fetching data from sequencer or pre-processing machine.
+    """
+    config = load_config(config_file)
+    logger.info("Backing up run data over to remote storage: %s" % config["store_host"])
+    fc_dir = _copy_from_sequencer(remote_info, config)
 
 
 # ## Copying over files from sequencer, if necessary
@@ -114,6 +123,27 @@ def _run_analysis(fc_dir, remote_info, config, config_file):
                                           "distributed_nextgen_pipeline.py")
         else:
             prog = config["analysis"]["process_program"]
+        cl = [prog, config_file, fc_dir]
+        if run_yaml:
+            cl.append(run_yaml)
+        subprocess.check_call(cl)
+    return analysis_dir
+
+
+def _run_post_analysis(fc_dir, remote_info, config, config_file):
+    """Run a post_analysis script locally, wait to finish.
+    """
+    # Skip if no post-analysis script has been specified
+    if "post_analysis_program" not in config["algorithm"]:
+        return None
+    
+    run_yaml = _get_run_yaml(remote_info, fc_dir, config)
+    analysis_dir = os.path.join(config["analysis"].get("base_dir",
+                    os.getcwd()), os.path.basename(remote_info["directory"]))
+    if not os.path.exists(analysis_dir):
+        os.makedirs(analysis_dir)
+    with utils.chdir(analysis_dir):
+        prog = config["analysis"]["post_analysis_program"]
         cl = [prog, config_file, fc_dir]
         if run_yaml:
             cl.append(run_yaml)
