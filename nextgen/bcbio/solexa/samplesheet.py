@@ -39,8 +39,8 @@ def _organize_lanes(info_iter, barcode_ids):
                               barcode_id=bc_id,
                               sequence=bc_seq,
                               name=sample_id,
-                              sample_prj=sample_proj,
-                              genomes_filter_out="phix")
+                              sample_prj=sample_proj)#,
+                              #genomes_filter_out="phix")
                 if descr != info[0][5]:
                     bc_dict["description"] = descr
                 multiplex.append(bc_dict)
