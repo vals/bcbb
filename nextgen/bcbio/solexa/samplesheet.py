@@ -42,7 +42,10 @@ def _organize_lanes(info_iter, barcode_ids):
                               sample_prj=sample_proj)#,
                               #genomes_filter_out="phix")
                 if descr != info[0][5]:
-                    bc_dict["description"] = descr
+                    # In order to avoid unintentional merging of samples based on descriptions, don't write it for samples.
+                    # The SampleProject field fulfills the function intended with sample-level description.
+                    pass
+                    #bc_dict["description"] = descr
                 multiplex.append(bc_dict)
             cur_lane["multiplex"] = multiplex
 
@@ -90,7 +93,7 @@ def _read_input_csv(in_file):
                     yield line['FCID'], line['Lane'], line['SampleID'], \
                           line['SampleRef'], line['Index'], line['Description'], \
                           line.get('Recipe', None), line.get('Operator', None), \
-                          line.get('SampleProject', None)
+                          line.get('SampleProject', line['Description'])
     except ValueError:
         print "Corrupt samplesheet %s, please fix it" % in_file
         pass
