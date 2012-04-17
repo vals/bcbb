@@ -54,6 +54,7 @@ def get_folder(client, folder_name):
     for entry in (client.Query(q.ToUri()).entry or []):
         if entry.title.text == folder_name:
             return entry
+
     return None
 
 

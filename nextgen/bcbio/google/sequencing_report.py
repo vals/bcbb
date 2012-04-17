@@ -90,7 +90,7 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
     except Exception as e:
         success = False
         log.warn("Encountered exception when writing sequencing report to Google Docs: %s" % e)
-    
+
     return success
 
 
@@ -106,24 +106,27 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
     # Get a reference to the parent folder
     parent_folder = bcbio.google.document.get_folder(doc_client, gdocs_folder)
 
-    # TODO: Crashes if folder doesn't exist?
+    if not parent_folder:
+        parent_folder_title = "root directory"
+    else:
+        parent_folder_title = _from_unicode(parent_folder.title.text)
 
     # Loop over the projects
     for project_name in fc.get_project_names():
 
         # Get a flowcell object containing just the data for the project
         project_fc = fc.prune_to_project(project_name)
-        
+
         folder_name = project_name
-        folder = bcbio.google.document.get_folder(doc_client,folder_name)
+        folder = bcbio.google.document.get_folder(doc_client, folder_name)
         if not folder:
-            folder = bcbio.google.document.add_folder(doc_client,folder_name,parent_folder)
-            log.info("Folder '%s' created under '%s'" % (_from_unicode(folder_name),_from_unicode(parent_folder.title.text)))
-            
+            folder = bcbio.google.document.add_folder(doc_client, folder_name, parent_folder)
+            log.info("Folder '%s' created under '%s'" % (_from_unicode(folder_name), parent_folder_title))
+
         ssheet_title = project_name + "_sequencing_results"
-        ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
+        ssheet = bcbio.google.spreadsheet.get_spreadsheet(client, ssheet_title)
         if not ssheet:
-            bcbio.google.document.add_spreadsheet(doc_client,ssheet_title)
+            bcbio.google.document.add_spreadsheet(doc_client, ssheet_title)
             ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
             ssheet = bcbio.google.document.move_to_folder(doc_client,ssheet,folder)
             ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)        
