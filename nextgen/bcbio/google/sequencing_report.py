@@ -1,12 +1,11 @@
-"""
-Create reports on google docs
+"""Create reports on google docs
 """
 import copy
 import logbook
 import time
 import yaml
 
-from bcbio.google import (_from_unicode,_to_unicode,get_credentials)
+from bcbio.google import (_from_unicode, _to_unicode, get_credentials)
 import bcbio.google.bc_metrics
 import bcbio.google.qc_metrics
 from bcbio.pipeline.qcsummary import RTAQCMetrics
@@ -14,7 +13,8 @@ from bcbio.pipeline.flowcell import Flowcell
 from bcbio.log import create_log_handler
 from bcbio.log import logger2 as log
 
-def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
+
+def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
     """
     Create reports on gdocs containing both demultiplexed read counts and QC data
     """
@@ -22,9 +22,9 @@ def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
     success = True
     try:
         # Parse the run_info.yaml file
-        with open(run_info_yaml,"r") as fh:
+        with open(run_info_yaml, "r") as fh:
             run_info = yaml.load(fh)
-            
+
         # Get the gdocs account credentials
         encoded_credentials = get_credentials(config)
         if not encoded_credentials:
@@ -32,8 +32,8 @@ def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
             return False
 
         # Get the required parameters from the post_process.yaml configuration file
-        gdocs = config.get("gdocs_upload",None)
-        
+        gdocs = config.get("gdocs_upload", None)
+
         # Add email notification
         email = gdocs.get("gdocs_email_notification",None)
         smtp_host = config.get("smtp_host","")
@@ -44,22 +44,22 @@ def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
             
             # Inject the fc_date and fc_name in the email subject
             with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
-                
+
                 try:
-                    log.info("Started creating sequencing report on Google docs for %s_%s on %s" % (fc_date,fc_name,time.strftime("%x @ %X")))
-                    
-                    # Get a flowcell object 
-                    fc = Flowcell(fc_name,fc_date,run_info,dirs.get("work",None))
+                    log.info("Started creating sequencing report on Google docs for %s_%s on %s" % (fc_date, fc_name, time.strftime("%x @ %X")))
+
+                    # Get a flowcell object
+                    fc = Flowcell(fc_name, fc_date, run_info, dirs.get("work", None))
 
                     # Get the GDocs demultiplex result file title
-                    gdocs_dmplx_spreadsheet = gdocs.get("gdocs_dmplx_file",None)
+                    gdocs_dmplx_spreadsheet = gdocs.get("gdocs_dmplx_file", None)
                     # Get the GDocs QC file title
-                    gdocs_qc_spreadsheet = gdocs.get("gdocs_qc_file",None)
-                            
+                    gdocs_qc_spreadsheet = gdocs.get("gdocs_qc_file", None)
+
                     # FIXME: Make the bc stuff use the Flowcell module
-                    if gdocs_dmplx_spreadsheet is not None:    
+                    if gdocs_dmplx_spreadsheet is not None:
                         # Upload the data
-                        success &= bcbio.google.bc_metrics.write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_dmplx_spreadsheet, encoded_credentials) 
+                        success &= bcbio.google.bc_metrics.write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_dmplx_spreadsheet, encoded_credentials)
                     else:
                         log.warn("Could not find Google Docs demultiplex results file title in configuration. No demultiplex counts were written to Google Docs for %s_%s" % (fc_date,fc_name))
                         
@@ -72,11 +72,12 @@ def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
                                 
                     # Get the projects parent folder
                     projects_folder = gdocs.get("gdocs_projects_folder",None)
-                    
+
                     # Write the bc project summary report
                     if projects_folder is not None:
-                        success &= create_project_report_on_gdocs(fc,qc,encoded_credentials,projects_folder)
-                    
+                        success &= create_project_report_on_gdocs(fc, qc, \
+                            encoded_credentials, projects_folder)
+
                 except Exception as e:
                     success = False
                     raise
@@ -92,22 +93,24 @@ def create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config):
     
     return success
 
-        
-def create_project_report_on_gdocs(fc,qc,encoded_credentials,gdocs_folder):
+
+def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
     """Upload the sample read distribution for a project to google docs"""
-    
+
     success = True
-    
+
     # Create a client class which will make HTTP requests with Google Docs server.
     client = bcbio.google.spreadsheet.get_client(encoded_credentials)
     doc_client = bcbio.google.document.get_client(encoded_credentials)
-    
+
     # Get a reference to the parent folder
-    parent_folder = bcbio.google.document.get_folder(doc_client,gdocs_folder)
-    
+    parent_folder = bcbio.google.document.get_folder(doc_client, gdocs_folder)
+
+    # TODO: Crashes if folder doesn't exist?
+
     # Loop over the projects
     for project_name in fc.get_project_names():
-        
+
         # Get a flowcell object containing just the data for the project
         project_fc = fc.prune_to_project(project_name)
         
