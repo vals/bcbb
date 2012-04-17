@@ -55,7 +55,7 @@ def _create_header(header, columns):
     return names
 
 
-def get_spreadsheet(ssheet_title,encoded_credentials):
+def get_spreadsheet(ssheet_title, encoded_credentials):
     """Connect to Google docs and get a spreadsheet"""
 
     # Convert the spreadsheet title to unicode
@@ -71,17 +71,17 @@ def get_spreadsheet(ssheet_title,encoded_credentials):
     # Check that we got a result back
     if not ssheet:
         logger2.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)
-        return (None,None)
-    
-    return (client,ssheet)
-                       
+        return (None, None)
+
+    return (client, ssheet)
+
 
 def _write_project_report_to_gdocs(client, ssheet, flowcell):
 
     # Get the spreadsheet if it exists
     # Otherwise, create it
-    wsheet_title = "%s_%s" % (flowcell.get_fc_date(),flowcell.get_fc_name())
-    
+    wsheet_title = "%s_%s" % (flowcell.get_fc_date(), flowcell.get_fc_name())
+
     # Flatten the project_data structure into a list
     samples = {}
     for sample in flowcell.get_samples():
@@ -89,23 +89,23 @@ def _write_project_report_to_gdocs(client, ssheet, flowcell):
             samples[sample.get_name()].add_sample(sample)
         else:
             samples[sample.get_name()] = sample
-    
+
     rows = []
     for sample in samples.values():
         row = (sample.get_name(),wsheet_title,sample.get_lane(),sample.get_read_count(),sample.get_rounded_read_count(),sample.get_comment(),"")
         rows.append(row)
-    
+
     # Write the data to the worksheet
     return _write_to_worksheet(client,ssheet,wsheet_title,rows,[col_header[0] for col_header in SEQUENCING_RESULT_HEADER],False)
     
 def _write_project_report_summary_to_gdocs(client, ssheet):
     """Summarize the data from the worksheets and write them to a "Summary" worksheet"""
-    
+
     # Summary data
     flowcells = {}
     samples = {}
     # Get the list of worksheets in the spreadsheet
-    wsheet_feed = bcbio.google.spreadsheet.get_worksheets_feed(client,ssheet)
+    wsheet_feed = bcbio.google.spreadsheet.get_worksheets_feed(client, ssheet)
     # Loop over the worksheets and parse the data from the ones that contain flowcell data
     for wsheet in wsheet_feed.entry:
         wsheet_title = wsheet.title.text
@@ -143,14 +143,15 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
     # Write the data to the worksheet
     return _write_to_worksheet(client,ssheet,wsheet_title,rows,[col_header[0] for col_header in SEQUENCING_RESULT_HEADER],False)       
 
+
 def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, encoded_credentials, wsheet_title=None, append=False, split_project=False):
     """Upload the barcode read distribution for a run to google docs"""
-    
+
     # Connect to google and get the spreadsheet
-    client, ssheet = get_spreadsheet(ssheet_title,encoded_credentials)
+    client, ssheet = get_spreadsheet(ssheet_title, encoded_credentials)
     if not client or not ssheet:
         return False
-    
+
     # Get the projects in the run
     projects = fc.get_project_names()
     logger2.info("Will write data from the run %s_%s for projects: '%s'" % (fc_date,fc_name,"', '".join(projects)))
