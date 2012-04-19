@@ -14,6 +14,7 @@ from bcbio.google import _to_unicode  # (_from_unicode, _to_unicode, get_credent
 from bcbio.log import logger2  # , create_log_handler
 # from bcbio.pipeline.flowcell import Flowcell
 import bcbio.solexa.flowcell
+import bcbio.pipeline.flowcell
 
 # The structure of the demultiplex result
 BARCODE_STATS_HEADER = [
@@ -70,7 +71,8 @@ def get_spreadsheet(ssheet_title, encoded_credentials):
 
     # Check that we got a result back
     if not ssheet:
-        logger2.warn("No document with specified title '%s' found in GoogleDocs repository" % ssheet_title)
+        logger2.warn("No document with specified title '%s' found in \
+            GoogleDocs repository" % ssheet_title)
         return (None, None)
 
     return (client, ssheet)
@@ -92,11 +94,13 @@ def _write_project_report_to_gdocs(client, ssheet, flowcell):
 
     rows = []
     for sample in samples.values():
-        row = (sample.get_name(),wsheet_title,sample.get_lane(),sample.get_read_count(),sample.get_rounded_read_count(),sample.get_comment(),"")
+        row = (sample.get_name(), wsheet_title, sample.get_lane(), \
+            sample.get_read_count(), sample.get_rounded_read_count())
         rows.append(row)
 
     # Write the data to the worksheet
-    return _write_to_worksheet(client,ssheet,wsheet_title,rows,[col_header[0] for col_header in SEQUENCING_RESULT_HEADER],False)
+    return _write_to_worksheet(client, ssheet, wsheet_title, rows, \
+        [col_header[0] for col_header in SEQUENCING_RESULT_HEADER[:5]], False)
 
 
 def _write_project_report_summary_to_gdocs(client, ssheet):
@@ -118,16 +122,19 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
         except ValueError:
             continue
 
-        wsheet_data = bcbio.google.spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
+        wsheet_data = bcbio.google.spreadsheet.get_cell_content(client, \
+            ssheet, wsheet, '2')
         delim = ';'
 
         # Add the results from the worksheet to the summarized data
         for (sample_name, run_name, lane_name, read_count, _, comment, _) in wsheet_data:
-            logger2.info("Comment: %s" % comment)
+
             sample = bcbio.pipeline.flowcell.Sample({ \
                 'name': sample_name, \
                 'read_count': read_count}, \
                 bcbio.pipeline.flowcell.Lane({'lane': lane_name}), comment)
+
+            logger2.debug("Comment in Sample object: %s" % sample.get_comment())
 
             if (sample_name in samples):
                 samples[sample_name]['object'].add_sample(sample, delim)
@@ -144,14 +151,23 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
     for sample_data in samples.values():
         sample = sample_data['object']
         flowcells = sample_data['flowcells']
-        row = (sample.get_name(), flowcells, sample.get_lane(), sample.get_read_count(), sample.get_rounded_read_count(), sample.get_comment(), "")
+
+        comment = sample.get_comment()
+
+        logger2.debug("Comment passed in to 'rows': %s" % comment)
+
+        row = [sample.get_name(), flowcells, sample.get_lane(), \
+        sample.get_read_count(), sample.get_rounded_read_count(), comment, ""]
+
         rows.append(row)
 
     # Write the data to the worksheet
-    return _write_to_worksheet(client, ssheet, wsheet_title, rows, [col_header[0] for col_header in SEQUENCING_RESULT_HEADER], False)
+    return _write_to_worksheet(client, ssheet, wsheet_title, rows, \
+        [col_header[0] for col_header in SEQUENCING_RESULT_HEADER], False)
 
 
-def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, encoded_credentials, wsheet_title=None, append=False, split_project=False):
+def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
+    encoded_credentials, wsheet_title=None, append=False, split_project=False):
     """Upload the barcode read distribution for a run to google docs"""
 
     # Connect to google and get the spreadsheet
@@ -189,15 +205,19 @@ def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append):
 
     # Add a new worksheet, possibly appending or replacing a pre-existing
     # worksheet according to the append-flag.
-    wsheet = bcbio.google.spreadsheet.add_worksheet(client, ssheet, wsheet_title, len(rows) + 1, len(header), append)
+    wsheet = bcbio.google.spreadsheet.add_worksheet(client, ssheet, \
+        wsheet_title, len(rows) + 1, len(header), append)
     if wsheet is None:
-        logger2.error("ERROR: Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title, ssheet.title.text))
+        logger2.error("ERROR: Could not add a worksheet '%s' to spreadsheet '%s'" \
+            % (wsheet_title, ssheet.title.text))
         return False
 
     # Write the data to the worksheet
     success = bcbio.google.spreadsheet.write_rows(client, ssheet, wsheet, header, rows)
     if success:
-        logger2.info("Wrote data to the '%s':'%s' worksheet" % (ssheet.title.text, wsheet_title))
+        logger2.info("Wrote data to the '%s':'%s' worksheet" \
+            % (ssheet.title.text, wsheet_title))
     else:
-        logger2.error("ERROR: Could not write data to the '%s':'%s' worksheet" % (ssheet.title.text, wsheet_title))
+        logger2.error("ERROR: Could not write data to the '%s':'%s' worksheet" \
+            % (ssheet.title.text, wsheet_title))
     return success
