@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 """Functions for getting barcode statistics from demultiplexing"""
 
-import os
-import re
+# import os
+# import re
 import copy
-import glob
-import logbook
-from bcbio.utils import UnicodeReader
+# import glob
+# import logbook
+# from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
-from bcbio.google import (_from_unicode, _to_unicode, get_credentials)
-from bcbio.log import logger2, create_log_handler
-from bcbio.pipeline.flowcell import Flowcell
+from bcbio.google import _to_unicode  # (_from_unicode, _to_unicode, get_credentials)
+from bcbio.log import logger2  # , create_log_handler
+# from bcbio.pipeline.flowcell import Flowcell
 import bcbio.solexa.flowcell
 
 # The structure of the demultiplex result
@@ -97,9 +97,11 @@ def _write_project_report_to_gdocs(client, ssheet, flowcell):
 
     # Write the data to the worksheet
     return _write_to_worksheet(client,ssheet,wsheet_title,rows,[col_header[0] for col_header in SEQUENCING_RESULT_HEADER],False)
-    
+
+
 def _write_project_report_summary_to_gdocs(client, ssheet):
-    """Summarize the data from the worksheets and write them to a "Summary" worksheet"""
+    """Summarize the data from the worksheets and write them to a "Summary" worksheet
+    """
 
     # Summary data
     flowcells = {}
@@ -115,33 +117,38 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
             bcbio.solexa.flowcell.get_flowcell_info(wsheet_title)
         except ValueError:
             continue
-        
-        wsheet_data = bcbio.google.spreadsheet.get_cell_content(client,ssheet,wsheet,'2')
+
+        wsheet_data = bcbio.google.spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
         delim = ';'
-        
-        # Add the results from the worksheet to the summarized data    
-        for (sample_name,run_name,lane_name,read_count,_,comment,_) in wsheet_data:
-            sample = bcbio.pipeline.flowcell.Sample({'name': sample_name, 'read_count': read_count},bcbio.pipeline.flowcell.Lane({'lane': lane_name}),comment)
+
+        # Add the results from the worksheet to the summarized data
+        for (sample_name, run_name, lane_name, read_count, _, comment, _) in wsheet_data:
+            logger2.info("Comment: %s" % comment)
+            sample = bcbio.pipeline.flowcell.Sample({ \
+                'name': sample_name, \
+                'read_count': read_count}, \
+                bcbio.pipeline.flowcell.Lane({'lane': lane_name}), comment)
+
             if (sample_name in samples):
-                samples[sample_name]['object'].add_sample(sample,delim)
-                samples[sample_name]['flowcells'] += "%s%s" % (delim,wsheet_title)
+                samples[sample_name]['object'].add_sample(sample, delim)
+                samples[sample_name]['flowcells'] += "%s%s" % (delim, wsheet_title)
             else:
                 samples[sample_name] = {'object': sample, 'flowcells': wsheet_title}
-                
+
     # Get the spreadsheet if it exists
     # Otherwise, create it
     wsheet_title = "Summary"
-    
+
     # Flatten the project_data structure into a list
     rows = []
     for sample_data in samples.values():
         sample = sample_data['object']
         flowcells = sample_data['flowcells']
-        row = (sample.get_name(),flowcells,sample.get_lane(),sample.get_read_count(),sample.get_rounded_read_count(),sample.get_comment(),"")
+        row = (sample.get_name(), flowcells, sample.get_lane(), sample.get_read_count(), sample.get_rounded_read_count(), sample.get_comment(), "")
         rows.append(row)
-    
+
     # Write the data to the worksheet
-    return _write_to_worksheet(client,ssheet,wsheet_title,rows,[col_header[0] for col_header in SEQUENCING_RESULT_HEADER],False)       
+    return _write_to_worksheet(client, ssheet, wsheet_title, rows, [col_header[0] for col_header in SEQUENCING_RESULT_HEADER], False)
 
 
 def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, encoded_credentials, wsheet_title=None, append=False, split_project=False):
@@ -172,25 +179,25 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, encoded_creden
         success &= _write_to_worksheet(client,ssheet,wsheet_title,fc.to_rows(),header,append)
 
     return success
-    
-def _write_to_worksheet(client,ssheet,wsheet_title,rows,header,append):
+
+
+def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append):
     """Generic method to write a set of rows to a worksheet on google docs"""
-    
+
     # Convert the worksheet title to unicode
     wsheet_title = _to_unicode(wsheet_title)
-    
-    # Add a new worksheet, possibly appending or replacing a pre-existing worksheet according to the append-flag
-    wsheet = bcbio.google.spreadsheet.add_worksheet(client,ssheet,wsheet_title,len(rows)+1,len(header),append)
+
+    # Add a new worksheet, possibly appending or replacing a pre-existing
+    # worksheet according to the append-flag.
+    wsheet = bcbio.google.spreadsheet.add_worksheet(client, ssheet, wsheet_title, len(rows) + 1, len(header), append)
     if wsheet is None:
-        logger2.error("ERROR: Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title,ssheet.title.text))
+        logger2.error("ERROR: Could not add a worksheet '%s' to spreadsheet '%s'" % (wsheet_title, ssheet.title.text))
         return False
-    
+
     # Write the data to the worksheet
-    success = bcbio.google.spreadsheet.write_rows(client,ssheet,wsheet,header,rows)
+    success = bcbio.google.spreadsheet.write_rows(client, ssheet, wsheet, header, rows)
     if success:
-        logger2.info("Wrote data to the '%s':'%s' worksheet" % (ssheet.title.text,wsheet_title))
+        logger2.info("Wrote data to the '%s':'%s' worksheet" % (ssheet.title.text, wsheet_title))
     else:
-        logger2.error("ERROR: Could not write data to the '%s':'%s' worksheet" % (ssheet.title.text,wsheet_title)) 
+        logger2.error("ERROR: Could not write data to the '%s':'%s' worksheet" % (ssheet.title.text, wsheet_title))
     return success
-    
-    

@@ -1,7 +1,6 @@
 """A module for managing metadata and layout, as specified in run_info.yaml,
 as well as read counts for the samples on a flowcell.
 """
-
 import copy
 import re
 import os
@@ -10,7 +9,7 @@ import yaml
 import string
 
 from bcbio.solexa.flowcell import get_flowcell_info
-from bcbio.google import ( _to_unicode, _from_unicode )
+from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
 
 
@@ -337,20 +336,21 @@ class Lane:
         s = "Lane: %s\n\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
         return s
 
+
 class Sample:
     """A class for managing information about a sample"""
-     
-    def __init__(self,data,lane=Lane({}),comment=None):
-        self.set_analysis(data.get("analysis",lane.get_analysis()))
-        self.set_genome_build(data.get("genome_build",lane.get_genome_build()))
-        self.set_name(data.get("name",None))
-        self.set_full_name(data.get("full_name",data.get("name", None)))
-        self.set_project(data.get("sample_prj",data.get("description",lane.get_description())))
-        self.set_read_count(data.get("read_count",None))
-        self.set_description(data.get("description",None))
+
+    def __init__(self, data, lane=Lane({}), comment=None):
+        self.set_analysis(data.get("analysis", lane.get_analysis()))
+        self.set_genome_build(data.get("genome_build", lane.get_genome_build()))
+        self.set_name(data.get("name", None))
+        self.set_full_name(data.get("full_name", data.get("name", None)))
+        self.set_project(data.get("sample_prj", data.get("description", lane.get_description())))
+        self.set_read_count(data.get("read_count", None))
+        self.set_description(data.get("description", None))
         self.set_lane(lane.get_name())
         self.set_comment(comment)
-        
+
     def add_sample(self,other,delim=', '):
         if (self.get_analysis() != other.get_analysis()):
             self.set_analysis("%s%s%s" % (self.get_analysis(),delim,other.get_analysis()))
@@ -387,9 +387,10 @@ class Sample:
 
     def get_comment(self):
         return self.comment
-    def set_comment(self,comment):
+
+    def set_comment(self, comment):
         self.comment = comment
-        
+
     def get_lane(self):
         return self.lane
     def set_lane(self,lane):
