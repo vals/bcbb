@@ -78,7 +78,7 @@ def get_project_name(description):
        
 def get_sample_name(barcode_name):
     """Extract the sample name by stripping the barcode index part of the sample description""" 
-    regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[\.\-_]?\d+$'
+    regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[ar\.\-_]?\d+$'
     m = re.search(regexp,(barcode_name or ""),re.I)
     if not m or len(m.groups()) == 0:
         return barcode_name
@@ -89,6 +89,13 @@ class Flowcell:
     """A class for managing information about a flowcell"""
 
     def __init__(self, fc_name, fc_date, data, fc_dir=None):
+        # Extract the run_items if we are passed a dictionary
+        try:
+            d = data.get('details',[])
+            data = d
+        except AttributeError:
+            pass
+        
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
@@ -146,12 +153,12 @@ class Flowcell:
             samples.extend(lane.get_samples())
         return samples
 
-    def prune_to_project(self, project):
+    def prune_to_project(self, project, exclude_unmatched=False):
         """Return a new Flowcell object just containing the lanes and samples belonging to a specific project"""
         lanes = []
         fc = None
         for lane in self.get_lanes():
-            l = lane.prune_to_project(project)
+            l = lane.prune_to_project(project, exclude_unmatched)
             if (l):
                 lanes.append(l.to_structure())
         if (len(lanes)):
@@ -519,5 +526,3 @@ class BarcodedSample(Sample):
         if (self.get_barcode_type()):
             struct["barcode_type"] = self.get_barcode_type()
         return struct
-  
-    

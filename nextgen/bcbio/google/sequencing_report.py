@@ -67,9 +67,13 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
                             % (fc_date, fc_name))
 
                     # Parse the QC metrics
-                    qc = RTAQCMetrics(dirs.get("flowcell", None))
-                    if gdocs_qc_spreadsheet is not None:
-                        success &= bcbio.google.qc_metrics.write_run_report_to_gdocs(fc, qc, gdocs_qc_spreadsheet, encoded_credentials)
+                    try:
+                        qc = RTAQCMetrics(dirs.get("flowcell",None))
+                    except:
+                        qc = None
+                           
+                    if gdocs_qc_spreadsheet is not None and qc is not None:
+                        success &= bcbio.google.qc_metrics.write_run_report_to_gdocs(fc,qc,gdocs_qc_spreadsheet,encoded_credentials)
                     else:
                         log.warn("Could not find Google Docs QC file title in configuration. \
                             No QC data were written to Google Docs for %s_%s" \
@@ -153,3 +157,4 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
             % _from_unicode(ssheet.title.text))
 
     return success
+    
