@@ -142,9 +142,9 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
             else:
                 samples[sample_name] = {'object': sample, 'flowcells': wsheet_title}
 
-    # TODO: Get the worksheet if it exists
-    # Otherwise, create it
     wsheet_title = "Summary"
+
+    # Try getting already existing comments and 'pass' values
     existing_summary_wsheet = \
     bcbio.google.spreadsheet.get_worksheet(client, ssheet, wsheet_title)
 
@@ -163,12 +163,13 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
         flowcells = sample_data['flowcells']
 
         sample_name = sample.get_name()
-        comment, pass_field = name_data[sample_name]
+        comment, pass_field = name_data.get(sample_name, [None, ""])
 
         logger2.debug("Comment passed in to 'rows': %s" % comment)
 
         row = [sample_name, flowcells, sample.get_lane(), \
-        sample.get_read_count(), sample.get_rounded_read_count(), comment, pass_field]
+        sample.get_read_count(), sample.get_rounded_read_count(), \
+        comment, pass_field]
 
         rows.append(row)
 
@@ -196,16 +197,20 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
     success = True
     header = _create_header(BARCODE_STATS_HEADER, fc.columns())
     if split_project:
-        # Filter away the irrelevent project entries and write the remaining to the appropriate worksheet
+        # Filter away the irrelevent project entries and write the
+        # remaining to the appropriate worksheet.
         for project in projects:
             pruned_fc = fc.prune_to_project(project)
-            success &= _write_to_worksheet(client,ssheet,project,pruned_fc.to_rows(),header,append)
-            
-    # Else, set the default title of the worksheet to be a string of concatenated date and flowcell id
+            success &= _write_to_worksheet(client, ssheet, project, \
+                pruned_fc.to_rows(), header, append)
+
+    # Else, set the default title of the worksheet to be a string of
+    # concatenated date and flowcell id.
     else:
         if wsheet_title is None:
-            wsheet_title = "%s_%s" % (fc_date,fc_name)
-        success &= _write_to_worksheet(client,ssheet,wsheet_title,fc.to_rows(),header,append)
+            wsheet_title = "%s_%s" % (fc_date, fc_name)
+        success &= _write_to_worksheet(client, ssheet, wsheet_title, \
+            fc.to_rows(), header, append)
 
     return success
 
@@ -226,7 +231,8 @@ def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append):
         return False
 
     # Write the data to the worksheet
-    success = bcbio.google.spreadsheet.write_rows(client, ssheet, wsheet, header, rows)
+    success = \
+    bcbio.google.spreadsheet.write_rows(client, ssheet, wsheet, header, rows)
     if success:
         logger2.info("Wrote data to the '%s':'%s' worksheet" \
             % (ssheet.title.text, wsheet_title))

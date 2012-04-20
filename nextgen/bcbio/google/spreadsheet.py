@@ -240,7 +240,10 @@ def get_worksheets_feed(client, ssheet, title=None, exact_match=False):
 
 def row_count(wsheet):
     """Get the number of rows in the worksheet"""
-    return int(wsheet.row_count.text)
+    try:
+        return int(wsheet.row_count.text)
+    except AttributeError:
+        return 0
 
 
 def write_rows(client, ssheet, wsheet, header, rows):
