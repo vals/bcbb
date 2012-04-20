@@ -1,6 +1,6 @@
 """Create reports on google docs
 """
-import copy
+# import copy
 import logbook
 import time
 import yaml
@@ -28,22 +28,23 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         # Get the gdocs account credentials
         encoded_credentials = get_credentials(config)
         if not encoded_credentials:
-            log.warn("Could not find Google Docs account credentials in configuration. No sequencing report was written")
+            log.warn("Could not find Google Docs account credentials in configuration. \
+                No sequencing report was written")
             return False
 
         # Get the required parameters from the post_process.yaml configuration file
         gdocs = config.get("gdocs_upload", None)
 
         # Add email notification
-        email = gdocs.get("gdocs_email_notification",None)
-        smtp_host = config.get("smtp_host","")
-        smtp_port = config.get("smtp_port","")
-        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port},True)
-        
+        email = gdocs.get("gdocs_email_notification", None)
+        smtp_host = config.get("smtp_host", "")
+        smtp_port = config.get("smtp_port", "")
+        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port}, True)
+
         with log_handler.applicationbound():
-            
+
             # Inject the fc_date and fc_name in the email subject
-            with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date,fc_name))):
+            with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))):
 
                 try:
                     log.info("Started creating sequencing report on Google docs for %s_%s on %s" % (fc_date, fc_name, time.strftime("%x @ %X")))
@@ -61,8 +62,10 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
                         # Upload the data
                         success &= bcbio.google.bc_metrics.write_run_report_to_gdocs(fc, fc_date, fc_name, gdocs_dmplx_spreadsheet, encoded_credentials)
                     else:
-                        log.warn("Could not find Google Docs demultiplex results file title in configuration. No demultiplex counts were written to Google Docs for %s_%s" % (fc_date,fc_name))
-                        
+                        log.warn("Could not find Google Docs demultiplex results file title in configuration. \
+                            No demultiplex counts were written to Google Docs for %s_%s" \
+                            % (fc_date, fc_name))
+
                     # Parse the QC metrics
                     try:
                         qc = RTAQCMetrics(dirs.get("flowcell",None))
@@ -72,10 +75,12 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
                     if gdocs_qc_spreadsheet is not None and qc is not None:
                         success &= bcbio.google.qc_metrics.write_run_report_to_gdocs(fc,qc,gdocs_qc_spreadsheet,encoded_credentials)
                     else:
-                        log.warn("Could not find Google Docs QC file title in configuration. No QC data were written to Google Docs for %s_%s" % (fc_date,fc_name))
-                                
+                        log.warn("Could not find Google Docs QC file title in configuration. \
+                            No QC data were written to Google Docs for %s_%s" \
+                            % (fc_date, fc_name))
+
                     # Get the projects parent folder
-                    projects_folder = gdocs.get("gdocs_projects_folder",None)
+                    projects_folder = gdocs.get("gdocs_projects_folder", None)
 
                     # Write the bc project summary report
                     if projects_folder is not None:
@@ -85,12 +90,16 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
                 except Exception as e:
                     success = False
                     raise
-                
+
                 if success:
-                    log.info("Sequencing report successfully created on Google docs for %s_%s on %s" % (fc_date,fc_name,time.strftime("%x @ %X")))
+                    log.info("Sequencing report successfully created on \
+                        Google docs for %s_%s on %s" \
+                        % (fc_date, fc_name, time.strftime("%x @ %X")))
                 else:
-                    log.warn("Encountered exception when writing sequencing report for %s_%s to Google docs on %s" % (fc_date,fc_name,time.strftime("%x @ %X")))
-                
+                    log.warn("Encountered exception when writing sequencing \
+                        report for %s_%s to Google docs on %s" \
+                        % (fc_date, fc_name, time.strftime("%x @ %X")))
+
     except Exception as e:
         success = False
         log.warn("Encountered exception when writing sequencing report to Google Docs: %s" % e)
@@ -125,21 +134,27 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
         folder = bcbio.google.document.get_folder(doc_client, folder_name)
         if not folder:
             folder = bcbio.google.document.add_folder(doc_client, folder_name, parent_folder)
-            log.info("Folder '%s' created under '%s'" % (_from_unicode(folder_name), parent_folder_title))
+            log.info("Folder '%s' created under '%s'" \
+                % (_from_unicode(folder_name), parent_folder_title))
 
         ssheet_title = project_name + "_sequencing_results"
         ssheet = bcbio.google.spreadsheet.get_spreadsheet(client, ssheet_title)
         if not ssheet:
             bcbio.google.document.add_spreadsheet(doc_client, ssheet_title)
-            ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)
-            ssheet = bcbio.google.document.move_to_folder(doc_client,ssheet,folder)
-            ssheet = bcbio.google.spreadsheet.get_spreadsheet(client,ssheet_title)        
-            log.info("Spreadsheet '%s' created in folder '%s'" % (_from_unicode(ssheet.title.text),_from_unicode(folder_name)))
-            
-        success &= bcbio.google.bc_metrics._write_project_report_to_gdocs(client,ssheet,project_fc)
-        success &= bcbio.google.bc_metrics._write_project_report_summary_to_gdocs(client,ssheet)
-        success &= bcbio.google.qc_metrics.write_run_report_to_gdocs(project_fc,qc,ssheet_title,encoded_credentials)
-        log.info("Sequencing results report written to spreadsheet '%s'" % _from_unicode(ssheet.title.text))
-        
+            ssheet = bcbio.google.spreadsheet.get_spreadsheet(client, ssheet_title)
+            ssheet = bcbio.google.document.move_to_folder(doc_client, ssheet, folder)
+            ssheet = bcbio.google.spreadsheet.get_spreadsheet(client, ssheet_title)
+            log.info("Spreadsheet '%s' created in folder '%s'" \
+                % (_from_unicode(ssheet.title.text), _from_unicode(folder_name)))
+
+        success &= bcbio.google.bc_metrics._write_project_report_to_gdocs( \
+            client, ssheet, project_fc)
+        success &= bcbio.google.bc_metrics._write_project_report_summary_to_gdocs( \
+            client, ssheet)
+        success &= bcbio.google.qc_metrics.write_run_report_to_gdocs( \
+            project_fc, qc, ssheet_title, encoded_credentials)
+        log.info("Sequencing results report written to spreadsheet '%s'" \
+            % _from_unicode(ssheet.title.text))
+
     return success
     
