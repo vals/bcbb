@@ -142,9 +142,19 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
             else:
                 samples[sample_name] = {'object': sample, 'flowcells': wsheet_title}
 
-    # Get the spreadsheet if it exists
+    # TODO: Get the worksheet if it exists
     # Otherwise, create it
     wsheet_title = "Summary"
+    existing_summary_wsheet = \
+    bcbio.google.spreadsheet.get_worksheet(client, ssheet, wsheet_title)
+
+    num_rows = bcbio.google.spreadsheet.row_count(existing_summary_wsheet)
+
+    name_data = {}
+    for row_num in range(2, num_rows + 1):
+        sample_name, _, _, _, _, comment, pass_field = \
+        bcbio.google.spreadsheet.get_row(client, ssheet, existing_summary_wsheet, row_num)
+        name_data[sample_name] = [comment, pass_field]
 
     # Flatten the project_data structure into a list
     rows = []
@@ -152,12 +162,13 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
         sample = sample_data['object']
         flowcells = sample_data['flowcells']
 
-        comment = sample.get_comment()
+        sample_name = sample.get_name()
+        comment, pass_field = name_data[sample_name]
 
         logger2.debug("Comment passed in to 'rows': %s" % comment)
 
-        row = [sample.get_name(), flowcells, sample.get_lane(), \
-        sample.get_read_count(), sample.get_rounded_read_count(), comment, ""]
+        row = [sample_name, flowcells, sample.get_lane(), \
+        sample.get_read_count(), sample.get_rounded_read_count(), comment, pass_field]
 
         rows.append(row)
 
@@ -177,11 +188,13 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
 
     # Get the projects in the run
     projects = fc.get_project_names()
-    logger2.info("Will write data from the run %s_%s for projects: '%s'" % (fc_date,fc_name,"', '".join(projects)))
-    
-    # If we will split the worksheet by project, use the project names as worksheet titles
+    logger2.info("Will write data from the run %s_%s for projects: '%s'" \
+        % (fc_date, fc_name, "', '".join(projects)))
+
+    # If we will split the worksheet by project, use the project
+    # names as worksheet titles.
     success = True
-    header = _create_header(BARCODE_STATS_HEADER,fc.columns())
+    header = _create_header(BARCODE_STATS_HEADER, fc.columns())
     if split_project:
         # Filter away the irrelevent project entries and write the remaining to the appropriate worksheet
         for project in projects:

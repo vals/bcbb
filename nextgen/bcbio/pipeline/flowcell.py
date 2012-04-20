@@ -346,7 +346,8 @@ class Sample:
         self.set_genome_build(data.get("genome_build", lane.get_genome_build()))
         self.set_name(data.get("name", None))
         self.set_full_name(data.get("full_name", data.get("name", None)))
-        self.set_project(data.get("sample_prj", data.get("description", lane.get_description())))
+        self.set_project(data.get("sample_prj", \
+            data.get("description", lane.get_description())))
         self.set_read_count(data.get("read_count", None))
         self.set_description(data.get("description", None))
         self.set_lane(lane.get_name())

@@ -85,7 +85,7 @@ def get_cell_feed(client, ssheet, wsheet, \
          'return-empty': 'True'
          }
     query = gdata.spreadsheet.service.CellQuery(params=p)
-    return client.GetCellsFeed(get_key(ssheet),get_key(wsheet),query=query)
+    return client.GetCellsFeed(get_key(ssheet), get_key(wsheet), query=query)
 
 
 def get_client(encoded_credentials=None):
@@ -94,7 +94,7 @@ def get_client(encoded_credentials=None):
     client = gdata.spreadsheet.service.SpreadsheetsService()
     # If credentials were supplied, authenticate the client as well
     if encoded_credentials:
-        authenticate(client,encoded_credentials)
+        authenticate(client, encoded_credentials)
 
     return client
 
@@ -102,24 +102,24 @@ def get_client(encoded_credentials=None):
 def get_column(client, ssheet, wsheet, column, constraint={}):
     """Get the content of a specified column, optionally filtering on other columns"""
 
-    values = get_rows_columns_with_constraint(client,ssheet,wsheet,[column],constraint)
+    values = get_rows_columns_with_constraint(client, ssheet, wsheet, [column], constraint)
     return [row[0] for row in values]
 
 
-def get_column_index(client,ssheet,wsheet,name):
+def get_column_index(client, ssheet, wsheet, name):
     """Get the index of the column with the specified name, or 0 if no column matches"""
-    
-    header = get_header(client,ssheet,wsheet)
-    for i,column_name in enumerate(header):
+
+    header = get_header(client, ssheet, wsheet)
+    for i, column_name in enumerate(header):
         if _to_unicode(name) == _to_unicode(column_name):
-            return int(i+1)
+            return int(i + 1)
     return 0
 
 
 def get_header(client, ssheet, wsheet):
     """Return the column header of the supplied worksheet as a list"""
-    
-    header = get_row(client,ssheet,wsheet,1)
+
+    header = get_row(client, ssheet, wsheet, 1)
     return header
 
 
@@ -128,9 +128,9 @@ def get_key(object):
     return object.id.text.split('/')[-1]
 
 
-def _get_query(title,exact_match):
+def _get_query(title, exact_match):
     """Get a query object for the supplied parameters"""
-    
+
     p = {}
     if title:
         # The urllib.quote method does not handle unicode, so encode the title in utf-8
@@ -139,36 +139,36 @@ def _get_query(title,exact_match):
             p['title-exact'] = 'true'
         else:
             p['title-exact'] = 'false'
-    
+
     return gdata.spreadsheet.service.DocumentQuery(params=p)
 
 
 def get_row(client, ssheet, wsheet, row):
     """Get the content of a specified row index"""
-    
+
     content = (get_cell_content(client, ssheet, wsheet, row, 0, row, 0) or [[]])
     return content[0]
 
 
 def get_rows_columns_with_constraint(client, ssheet, wsheet, columns, constraint={}):
     """Get the content of specified columns from the rows filtered by some column values"""
-    
+
     # Translate column header names into indexes
     column_indexes = []
     for column in columns:
         try:
             column = int(column)
         except ValueError:
-            column = get_column_index(client,ssheet,wsheet,column)
+            column = get_column_index(client, ssheet, wsheet, column)
         column_indexes.append(column)
-    
+
     # Get the rows matching the constraint
-    rows = get_rows_with_constraint(client,ssheet,wsheet,constraint)
-    
+    rows = get_rows_with_constraint(client, ssheet, wsheet, constraint)
+
     # Return an array with the specified column contents of the rows
     values = []
     for row in rows:
-        row.insert(0,'N/A')
+        row.insert(0, 'N/A')
         values.append([row[i] for i in column_indexes])
 
     return values
@@ -176,21 +176,22 @@ def get_rows_columns_with_constraint(client, ssheet, wsheet, columns, constraint
 
 def get_rows_with_constraint(client, ssheet, wsheet, constraint={}):
     """Get the content of the rows filtered by some column values"""
-    
+
     # Create a filter mask based on the supplied constraints
-    filter = [True]*row_count(wsheet)
+    filter_mask = [True] * row_count(wsheet)
     for con_name, con_value in constraint.items():
-        con_column = get_column(client,ssheet,wsheet,con_name)
-        for i,value in enumerate(con_column):
-            filter[i] &= (_to_unicode(value) == _to_unicode(con_value))
-    
+        con_column = get_column(client, ssheet, wsheet, con_name)
+        for i, value in enumerate(con_column):
+            filter_mask[i] &= (_to_unicode(value) == _to_unicode(con_value))
+
     # Get the content of the entire worksheet
     content_2d = get_cell_content(client, ssheet, wsheet)
-    
-    # Loop over the content and keep only the rows that have passed the constraint filters
+
+    # Loop over the content and keep only the rows that have passed the
+    # constraint filters.
     content = []
-    for i,row in enumerate(content_2d):
-        if filter[i]:
+    for i, row in enumerate(content_2d):
+        if filter_mask[i]:
             content.append(row)
 
     return content
