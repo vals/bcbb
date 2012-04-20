@@ -127,12 +127,12 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
         delim = ';'
 
         # Add the results from the worksheet to the summarized data
-        for (sample_name, run_name, lane_name, read_count, _, comment, _) in wsheet_data:
+        for (sample_name, run_name, lane_name, read_count, _) in wsheet_data:
 
             sample = bcbio.pipeline.flowcell.Sample({ \
                 'name': sample_name, \
                 'read_count': read_count}, \
-                bcbio.pipeline.flowcell.Lane({'lane': lane_name}), comment)
+                bcbio.pipeline.flowcell.Lane({'lane': lane_name}))
 
             logger2.debug("Comment in Sample object: %s" % sample.get_comment())
 
