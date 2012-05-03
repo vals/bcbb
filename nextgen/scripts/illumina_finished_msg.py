@@ -148,7 +148,7 @@ def _generate_fastq(fc_dir, config):
     if postprocess_dir:
         fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir),
                                  "fastq")
-    if not fastq_dir == fc_dir and not os.path.exists(fastq_dir):
+    if not fastq_dir == fc_dir:# and not os.path.exists(fastq_dir):
         with utils.chdir(basecall_dir):
             lanes = sorted(list(set([f.split("_")[1] for f in
                 glob.glob("*qseq.txt")])))
