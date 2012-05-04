@@ -32,6 +32,7 @@ import sys
 import glob
 from optparse import OptionParser
 
+
 def main(run_name, lane_nums, do_fail=False, outdir=None):
     if outdir is None:
         outdir = os.path.join(os.getcwd(), "fastq")
@@ -54,6 +55,7 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
         out_prefix = "%s_%s" % (lane_num, run_name)
         write_lane(lane_prefix, out_prefix, outdir, fail_dir)
 
+
 def write_lane(lane_prefix, out_prefix, outdir, fail_dir):
     qseq_files = glob.glob("%s_*qseq.txt" % lane_prefix)
     #_check_filesizes(qseq_files)
@@ -67,6 +69,7 @@ def write_lane(lane_prefix, out_prefix, outdir, fail_dir):
         for i, fname in enumerate(files):
             bc_file = _get_associated_barcode(num, i, fname, bc_files)
             convert_qseq_to_fastq(fname, num, bc_file, out_files, fail_files)
+
 
 def _get_associated_barcode(read_num, file_num, fname, bc_files):
     """Get barcodes for the first read if present.

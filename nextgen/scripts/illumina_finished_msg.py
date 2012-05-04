@@ -31,7 +31,7 @@ import time
 from optparse import OptionParser
 from xml.etree.ElementTree import ElementTree
 
-import yaml
+# import yaml
 import logbook
 
 from bcbio.solexa import samplesheet
@@ -48,7 +48,7 @@ log = logbook.Logger(LOG_NAME)
 def main(local_config, post_config_file=None,
          fetch_msg=True, process_msg=True, store_msg=True, qseq=True, fastq=True):
     config = load_config(local_config)
-    log_handler = create_log_handler(config,True)
+    log_handler = create_log_handler(config, True)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
@@ -65,7 +65,8 @@ def search_for_new(config, config_file, post_config_file,
             if _is_finished_dumping(dname):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
-                with logbook.Processor(lambda record: record.extra.__setitem__('run', os.path.basename(dname))):
+                run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
+                with logbook.Processor(run_setter):
                     logger2.info("The instrument has finished dumping on directory %s" % dname)
                     _update_reported(config["msg_db"], dname)
                     _process_samplesheets(dname, config)
@@ -81,8 +82,10 @@ def search_for_new(config, config_file, post_config_file,
                                       fetch_msg, process_msg, store_msg)
                     # Update the reported database after successful processing
                     _update_reported(config["msg_db"], dname)
-                # Re-read the reported database to make sure it hasn't changed while processing
+                # Re-read the reported database to make sure it hasn't
+                # changed while processing.
                 reported = _read_reported(config["msg_db"])
+
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
                       fetch_msg, process_msg, store_msg):
@@ -106,6 +109,7 @@ def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
     else:
         analyze_locally(dname, post_config_file, fastq_dir)
 
+
 def analyze_locally(dname, post_config_file, fastq_dir):
     """Run analysis directly on the local machine.
     """
@@ -124,6 +128,7 @@ def analyze_locally(dname, post_config_file, fastq_dir):
             cl.append(run_yaml)
         subprocess.check_call(cl)
 
+
 def _process_samplesheets(dname, config):
     """Process Illumina samplesheets into YAML files for post-processing.
     """
@@ -133,6 +138,7 @@ def _process_samplesheets(dname, config):
         logger2.info("CSV Samplesheet %s found, converting to %s" %
                  (ss_file, out_file))
         samplesheet.csv2yaml(ss_file, out_file)
+
 
 def _generate_fastq(fc_dir, config):
     """Generate fastq files for the current flowcell.
@@ -157,6 +163,7 @@ def _generate_fastq(fc_dir, config):
             subprocess.check_call(cl)
     return fastq_dir
 
+
 def _generate_qseq(bc_dir, config):
     """Generate qseq files from illumina bcl files if not present.
 
@@ -168,7 +175,7 @@ def _generate_qseq(bc_dir, config):
         bcl2qseq_log = os.path.join(config["log_dir"], "setupBclToQseq.log")
         cmd = os.path.join(config["program"]["olb"], "bin", "setupBclToQseq.py")
         cl = [cmd, "-L", bcl2qseq_log, "-o", bc_dir, "--in-place", "--overwrite",
-              "--ignore-missing-stats","--ignore-missing-control"]
+              "--ignore-missing-stats", "--ignore-missing-control"]
         # in OLB version 1.9, the -i flag changed to intensities instead of input
         version_cl = [cmd, "-v"]
         p = subprocess.Popen(version_cl, stdout=subprocess.PIPE)
@@ -188,6 +195,7 @@ def _generate_qseq(bc_dir, config):
             cl = config["program"].get("olb_make", "make").split() + ["-j", str(processors)]
             subprocess.check_call(cl)
 
+
 def _is_finished_dumping(directory):
     """Determine if the sequencing directory has all files.
 
@@ -205,6 +213,7 @@ def _is_finished_dumping(directory):
                 hi_seq_checkpoint]
     return reduce(operator.or_,
             [os.path.exists(os.path.join(directory, f)) for f in to_check])
+
 
 def _expected_reads(run_info_file):
     """Parse the number of expected reads from the RunInfo.xml file.
@@ -261,7 +270,7 @@ def _files_to_copy(directory):
                          glob.glob("*.csv"),
                         ])
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
-        fastq = reduce(operator.add, 
+        fastq = reduce(operator.add,
                        [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
                         ["Data/Intensities/BaseCalls/fastq"]])
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
@@ -297,11 +306,12 @@ def _update_reported(msg_db, new_dname):
     for d in [dir for dir in reported if dir.startswith(new_dname)]:
         new_dname = d
         reported.remove(d)
-    reported.append("%s\t%s" % (new_dname,time.strftime("%x-%X")))
-    
+    reported.append("%s\t%s" % (new_dname, time.strftime("%x-%X")))
+
     with open(msg_db, "w") as out_handle:
         for dir in reported:
             out_handle.write("%s\n" % dir)
+
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
                      config, config_file):
@@ -336,6 +346,7 @@ if __name__ == "__main__":
             action="store_false", default=True)
 
     (options, args) = parser.parse_args()
-    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg, store_msg=options.store_msg,
+    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg,
+                  store_msg=options.store_msg,
                   fastq=options.fastq, qseq=options.qseq)
     main(*args, **kwargs)
