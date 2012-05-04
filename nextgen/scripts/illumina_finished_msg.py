@@ -177,13 +177,12 @@ def _generate_fastq_with_casava(fc_dir, config):
     subprocess.check_call(cl)
 
     # Go to <Unaligned> folder
-    os.chdir(unaligned_dir)
-
-    # Perform make
-    cl = ["nohup", "make", "-j", str(num_cores)]
-    logger2.info("Demultiplexing and converting bcl to fastq.gz")
-    logger2.debug(cl)
-    subprocess.check_call(cl)
+    with utils.chdir(unaligned_dir):
+        # Perform make
+        cl = ["nohup", "make", "-j", str(num_cores)]
+        logger2.info("Demultiplexing and converting bcl to fastq.gz")
+        logger2.debug(cl)
+        subprocess.check_call(cl)
 
     logger2.debug("Done")
 
@@ -304,10 +303,12 @@ def _files_to_copy(directory):
                                   [glob.glob("*.params"),
                                    glob.glob("Images/L*/C*"),
                                    ["RunInfo.xml", "runParameters.xml"]])
+
         qseqs = reduce(operator.add,
                      [glob.glob("Data/Intensities/*.xml"),
                       glob.glob("Data/Intensities/BaseCalls/*qseq.txt"),
                       ])
+
         reports = reduce(operator.add,
                      [glob.glob("*.xml"),
                       glob.glob("Data/Intensities/BaseCalls/*.xml"),
@@ -315,14 +316,17 @@ def _files_to_copy(directory):
                       glob.glob("Data/Intensities/BaseCalls/*.htm"),
                       ["Data/Intensities/BaseCalls/Plots", "Data/reports",
                        "Data/Status.htm", "Data/Status_Files", "InterOp"]])
+
         run_info = reduce(operator.add,
                         [glob.glob("run_info.yaml"),
                          glob.glob("*.csv"),
                         ])
+
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
         fastq = reduce(operator.add,
                        [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
                         ["Data/Intensities/BaseCalls/fastq"]])
+
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
             sorted(reports + fastq + run_info))
 
