@@ -31,7 +31,6 @@ import time
 from optparse import OptionParser
 from xml.etree.ElementTree import ElementTree
 
-# import yaml
 import logbook
 
 from bcbio.solexa import samplesheet
@@ -45,18 +44,18 @@ LOG_NAME = os.path.splitext(os.path.basename(__file__))[0]
 log = logbook.Logger(LOG_NAME)
 
 
-def main(local_config, post_config_file=None,
-         fetch_msg=True, process_msg=True, store_msg=True, qseq=True, fastq=True):
+def main(local_config, post_config_file=None, fetch_msg=True, \
+    process_msg=True, store_msg=True, qseq=True, fastq=True, casava=False):
     config = load_config(local_config)
     log_handler = create_log_handler(config, True)
 
     with log_handler.applicationbound():
-        search_for_new(config, local_config, post_config_file,
-                       fetch_msg, process_msg, store_msg, qseq, fastq)
+        search_for_new(config, local_config, post_config_file, fetch_msg, \
+            process_msg, store_msg, qseq, fastq,)
 
 
-def search_for_new(config, config_file, post_config_file,
-                   fetch_msg, process_msg, store_msg, qseq, fastq):
+def search_for_new(config, config_file, post_config_file, fetch_msg, \
+        process_msg, store_msg, qseq, fastq, casava):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
@@ -73,15 +72,23 @@ def search_for_new(config, config_file, post_config_file,
                     if qseq:
                         logger2.info("Generating qseq files for %s" % dname)
                         _generate_qseq(get_qseq_dir(dname), config)
+
                     fastq_dir = None
                     if fastq:
                         logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
+
+                    if casava:
+                        logger2.info("Generating fastq.gz files for %s" % dname)
+                        _generate_fastq_with_casava(dname, config)
+
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       fetch_msg, process_msg, store_msg)
+
                     # Update the reported database after successful processing
                     _update_reported(config["msg_db"], dname)
+
                 # Re-read the reported database to make sure it hasn't
                 # changed while processing.
                 reported = _read_reported(config["msg_db"])
@@ -140,6 +147,47 @@ def _process_samplesheets(dname, config):
         samplesheet.csv2yaml(ss_file, out_file)
 
 
+def _generate_fastq_with_casava(fc_dir, config):
+    """Perform demultiplexing and generate fastq.gz files for the current
+    flowecell using CASAVA (>1.8).
+    """
+    basecall_dir = os.path.join(fc_dir, "Data", "Intensities", "BaseCalls")
+    casava_dir = config["program"].get("casava")
+    unaligned_dir = os.path.join(basecall_dir, "Unaligned")
+    samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
+    num_mismatches = config["algorithm"].get("mismatches", 1)
+    num_cores = config["algorithm"].get("num_cores", 1)
+
+    cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
+    cl.extend(["--input-dir", basecall_dir])
+    cl.extend(["--output-dir", unaligned_dir])
+    cl.extend(["--sample-sheet", samplesheet_file])
+    cl.extend(["--mismatches", str(num_mismatches)])
+
+    options = ["--fastq-cluster-count", "0", \
+               "--ignore-missing-stats", \
+               "--ignore-missing-bcl", \
+               "--ignore-missing-control"]
+
+    cl.extend(options)
+
+    # Run configuration script
+    logger2.info("Configuring BCL to Fastq conversion")
+    logger2.debug(cl)
+    subprocess.check_call(cl)
+
+    # Go to <Unaligned> folder
+    os.chdir(unaligned_dir)
+
+    # Perform make
+    cl = ["nohup", "make", "-j", str(num_cores)]
+    logger2.info("Demultiplexing and converting bcl to fastq.gz")
+    logger2.debug(cl)
+    subprocess.check_call(cl)
+
+    logger2.debug("Done")
+
+
 def _generate_fastq(fc_dir, config):
     """Generate fastq files for the current flowcell.
     """
@@ -149,8 +197,8 @@ def _generate_fastq(fc_dir, config):
     basecall_dir = os.path.split(fastq_dir)[0]
     postprocess_dir = config.get("postprocess_dir", "")
     if postprocess_dir:
-        fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir),
-                                 "fastq")
+        fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir), "fastq")
+
     if not fastq_dir == fc_dir and not os.path.exists(fastq_dir):
         with utils.chdir(basecall_dir):
             lanes = sorted(list(set([f.split("_")[1] for f in
@@ -159,8 +207,10 @@ def _generate_fastq(fc_dir, config):
                   ",".join(lanes)]
             if postprocess_dir:
                 cl += ["-o", fastq_dir]
+
             logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
+
     return fastq_dir
 
 

@@ -58,7 +58,6 @@ def _has_barcode(sample):
         pass
 
 
-
 def _generate_barcode_ids(info_iter):
     """Create unique barcode IDs assigned to sequences
     """
@@ -68,7 +67,7 @@ def _generate_barcode_ids(info_iter):
     barcode_ids = {}
     for i, bc in enumerate(barcodes):
         barcode_ids[bc] = (bc_type, i + 1)
-    
+
     return barcode_ids
 
 
@@ -128,11 +127,14 @@ def csv2yaml(in_file, out_file=None):
     lanes = _organize_lanes(_read_input_csv(in_file), barcode_ids)
     with open(out_file, "w") as out_handle:
         out_handle.write(yaml.safe_dump(lanes, default_flow_style=False, allow_unicode=True))
+
     return out_file
 
 
 def run_has_samplesheet(fc_dir, config, require_single=True):
-    """Checks if there's a suitable SampleSheet.csv present for the run
+    """Checks if there's a suitable SampleSheet.csv present for the run.
+
+    Returns the path to the samplesheet if one is found, None otherwise.
     """
     fc_name, _ = get_flowcell_info(fc_dir)
     sheet_dirs = config.get("samplesheet_directories", [])
@@ -144,12 +146,13 @@ def run_has_samplesheet(fc_dir, config, require_single=True):
                 for fcid in fc_ids:
                     if fcid:
                         fcid_sheet[fcid] = os.path.join(ss_dir, ss)
+
     # difflib handles human errors while entering data on the SampleSheet.
     # Only one best candidate is returned (if any). 0.85 cutoff allows for
     # maximum of 2 mismatches in fcid
 
     potential_fcids = difflib.get_close_matches(fc_name, fcid_sheet.keys(), 1, 0.85)
-    if len(potential_fcids) > 0 and fcid_sheet.has_key(potential_fcids[0]):
+    if len(potential_fcids) > 0 and potential_fcids[0] in fcid_sheet:
         return fcid_sheet[potential_fcids[0]]
     else:
         return None
