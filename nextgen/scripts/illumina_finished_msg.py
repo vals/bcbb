@@ -51,7 +51,7 @@ def main(local_config, post_config_file=None, fetch_msg=True, \
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file, fetch_msg, \
-            process_msg, store_msg, qseq, fastq,)
+            process_msg, store_msg, qseq, fastq, casava)
 
 
 def search_for_new(config, config_file, post_config_file, fetch_msg, \
@@ -61,6 +61,10 @@ def search_for_new(config, config_file, post_config_file, fetch_msg, \
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
         if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
+            if casava and _is_finished_dumping_read_1(dname):
+                logger2.info("Generating fastq.gz files for read 1 of %s" % dname)
+                _generate_fastq_with_casava(dname, config, r1=True)
+
             if _is_finished_dumping(dname):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
@@ -147,7 +151,7 @@ def _process_samplesheets(dname, config):
         samplesheet.csv2yaml(ss_file, out_file)
 
 
-def _generate_fastq_with_casava(fc_dir, config):
+def _generate_fastq_with_casava(fc_dir, config, r1=False):
     """Perform demultiplexing and generate fastq.gz files for the current
     flowecell using CASAVA (>1.8).
     """
@@ -171,15 +175,19 @@ def _generate_fastq_with_casava(fc_dir, config):
 
     cl.extend(options)
 
-    # Run configuration script
-    logger2.info("Configuring BCL to Fastq conversion")
-    logger2.debug(cl)
-    subprocess.check_call(cl)
+    if r1:
+        # Run configuration script
+        logger2.info("Configuring BCL to Fastq conversion")
+        logger2.debug(cl)
+        subprocess.check_call(cl)
 
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
         # Perform make
         cl = ["nohup", "make", "-j", str(num_cores)]
+        if r1:
+            cl.append("r1")
+
         logger2.info("Demultiplexing and converting bcl to fastq.gz")
         logger2.debug(cl)
         subprocess.check_call(cl)
@@ -237,10 +245,7 @@ def _generate_qseq(bc_dir, config):
             cl += ["-i", bc_dir, "-p", os.path.split(bc_dir)[0]]
         subprocess.check_call(cl)
         with utils.chdir(bc_dir):
-            try:
-                processors = config["algorithm"]["num_cores"]
-            except KeyError:
-                processors = 8
+            processors = config["algorithm"].get("num_cores", 8)
             cl = config["program"].get("olb_make", "make").split() + ["-j", str(processors)]
             subprocess.check_call(cl)
 
@@ -251,17 +256,35 @@ def _is_finished_dumping(directory):
     The final checkpoint file will differ depending if we are a
     single or paired end run.
     """
-    #if _is_finished_dumping_checkpoint(directory):
-    #    return True
     # Check final output files; handles both HiSeq, MiSeq and GAII
     run_info = os.path.join(directory, "RunInfo.xml")
     hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
                         _expected_reads(run_info)
+
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
                 "Basecalling_Netcopy_complete_READ2.txt",
                 hi_seq_checkpoint]
+
     return reduce(operator.or_,
             [os.path.exists(os.path.join(directory, f)) for f in to_check])
+
+
+def _is_finished_dumping_read_1(directory):
+    """Determine if the sequencing directory has all files from read 1, as
+    well as the indexed read (read 2).
+
+    This lets CASAVA 1.8  and above start demultiplexing and converting to
+    fastq.gz while the last read is still being processed.
+    """
+    indexed_read_checkpoint = os.path.join(directory, "Basecalling_Netcopy_complete_Read2.txt")
+    read_1_finished_checkpoint = os.path.join(directory, "Demultiplexing_done_Read1.txt")
+
+    if os.path.exists(indexed_read_checkpoint) \
+    and not os.path.exists(read_1_finished_checkpoint):
+        open(read_1_finished_checkpoint, 'w').close()
+        return True
+    else:
+        return False
 
 
 def _expected_reads(run_info_file):
@@ -398,9 +421,12 @@ if __name__ == "__main__":
             action="store_false", default=True)
     parser.add_option("-q", "--noqseq", dest="qseq",
             action="store_false", default=True)
+    parser.add_option("-c", "--casava", dest="casava",
+            action="store_true", default=False)
 
     (options, args) = parser.parse_args()
     kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg,
-                  store_msg=options.store_msg,
-                  fastq=options.fastq, qseq=options.qseq)
+                  store_msg=options.store_msg, fastq=options.fastq,
+                  qseq=options.qseq, casava=options.casava)
+
     main(*args, **kwargs)
