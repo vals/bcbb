@@ -157,7 +157,7 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     """
     basecall_dir = os.path.join(fc_dir, "Data", "Intensities", "BaseCalls")
     casava_dir = config["program"].get("casava")
-    unaligned_dir = os.path.join(basecall_dir, "Unaligned")
+    unaligned_dir = os.path.join(fc_dir, "Unaligned")
     samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
     num_mismatches = config["algorithm"].get("mismatches", 1)
     num_cores = config["algorithm"].get("num_cores", 1)
