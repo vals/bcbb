@@ -328,27 +328,35 @@ def _files_to_copy(directory):
                                    ["RunInfo.xml", "runParameters.xml"]])
 
         qseqs = reduce(operator.add,
-                     [glob.glob("Data/Intensities/*.xml"),
-                      glob.glob("Data/Intensities/BaseCalls/*qseq.txt"),
-                      ])
+                    [glob.glob("Data/Intensities/*.xml"),
+                     glob.glob("Data/Intensities/BaseCalls/*qseq.txt"),
+                     glob.glob("Unaligned/Basecall_Stats_*/*"),
+                     glob.glob("Unalgiend/Basecall_Stats_*/**/*")
+                    ])
 
         reports = reduce(operator.add,
-                     [glob.glob("*.xml"),
-                      glob.glob("Data/Intensities/BaseCalls/*.xml"),
-                      glob.glob("Data/Intensities/BaseCalls/*.xsl"),
-                      glob.glob("Data/Intensities/BaseCalls/*.htm"),
-                      ["Data/Intensities/BaseCalls/Plots", "Data/reports",
-                       "Data/Status.htm", "Data/Status_Files", "InterOp"]])
+                        [glob.glob("*.xml"),
+                         glob.glob("Data/Intensities/BaseCalls/*.xml"),
+                         glob.glob("Data/Intensities/BaseCalls/*.xsl"),
+                         glob.glob("Data/Intensities/BaseCalls/*.htm"),
+                         ["Data/Intensities/BaseCalls/Plots", "Data/reports",
+                          "Data/Status.htm", "Data/Status_Files", "InterOp"]
+                        ])
 
         run_info = reduce(operator.add,
                         [glob.glob("run_info.yaml"),
                          glob.glob("*.csv"),
+                         glob.glob("Unaligned/Project_*/**/*.csv"),
+                         glob.glob("Unaligned/Undetermined_indices/**/*.csv")
                         ])
 
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
         fastq = reduce(operator.add,
-                       [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
-                        ["Data/Intensities/BaseCalls/fastq"]])
+                        [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
+                         glob.glob("Unaligned/Project_*/**/*.fastq.gz"),
+                         glob.glob("Unaligned/Undetermined_indices/**/*.fastq.gz"),
+                         ["Data/Intensities/BaseCalls/fastq"]
+                        ])
 
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
             sorted(reports + fastq + run_info))
