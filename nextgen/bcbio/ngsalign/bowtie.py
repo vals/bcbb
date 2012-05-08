@@ -62,7 +62,7 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
                  "%s.filter_metrics" % out_root]
     suffix = "_fastq.txt"
     
-    if not len(glob.glob("%s*%s" % (out_root,suffix))) > 0:
+    if not len(glob.glob("%s_[12]%s" % (out_root,suffix))) > 0:
         with file_transaction(out_files) as (tx_out_file1, tx_out_file2, tx_metrics_file):
             out = tx_out_file1
             if pair_file:
@@ -102,7 +102,7 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
             os.rename(out_file,dest_file)
             dest_files.append(dest_file)
     else:
-        dest_files = glob.glob("%s*%s" % (out_root,suffix))    
+        dest_files = glob.glob("%s_[12]%s" % (out_root,suffix))    
     
     dest_files.append(out_base)
     return dest_files
