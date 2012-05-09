@@ -47,7 +47,10 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         with log_handler.applicationbound():
 
             # Inject the fc_date and fc_name in the email subject
-            with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))):
+            def record_processor(record):
+                return record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))
+
+            with logbook.Processor(record_processor):
 
                 try:
                     log.info("Started creating sequencing report on Google docs for %s_%s on %s" % (fc_date, fc_name, time.strftime("%x @ %X")))
