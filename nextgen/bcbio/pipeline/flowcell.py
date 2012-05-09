@@ -139,13 +139,15 @@ class Flowcell:
             self.add_lane(Lane(lane))
 
     def get_project_names(self):
-        pnames = {}
+        pnames = set()
         for lane in self.get_lanes():
             for pname in lane.get_project_names():
                 if pname is None:
                     continue
-                pnames[pname] = 1
-        return pnames.keys()
+
+                pnames.add(pname)
+
+        return list(pnames)
 
     def get_samples(self):
         samples = []

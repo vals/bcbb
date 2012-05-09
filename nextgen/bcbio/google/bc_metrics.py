@@ -1,18 +1,12 @@
 #!/usr/bin/env python
 """Functions for getting barcode statistics from demultiplexing"""
 
-# import os
-# import re
 import copy
-# import glob
-# import logbook
-# from bcbio.utils import UnicodeReader
 import bcbio.google.connection
 import bcbio.google.document
 import bcbio.google.spreadsheet
-from bcbio.google import _to_unicode  # (_from_unicode, _to_unicode, get_credentials)
-from bcbio.log import logger2  # , create_log_handler
-# from bcbio.pipeline.flowcell import Flowcell
+from bcbio.google import _to_unicode
+from bcbio.log import logger2
 import bcbio.solexa.flowcell
 import bcbio.pipeline.flowcell
 
