@@ -18,18 +18,18 @@ import bcbio.pipeline.flowcell
 
 # The structure of the demultiplex result
 BARCODE_STATS_HEADER = [
-                 ['Project name', 'project_name'],
-                 ['Lane', 'lane'],
-                 ['Lane description', 'description'],
-                 ['Sample name', 'sample_name'],
-                 ['bcbb internal barcode index', 'bcbb_barcode_id'],
-                 ['Barcode name', 'barcode_name'],
-                 ['Barcode sequence', 'barcode_sequence'],
-                 ['Barcode type', 'barcode_type'],
-                 ['Demultiplexed read (pair) count', 'read_count'],
-                 ['Demultiplexed read (pair) count (millions)', 'rounded_read_count'],
-                 ['Comment', 'comment']
-                ]
+         ['Project name', 'project_name'],
+         ['Lane', 'lane'],
+         ['Lane description', 'description'],
+         ['Sample name', 'sample_name'],
+         ['bcbb internal barcode index', 'bcbb_barcode_id'],
+         ['Barcode name', 'barcode_name'],
+         ['Barcode sequence', 'barcode_sequence'],
+         ['Barcode type', 'barcode_type'],
+         ['Demultiplexed read (pair) count', 'read_count'],
+         ['Demultiplexed read (pair) count (millions)', 'rounded_read_count'],
+         ['Comment', 'comment']
+        ]
 
 # The structure of the sequencing result
 SEQUENCING_RESULT_HEADER = [
@@ -112,7 +112,8 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
     samples = {}
     # Get the list of worksheets in the spreadsheet
     wsheet_feed = bcbio.google.spreadsheet.get_worksheets_feed(client, ssheet)
-    # Loop over the worksheets and parse the data from the ones that contain flowcell data
+    # Loop over the worksheets and parse the data from the ones that contain
+    # flowcell data
     for wsheet in wsheet_feed.entry:
         wsheet_title = wsheet.title.text
         if wsheet_title.endswith("_QC"):
@@ -153,7 +154,8 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
     name_data = {}
     for row_num in range(2, num_rows + 1):
         sample_name, _, _, _, _, comment, pass_field = \
-        bcbio.google.spreadsheet.get_row(client, ssheet, existing_summary_wsheet, row_num)
+        bcbio.google.spreadsheet.get_row( \
+            client, ssheet, existing_summary_wsheet, row_num)
         name_data[sample_name] = [comment, pass_field]
 
     # Flatten the project_data structure into a list

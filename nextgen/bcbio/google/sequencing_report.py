@@ -157,4 +157,3 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
             % _from_unicode(ssheet.title.text))
 
     return success
-    
