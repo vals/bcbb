@@ -45,6 +45,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
     work_dir = os.getcwd()
     if config.get("log_dir", None) is None:
         config["log_dir"] = os.path.join(work_dir, "log")
+
     setup_logging(config)
     run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 

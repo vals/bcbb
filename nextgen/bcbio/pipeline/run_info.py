@@ -45,10 +45,13 @@ def _organize_runs_by_lane(run_info):
     out = []
     for grouped_items in [items_by_lane[x] for x in sorted(items_by_lane.keys())]:
         bcs = [x["barcode_id"] for x in grouped_items]
-        assert len(bcs) == len(set(bcs)), "Duplicate barcodes {0} in lane {1}".format(
-            bcs, grouped_items[0]["lane"])
-        assert len(bcs) == 1 or None not in bcs, "Barcode and non-barcode in lane {0}".format(
-            grouped_items[0]["lane"])
+
+        assert len(bcs) == len(set(bcs)), \
+        "Duplicate barcodes {0} in lane {1}".format(bcs, grouped_items[0]["lane"])
+
+        assert len(bcs) == 1 or None not in bcs, \
+        "Barcode and non-barcode in lane {0}".format(grouped_items[0]["lane"])
+
         out.append(grouped_items)
     run_info["details"] = out
     return run_info
