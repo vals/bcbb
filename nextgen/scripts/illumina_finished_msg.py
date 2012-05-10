@@ -329,9 +329,7 @@ def _files_to_copy(directory):
 
         qseqs = reduce(operator.add,
                     [glob.glob("Data/Intensities/*.xml"),
-                     glob.glob("Data/Intensities/BaseCalls/*qseq.txt"),
-                     glob.glob("Unaligned/Basecall_Stats_*/*"),
-                     glob.glob("Unalgiend/Basecall_Stats_*/**/*")
+                     glob.glob("Data/Intensities/BaseCalls/*qseq.txt")
                     ])
 
         reports = reduce(operator.add,
@@ -339,6 +337,8 @@ def _files_to_copy(directory):
                          glob.glob("Data/Intensities/BaseCalls/*.xml"),
                          glob.glob("Data/Intensities/BaseCalls/*.xsl"),
                          glob.glob("Data/Intensities/BaseCalls/*.htm"),
+                         glob.glob("Unaligned/Basecall_Stats_*/*"),
+                         glob.glob("Unalgiend/Basecall_Stats_*/**/*"),
                          ["Data/Intensities/BaseCalls/Plots", "Data/reports",
                           "Data/Status.htm", "Data/Status_Files", "InterOp"]
                         ])
@@ -351,6 +351,7 @@ def _files_to_copy(directory):
                         ])
 
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
+
         fastq = reduce(operator.add,
                         [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
                          glob.glob("Unaligned/Project_*/**/*.fastq.gz"),

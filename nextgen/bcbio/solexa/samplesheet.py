@@ -10,8 +10,6 @@ import itertools
 import difflib
 import glob
 
-import operator
-
 import yaml
 
 from bcbio.solexa.flowcell import (get_flowcell_info)
@@ -22,7 +20,7 @@ def _organize_lanes(info_iter, barcode_ids):
     """Organize flat lane information into nested YAML structure.
     """
     all_lanes = []
-    sorted_info = sorted(info_iter, key=operator.itemgetter(1))
+    sorted_info = sorted(info_iter, key=lambda x: x[1])
 
     for lane, info in itertools.groupby(sorted_info, lambda x: x[1]):
         info = list(info)
