@@ -98,7 +98,7 @@ Clone a copy of the code from GitHub:
 
       git clone https://github.com/chapmanb/bcbb.git
 
-Use a recent version of Python 2 (2.6 or 2.7), and install with:
+Use Python 2.7, and install with:
 
       cd bcbb/nextgen && python setup.py install
 
