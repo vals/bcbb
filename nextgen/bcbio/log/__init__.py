@@ -31,7 +31,7 @@ import logbook
 logger2 = logbook.Logger(LOG_NAME)
 
 
-def create_log_handler(config,batch_records=False):
+def create_log_handler(config, batch_records=False):
     log_dir = config.get("log_dir", None)
     email = config.get("email", None)
 

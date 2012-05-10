@@ -25,6 +25,8 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
     success = True
     try:
         # Parse the run_info.yaml file
+        log.debug("This is the run_info being loaded:")
+        log.debug(run_info_yaml)
         with open(run_info_yaml, "r") as fh:
             run_info = yaml.load(fh)
 
@@ -42,7 +44,9 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         email = gdocs.get("gdocs_email_notification", None)
         smtp_host = config.get("smtp_host", "")
         smtp_port = config.get("smtp_port", "")
-        log_handler = create_log_handler({'email': email, 'smtp_host': smtp_host, 'smtp_port': smtp_port}, True)
+        log_handler = create_log_handler({'email': email, \
+                                          'smtp_host': smtp_host, \
+                                          'smtp_port': smtp_port}, True)
 
         with log_handler.applicationbound():
 

@@ -12,6 +12,8 @@ from bcbio.solexa.flowcell import get_flowcell_info
 from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
 
+from bcbio.log import logger2 as log
+
 
 def format_project_name(unformated_name):
     """Make the project name adhere to a stricter formatting convention"""
@@ -31,8 +33,8 @@ def format_project_name(unformated_name):
     name = p.sub('.', name)
 
     # Make sure that the initial letters are in capitals
-    name = string.capwords(name,".")
-        
+    name = string.capwords(name, ".")
+
     # Format the name
     project_name = "%s_%s_%s%s" % (name, year, month, suffix)
     return project_name
@@ -40,48 +42,55 @@ def format_project_name(unformated_name):
 
 def get_barcode_metrics(workdir):
     """Parse the [lane]_*_bc.metrics files in the *_barcode directories into a dictionary"""
-    
+
     bc_files = []
     if workdir is not None:
-        bc_files = glob.glob(os.path.join(workdir,"*_barcode","*_bc.metrics"))
+        bc_files = glob.glob(os.path.join(workdir, "*_barcode", "*_bc.metrics"))
     if not len(bc_files) > 0:
         return None
-    
+
     bc_metrics = {}
     for bc_file in bc_files:
-        m = re.match(r'^(\d+)\_',os.path.basename(bc_file))
+        m = re.match(r'^(\d+)\_', os.path.basename(bc_file))
         if not m or len(m.groups()) != 1:
             continue
         lane = str(m.group(1))
         bc_metrics[lane] = {}
         with open(bc_file) as bcfh:
-            csvr = UnicodeReader(bcfh,dialect='excel-tab')
+            csvr = UnicodeReader(bcfh, dialect='excel-tab')
             for row in csvr:
                 bc_metrics[lane][str(row[0])] = int(row[1])
-            
+
     return bc_metrics
+
 
 def get_flowcell(fc_dir, run_info_yaml, config={}):
     # Just get the name of the flowcell directory minus the path
     fc_name, fc_date = get_flowcell_info(os.path.basename(os.path.normpath(fc_dir)))
-    with open(run_info_yaml,"r") as fh:
+    with open(run_info_yaml, "r") as fh:
         run_info = yaml.load(fh)
-        
-    return Flowcell(fc_name,fc_date,run_info,fc_dir)
+
+    return Flowcell(fc_name, fc_date, run_info, fc_dir)
+
 
 def get_project_name(description):
     """Parse out the project name from the lane description"""
-    m = re.match(r'(?:.*\s+)?(\S+)',(description or ""),re.I)
+    m = re.match(r'(?:.*\s+)?(\S+)', (description or ""), re.I)
     if m and len(m.groups()) > 0:
         return format_project_name(m.group(1).strip())
+
     return description
-       
+
+
 def get_sample_name(barcode_name):
-    """Extract the sample name by stripping the barcode index part of the sample description""" 
+    """Extract the sample name by stripping the barcode index part of the
+    sample description.
+    """
     regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[ar\.\-_]?\d+$'
-    m = re.search(regexp,(barcode_name or ""),re.I)
+    m = re.search(regexp, (barcode_name or ""), re.I)
     if not m or len(m.groups()) == 0:
         return barcode_name
+
     return m.group(1)
 
 
@@ -91,11 +100,13 @@ class Flowcell:
     def __init__(self, fc_name, fc_date, data, fc_dir=None):
         # Extract the run_items if we are passed a dictionary
         try:
-            d = data.get('details',[])
+            log.debug("Try making flowcell with this data:")
+            log.debug(data)
+            d = data.get('details', [])
             data = d
         except AttributeError:
             pass
-        
+
         self.set_fc_dir(fc_dir)
         self.set_fc_date(fc_date)
         self.set_fc_name(fc_name)
@@ -257,29 +268,32 @@ class Lane:
             if (str(sample.get_barcode_id()) == str(barcode_id)):
                 return sample
         return None
-    
-    def add_sample(self,sample):
+
+    def add_sample(self, sample):
         self.multiplex.append(sample)
+
     def get_samples(self):
         return self.multiplex
-    def set_samples(self,multiplex):
+
+    def set_samples(self, multiplex):
         self.multiplex = []
         for barcode in multiplex:
-            self.add_sample(BarcodedSample(barcode,self))
+            self.add_sample(BarcodedSample(barcode, self))
 
     def set_files(self, files):
         self.files = files
+
     def get_files(self):
         return self.files
 
-    def get_samples_by_project(self,project):
+    def get_samples_by_project(self, project):
         samples = []
         for sample in self.get_samples():
             if (sample.get_project() == project):
                 samples.append(sample)
         return samples
-    
-    def prune_to_project(self,project,exclude_unmatched=False):
+
+    def prune_to_project(self, project, exclude_unmatched=False):
         """Return a new Lane object just containing the samples belonging to a specific project"""
         samples = []
         lane = None
@@ -287,33 +301,33 @@ class Lane:
             samples.append(sample.to_structure())
         if (len(samples)):
             struct = self.to_structure()
-            
+
             # Add the unmatched samples unless specifically asked not to
             if (not exclude_unmatched):
                 sample = self.get_sample_by_barcode("unmatched")
                 if (sample):
                     samples.append(sample.to_structure())
-                    
+
             struct["multiplex"] = samples
             struct["description"] = "%s-pruned" % project
             lane = Lane(struct)
         return lane
-    
+
     @staticmethod
     def columns():
-        cols = ["lane","description"]
+        cols = ["lane", "description"]
         cols.extend(BarcodedSample.columns())
         return cols
-    
+
     def to_rows(self):
         rows = []
         for sample in self.get_samples():
             s = sample.to_rows()
-            s.insert(0,self.get_name())
-            s.insert(1,self.get_description())
+            s.insert(0, self.get_name())
+            s.insert(1, self.get_description())
             rows.append(s)
         return rows
-            
+
     def to_structure(self):
         struct = {}
         if (self.get_description()):
@@ -447,13 +461,13 @@ class Sample:
 
     @staticmethod
     def columns():
-        cols = ["project_name","sample_name","read_count","rounded_read_count"]
+        cols = ["project_name", "sample_name", "read_count", "rounded_read_count"]
         return cols
-    
+
     def to_rows(self):
-        rows = [self.get_project(),self.get_name(),self.get_read_count(),self.get_rounded_read_count()]
+        rows = [self.get_project(), self.get_name(), self.get_read_count(), self.get_rounded_read_count()]
         return rows
-    
+
     def to_structure(self):
         struct = {}
         if (self.get_analysis()):
@@ -471,54 +485,60 @@ class Sample:
         if (self.get_read_count() is not None):
             struct["read_count"] = self.get_read_count()
         return struct
-    
+
+
 class BarcodedSample(Sample):
     """A subclass of Sample for managing information about a barcoded sample"""
-    
-    def __init__(self,data,lane=Lane({})):
-        Sample.__init__(self,data,lane)
-        self.set_barcode_id(data.get("barcode_id",None))
-        self.set_barcode_name(data.get("name",None))
-        self.set_barcode_sequence(data.get("sequence",None))
-        self.set_barcode_type(data.get("barcode_type",None))
-        self.set_barcode_full_name(data.get("full_name",None))
+
+    def __init__(self, data, lane=Lane({})):
+        Sample.__init__(self, data, lane)
+        self.set_barcode_id(data.get("barcode_id", None))
+        self.set_barcode_name(data.get("name", None))
+        self.set_barcode_sequence(data.get("sequence", None))
+        self.set_barcode_type(data.get("barcode_type", None))
+        self.set_barcode_full_name(data.get("full_name", None))
 
     def get_barcode_id(self):
         return _from_unicode(self.barcode_id)
-    def set_barcode_id(self,barcode_id):
+
+    def set_barcode_id(self, barcode_id):
         self.barcode_id = _to_unicode(barcode_id)
-               
+
     def get_barcode_name(self):
         return _from_unicode(self.barcode_name)
-    def set_barcode_name(self,barcode_name):
+
+    def set_barcode_name(self, barcode_name):
         self.barcode_name = _to_unicode(barcode_name)
 
     def get_barcode_full_name(self):
         return _from_unicode(self.barcode_full_name)
-    def set_barcode_full_name(self,barcode_full_name):
+
+    def set_barcode_full_name(self, barcode_full_name):
         self.barcode_full_name = _to_unicode(barcode_full_name)
 
     def get_barcode_sequence(self):
         return _from_unicode(self.barcode_sequence)
-    def set_barcode_sequence(self,barcode_sequence):
+
+    def set_barcode_sequence(self, barcode_sequence):
         self.barcode_sequence = _to_unicode(barcode_sequence)
-             
+
     def get_barcode_type(self):
         return _from_unicode(self.barcode_type)
-    def set_barcode_type(self,barcode_type):
+
+    def set_barcode_type(self, barcode_type):
         self.barcode_type = _to_unicode(barcode_type)
-    
+
     @staticmethod
     def columns():
         cols = Sample.columns()
-        cols.extend(["bcbb_barcode_id","barcode_name","barcode_sequence","barcode_type"])
+        cols.extend(["bcbb_barcode_id", "barcode_name", "barcode_sequence", "barcode_type"])
         return cols
-    
+
     def to_rows(self):
         rows = Sample.to_rows(self)
         rows.extend([self.get_barcode_id(), self.get_barcode_name(), self.get_barcode_sequence(), self.get_barcode_type()])
         return rows
-    
+
     def to_structure(self):
         struct = Sample.to_structure(self)
         if (self.get_barcode_id()):
