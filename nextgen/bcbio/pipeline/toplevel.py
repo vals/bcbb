@@ -37,6 +37,14 @@ def fetch_data(remote_info, config_file):
     fc_dir = _copy_from_sequencer(remote_info, config)
 
 
+def backup_data(remote_info, config_file):
+    """Main entry point for fetching data from sequencer or pre-processing machine.
+    """
+    config = load_config(config_file)
+    logger.info("Backing up run data over to remote storage: %s" % config["store_host"])
+    fc_dir = _copy_from_sequencer(remote_info, config)
+
+
 # ## Copying over files from sequencer, if necessary
 
 def _copy_from_sequencer(remote_info, config):
