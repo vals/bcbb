@@ -1,7 +1,6 @@
 """A module for managing metadata and layout, as specified in run_info.yaml,
 as well as read counts for the samples on a flowcell.
 """
-
 import copy
 import re
 import os
@@ -10,7 +9,7 @@ import yaml
 import string
 
 from bcbio.solexa.flowcell import get_flowcell_info
-from bcbio.google import ( _to_unicode, _from_unicode )
+from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
 
 
@@ -163,33 +162,33 @@ class Flowcell:
             if (l):
                 lanes.append(l.to_structure())
         if (len(lanes)):
-            fc = Flowcell(self.get_fc_name(),self.get_fc_date(),lanes)
+            fc = Flowcell(self.get_fc_name(), self.get_fc_date(), lanes)
         return fc
-    
-    def set_read_counts(self,read_counts=None):
+
+    def set_read_counts(self, read_counts=None):
         """Sets the read counts of the barcoded samples in the lanes of this flowcell.
            Read counts can be supplied in a dictionary with lane number as key to a
-           dictionary with barcode indexes (or 'unmatched' or 'trim') as key and counts 
-           as values. If no read counts are supplied, attempts to parse the read counts 
+           dictionary with barcode indexes (or 'unmatched' or 'trim') as key and counts
+           as values. If no read counts are supplied, attempts to parse the read counts
            from the flowcell directory, assuming that the read counts can be found using a glob
            like [lane]_*_barcode/[lane]_*_bc.metrics
         """
         if read_counts is None:
             read_counts = get_barcode_metrics(self.get_fc_dir()) or {}
-            
+
         for name in read_counts.keys():
             lane = self.get_lane_by_name(name)
             if not lane:
                 lane = Lane({"lane": name, "description": "Unexpected lane"})
                 self.add_lane(lane)
             lane.set_read_counts(read_counts[name])
-    
+
     @staticmethod
     def columns():
-        cols = []#"fc_date","fc_name"]
+        cols = []  # "fc_date","fc_name"]
         cols.extend(Lane.columns())
         return cols
-    
+
     def to_rows(self):
         rows = []
         for lane in self.get_lanes():
@@ -344,74 +343,91 @@ class Lane:
         s = "Lane: %s\n\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
         return s
 
+
 class Sample:
-    """A class for managing information about a sample"""
-     
-    def __init__(self,data,lane=Lane({}),comment=None):
-        self.set_analysis(data.get("analysis",lane.get_analysis()))
-        self.set_genome_build(data.get("genome_build",lane.get_genome_build()))
-        self.set_name(data.get("name",None))
-        self.set_full_name(data.get("full_name",data.get("name", None)))
-        self.set_project(data.get("sample_prj",data.get("description",lane.get_description())))
-        self.set_read_count(data.get("read_count",None))
-        self.set_description(data.get("description",None))
+    """A class for managing information about a sample.
+    """
+
+    def __init__(self, data, lane=Lane({}), comment=None):
+        self.set_analysis(data.get("analysis", lane.get_analysis()))
+        self.set_genome_build(data.get("genome_build", lane.get_genome_build()))
+        self.set_name(data.get("name", None))
+        self.set_full_name(data.get("full_name", data.get("name", None)))
+        self.set_project(data.get("sample_prj", \
+            data.get("description", lane.get_description())))
+        self.set_read_count(data.get("read_count", None))
+        self.set_description(data.get("description", None))
         self.set_lane(lane.get_name())
         self.set_comment(comment)
-        
-    def add_sample(self,other,delim=', '):
+
+    def add_sample(self, other, delim=', '):
         if (self.get_analysis() != other.get_analysis()):
-            self.set_analysis("%s%s%s" % (self.get_analysis(),delim,other.get_analysis()))
+            self.set_analysis("%s%s%s" \
+                % (self.get_analysis(), delim, other.get_analysis()))
         if (self.get_genome_build() != other.get_genome_build()):
-            self.set_genome_build("%s%s%s" % (self.get_genome_build(),delim,other.get_genome_build()))
+            self.set_genome_build("%s%s%s" \
+                % (self.get_genome_build(), delim, other.get_genome_build()))
         if (self.get_name() != other.get_name()):
-            self.set_name("%s%s%s" % (self.get_name(),delim,other.get_name()))
+            self.set_name("%s%s%s" \
+                % (self.get_name(), delim, other.get_name()))
         if (self.get_project() != other.get_project()):
-            self.set_project("%s%s%s" % (self.get_project(),delim,other.get_project()))
+            self.set_project("%s%s%s" \
+                % (self.get_project(), delim, other.get_project()))
         if (self.get_lane() != other.get_lane()):
-            self.set_lane("%s%s%s" % (self.get_lane(),delim,other.get_lane()))
+            self.set_lane("%s%s%s" \
+                % (self.get_lane(), delim, other.get_lane()))
         if (other.get_read_count() is not None):
-            self.set_read_count((self.get_read_count() or 0) + other.get_read_count())
-            
+            self.set_read_count((self.get_read_count() or 0) \
+                + other.get_read_count())
+
     def get_analysis(self):
         return _from_unicode(self.analysis)
-    def set_analysis(self,analysis):
+
+    def set_analysis(self, analysis):
         self.analysis = _to_unicode(analysis)
-        
+
     def get_genome_build(self):
         return _from_unicode(self.genome_build)
-    def set_genome_build(self,genome_build):
+
+    def set_genome_build(self, genome_build):
         self.genome_build = _to_unicode(genome_build)
-        
+
     def get_name(self):
         return _from_unicode(self.name)
-    def set_name(self,name):
+
+    def set_name(self, name):
         self.name = get_sample_name(_to_unicode(name))
 
     def get_full_name(self):
         return _from_unicode(self.full_name)
-    def set_full_name(self,name):
+
+    def set_full_name(self, name):
         self.full_name = _to_unicode(name)
 
     def get_comment(self):
         return self.comment
-    def set_comment(self,comment):
+
+    def set_comment(self, comment):
         self.comment = comment
-        
+
     def get_lane(self):
         return self.lane
-    def set_lane(self,lane):
+
+    def set_lane(self, lane):
         self.lane = lane
-        
+
     def get_project(self):
         return _from_unicode(self.project)
-    def set_project(self,project):
+
+    def set_project(self, project):
         self.project = get_project_name(_to_unicode(project))
-        
+
     def get_description(self):
         return _from_unicode(self.description)
-    def set_description(self,description):
+
+    def set_description(self, description):
         self.description = _to_unicode(description)
-        
+
     def get_read_count(self):
         if self.read_count:
             try:
@@ -420,12 +436,13 @@ class Sample:
             except ValueError:
                 pass
         return None
-    
-    def get_rounded_read_count(self,unit=1000000,decimals=2):
-        return round((self.get_read_count() or 0)/float(unit),int(decimals))
-    def set_read_count(self,read_count):
+
+    def get_rounded_read_count(self, unit=1000000, decimals=2):
+        return round((self.get_read_count() or 0) / float(unit), int(decimals))
+
+    def set_read_count(self, read_count):
         self.read_count = read_count
-    
+
     @staticmethod
     def columns():
         cols = ["project_name","sample_name","read_count","rounded_read_count"]
