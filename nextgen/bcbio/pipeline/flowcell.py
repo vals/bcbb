@@ -78,7 +78,7 @@ def get_project_name(description):
        
 def get_sample_name(barcode_name):
     """Extract the sample name by stripping the barcode index part of the sample description""" 
-    regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[ar\.\-_]?\d+$'
+    regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[arm\.\-_]?\d+$'
     m = re.search(regexp,(barcode_name or ""),re.I)
     if not m or len(m.groups()) == 0:
         return barcode_name
