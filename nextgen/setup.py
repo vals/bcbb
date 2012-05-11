@@ -48,7 +48,7 @@ setup(name="bcbio-nextgen",
           "celery >= 2.2.7",
           "nose >= 1.0.0",
           "gdata >= 2.0.14",
-          "BeautifulSoup"
+          "BeautifulSoup4"
       ])
 
 os.system("git rev-parse --short --verify HEAD > ~/.bcbb_pipeline_version")
