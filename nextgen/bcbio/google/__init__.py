@@ -17,6 +17,7 @@ def _to_unicode(str, encoding='utf-8'):
             str = unicode(str, encoding)
     return str
 
+
 def get_credentials(config):
     """Get the encoded credentials specified in the post process configuration file"""
 
