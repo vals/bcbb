@@ -8,11 +8,15 @@ import glob
 import yaml
 import string
 
+from collections import defaultdict
+
 from bcbio.solexa.flowcell import get_flowcell_info
 from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
 
 from bcbio.log import logger2 as log
+
+from bs4 import BeautifulSoup
 
 
 def format_project_name(unformated_name):
@@ -41,19 +45,30 @@ def format_project_name(unformated_name):
 
 
 def get_barcode_metrics(workdir):
-    """Parse the [lane]_*_bc.metrics files in the *_barcode directories into a dictionary"""
+    """Parse the [lane]_*_bc.metrics files in the *_barcode directories into
+    a dictionary.
 
+    If the samples have been demultiplexed by CASAVA, parses the
+    Unaligned/Basecall_Stats_*/Demultiplex_Stats.htm file for barcode metrics.
+    """
     bc_files = []
     if workdir is not None:
-        bc_files = glob.glob(os.path.join(workdir, "*_barcode", "*_bc.metrics"))
+        bc_files.extend(glob.glob(os.path.join(workdir, "*_barcode", "*_bc.metrics")))
+        casava_stats = os.path.join("Unaligned", "Basecall_Stats_*", "Demultiplex_Stats.htm")
+        bc_files.extend(glob.glob(os.path.join(workdir, casava_stats)))
+
     if not len(bc_files) > 0:
         return None
 
     bc_metrics = {}
     for bc_file in bc_files:
+        if "Unaligned" in bc_file:
+            return _parse_demultiplex_stats_htm(bc_file)
+
         m = re.match(r'^(\d+)\_', os.path.basename(bc_file))
-        if not m or len(m.groups()) != 1:
+        if not m or len(m.groups()) != 1 or "Unaligned" not in bc_file:
             continue
+
         lane = str(m.group(1))
         bc_metrics[lane] = {}
         with open(bc_file) as bcfh:
@@ -62,6 +77,36 @@ def get_barcode_metrics(workdir):
                 bc_metrics[lane][str(row[0])] = int(row[1])
 
     return bc_metrics
+
+
+def _parse_demultiplex_stats_htm(htm_file):
+    """Parse the Unaligned/Basecall_Stats_*/Demultiplex_Stats.htm file
+    generated from CASAVA demultiplexing and returns barcode metrics.
+    """
+    with open(htm_file) as fh:
+        htm_doc = fh.read()
+
+    soup = BeautifulSoup(htm_doc)
+
+    # The second table in the htm file is the one with the metrics
+    table = soup.findAll("table")[1]
+
+    rows = table.findAll("tr")
+    column_gen = (row.findAll("td") for row in rows)
+    # Columns 1, 2, 4 and 10 contain Lane, Sample ID, Index sequence and the
+    # Number of reads, respectively.
+    parse_row = lambda row: {"lane": int(row[0].string), \
+                             "sample_id": row[1].string, \
+                             "barcode": row[3].string, \
+                             "read_count": int(row[9].string.replace(",", ""))}
+
+    metrics = map(parse_row, column_gen)
+
+    bc_metrics = defaultdict(dict)
+    for metric in metrics:
+        bc_metrics[metric["lane"]][metric["barcode"]] = metric["read_count"]
+
+    return dict(bc_metrics)
 
 
 def get_flowcell(fc_dir, run_info_yaml, config={}):
