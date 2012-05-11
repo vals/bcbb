@@ -71,7 +71,7 @@ def _normalize_barcodes(items):
                 base.update(multi)
                 split_items.append(base)
 
-        elif "barcode" in item.has_key:
+        elif "barcode" in item:
             item.update(item["barcode"])
             del item["barcode"]
             split_items.append(item)

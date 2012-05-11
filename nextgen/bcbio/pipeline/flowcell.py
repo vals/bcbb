@@ -264,7 +264,8 @@ class Flowcell:
 
 
 class Lane:
-    """A class for managing information about a lane"""
+    """A class for managing information about a lane.
+    """
 
     def __init__(self, data):
         self.set_data(data)
@@ -401,7 +402,7 @@ class Lane:
         return bcids
 
     def __str__(self):
-        s = "Lane: %s\n\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
+        s = "Lane: %s\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
         return s
 
 
