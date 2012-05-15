@@ -178,6 +178,7 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
         final_items.append(xs)
     return final_items
 
+
 def _get_fastq_size(item, fastq_dir, fc_name):
     """Retrieve the size of reads from the first flowcell sequence.
     """

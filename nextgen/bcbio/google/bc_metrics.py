@@ -185,8 +185,6 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
         return False
 
     # Get the projects in the run
-    import ipdb
-    ipdb.set_trace()
     projects = fc.get_project_names()
     logger2.info("Will write data from the run %s_%s for projects: '%s'" \
         % (fc_date, fc_name, "', '".join(projects)))
