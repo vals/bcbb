@@ -103,7 +103,7 @@ def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
             finished_message("long_term_storage", run_module, dname,
                              store_files, config, config_file)
         if backup_msg:
-            finished_message("backup", run_module, dname,
+            finished_message("backup_data", run_module, dname,
                              backup_files, config, config_file)
     # otherwise process locally
     else:
