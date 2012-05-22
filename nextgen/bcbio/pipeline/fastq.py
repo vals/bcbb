@@ -12,15 +12,17 @@ from bcbio import broad
 from bcbio.utils import file_exists, safe_makedir
 from bcbio.distributed.transaction import file_transaction
 
+
 def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="_fastq.txt",
                     config=None):
     """Retrieve fastq files for the given lane, ready to process.
     """
-    if item.has_key("files") and bc_name is None:
+    if "files" in item and bc_name is None:
         names = item["files"]
         if isinstance(names, basestring):
             names = [names]
         files = [x if os.path.isabs(x) else os.path.join(directory, x) for x in names]
+
     else:
         assert fc_name is not None
         lane = item["lane"]
@@ -47,6 +49,7 @@ def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="
             ready_files.append(fname)
     ready_files = [x for x in ready_files if x is not None]
     return ready_files[0], (ready_files[1] if len(ready_files) > 1 else None)
+
 
 def convert_bam_to_fastq(in_file, work_dir, config):
     """Convert BAM input file into FASTQ files.
