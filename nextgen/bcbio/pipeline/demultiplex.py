@@ -126,9 +126,9 @@ def _parse_demultiplex_stats_htm(htm_file):
     # Columns 1, 2, 4 and 10 contain Lane, Sample ID, Index sequence and the
     # Number of reads, respectively.
     parse_row = lambda row: {"lane": int(row[0].string), \
-                             "sample_id": row[1].string, \
-                             "barcode": row[3].string, \
-                             "read_count": int(row[9].string.replace(",", ""))}
+                             "name": row[1].string, \
+                             "sequence": row[3].string, \
+                             "read_count": int(row[9].string.replace(",", "")) // 2}
 
     metrics = map(parse_row, column_gen)
 

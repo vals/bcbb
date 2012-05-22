@@ -53,6 +53,7 @@ def get_barcode_metrics(workdir):
     bc_files = []
     if workdir is not None:
         bc_files.extend(glob.glob(os.path.join(workdir, "*_barcode", "*_bc.metrics")))
+        bc_files.extend(glob.glob(os.path.join(workdir, "*_bc.metrics")))
 
     if not len(bc_files) > 0:
         return None
