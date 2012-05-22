@@ -53,23 +53,26 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
                     fastq2 = trim_info[1]
             out.append((fastq1, fastq2, item, cur_lane_name, cur_lane_desc,
                         dirs, config))
+
     return out
 
 
 def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
-                      dirs, config):
-    """Remove reads mapping to the specified contaminating reference
+                        dirs, config):
+    """Remove reads mapping to the specified contaminating reference.
     """
 
     base_name = None
     genome_build = info.get("genomes_filter_out", None)
     # Skip filtering of phix in case we have already done that for the lane
-    if genome_build is not None and not (genome_build == "phix" and config["algorithm"].get("filter_phix", False)) and os.path.exists(fastq1):
+    if genome_build is not None and not (genome_build == "phix" \
+    and config["algorithm"].get("filter_phix", False)) and os.path.exists(fastq1):
         if genome_build == "spiked_phix":
             genome_build = "phix"
 
         program = config["algorithm"].get("remove_contaminants", "bowtie")
-        logger.info("Removing %s contaminants on %s, using %s" % (genome_build, info["description"], program))
+        logger.info("Removing %s contaminants on %s, using %s" \
+            % (genome_build, info["description"], program))
         fastq1, fastq2, base_name = rc(fastq1, fastq2, genome_build, program, lane_name, dirs, config)
 
     return [[fastq1, fastq2, info, (base_name or lane_name), lane_desc, dirs, config]]
@@ -85,6 +88,7 @@ def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
         logger.info("Aligning lane %s with %s aligner" % (lane_name, aligner))
         out_bam = align_to_sort_bam(fastq1, fastq2, info["genome_build"], \
                                 aligner, lane_name, lane_desc, dirs, config)
+
     return [{"fastq": [fastq1, fastq2], "out_bam": out_bam, "info": info,
              "config": config}]
 
@@ -101,6 +105,7 @@ def _update_config_w_custom(config, lane_info):
     # apply any algorithm details specified with the lane
     for key, val in lane_info.get("algorithm", {}).iteritems():
         config["algorithm"][key] = val
+
     return config
 
 

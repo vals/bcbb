@@ -16,7 +16,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     """Split a fastq file into multiplex pieces using barcode details.
     """
     unmatched_str = "unmatched"
-    demultiplexed = config.get("demultiplexed", False)
+    demultiplexed = config["algorithm"].get("demultiplexed", False)
     if len(multiplex) == 1 and multiplex[0]["barcode_id"] is None:
         return {None: (fastq1, fastq2)}
 
