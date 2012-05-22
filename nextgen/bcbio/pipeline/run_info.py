@@ -71,7 +71,7 @@ def _normalize_barcodes(items):
                 base.update(multi)
                 split_items.append(base)
 
-        elif "barcode" in item.has_key:
+        elif "barcode" in item:
             item.update(item["barcode"])
             del item["barcode"]
             split_items.append(item)
@@ -126,6 +126,7 @@ def _run_info_from_yaml(fc_dir, run_info_yaml):
 def _clean_extra_whitespace(s):
     while s.endswith(("_", "-", " ", ".")):
         s = s[:-1]
+
     return s
 
 

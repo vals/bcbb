@@ -20,7 +20,8 @@ from bs4 import BeautifulSoup
 
 
 def format_project_name(unformated_name):
-    """Make the project name adhere to a stricter formatting convention"""
+    """Make the project name adhere to a stricter formatting convention.
+    """
     regexp = r'^(.+?)_(\d{2})_(\d{2})(.*)$'
     m = re.match(regexp, unformated_name)
     if not m or len(m.groups()) < 3:
@@ -224,12 +225,13 @@ class Flowcell:
         return fc
 
     def set_read_counts(self, read_counts=None):
-        """Sets the read counts of the barcoded samples in the lanes of this flowcell.
-           Read counts can be supplied in a dictionary with lane number as key to a
-           dictionary with barcode indexes (or 'unmatched' or 'trim') as key and counts
-           as values. If no read counts are supplied, attempts to parse the read counts
-           from the flowcell directory, assuming that the read counts can be found using a glob
-           like [lane]_*_barcode/[lane]_*_bc.metrics
+        """Sets the read counts of the barcoded samples in the lanes of this
+        flowcell. Read counts can be supplied in a dictionary with lane number
+        as key to a dictionary with barcode indexes (or 'unmatched' or 'trim')
+        as key and counts as values. If no read counts are supplied, attempts
+        to parse the read counts from the flowcell directory, assuming that the
+        read counts can be found using a glob like
+        [lane]_*_barcode/[lane]_*_bc.metrics
         """
         if read_counts is None:
             read_counts = get_barcode_metrics(self.get_fc_dir()) or {}
@@ -239,6 +241,7 @@ class Flowcell:
             if not lane:
                 lane = Lane({"lane": name, "description": "Unexpected lane"})
                 self.add_lane(lane)
+
             lane.set_read_counts(read_counts[name])
 
     @staticmethod
@@ -254,17 +257,20 @@ class Flowcell:
                 #l = [self.get_fc_date(),self.get_fc_name()]
                 #l.extend(row)
                 rows.append(row)
+
         return rows
 
     def to_structure(self):
         struct = []
         for lane in self.get_lanes():
             struct.append(lane.to_structure())
+
         return {"details": struct}
 
 
 class Lane:
-    """A class for managing information about a lane"""
+    """A class for managing information about a lane.
+    """
 
     def __init__(self, data):
         self.set_data(data)
@@ -401,7 +407,7 @@ class Lane:
         return bcids
 
     def __str__(self):
-        s = "Lane: %s\n\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
+        s = "Lane: %s\nbarcode ids: %s" % (self.get_name(), self.get_barcode_ids())
         return s
 
 

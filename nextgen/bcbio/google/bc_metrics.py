@@ -176,7 +176,8 @@ def _write_project_report_summary_to_gdocs(client, ssheet):
 
 def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
     encoded_credentials, wsheet_title=None, append=False, split_project=False):
-    """Upload the barcode read distribution for a run to google docs"""
+    """Upload the barcode read distribution for a run to google docs.
+    """
 
     # Connect to google and get the spreadsheet
     client, ssheet = get_spreadsheet(ssheet_title, encoded_credentials)
@@ -212,7 +213,8 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
 
 
 def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append):
-    """Generic method to write a set of rows to a worksheet on google docs"""
+    """Generic method to write a set of rows to a worksheet on google docs.
+    """
 
     # Convert the worksheet title to unicode
     wsheet_title = _to_unicode(wsheet_title)

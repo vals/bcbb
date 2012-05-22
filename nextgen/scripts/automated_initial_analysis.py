@@ -56,12 +56,14 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
     fastq_dir, galaxy_dir, config_dir = _get_full_paths(get_fastq_dir(fc_dir),
                                                         config, config_file)
+
     config_file = os.path.join(config_dir, os.path.basename(config_file))
     dirs = {"fastq": fastq_dir, "galaxy": galaxy_dir, "align": align_dir,
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
-    run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
+    run_parallel = parallel_runner(run_module, dirs, config, config_file)
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
+
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
 

@@ -16,48 +16,65 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     """Split a fastq file into multiplex pieces using barcode details.
     """
     unmatched_str = "unmatched"
+    demultiplexed = config["algorithm"].get("demultiplexed", False)
     if len(multiplex) == 1 and multiplex[0]["barcode_id"] is None:
         return {None: (fastq1, fastq2)}
+
     bc_dir = os.path.join(dirs["work"], "%s_barcode" % base_name)
     nomatch_file = "%s_%s_1_fastq.txt" % (base_name, unmatched_str)
     metrics_file = "%s_bc.metrics" % base_name
     out_files = []
     for info in multiplex:
+        if demultiplexed:
+            out_tuple = [info["barcode_id"]]
+            out_tuple.extend(info["files"])
+            out_files.append(tuple(out_tuple))
+            continue
+
         fq_fname = lambda x: os.path.join(bc_dir, "%s_%s_%s_fastq.txt" %
                              (base_name, info["barcode_id"], x))
         bc_file1 = fq_fname("1")
         bc_file2 = fq_fname("2") if fastq2 else None
         out_files.append((info["barcode_id"], bc_file1, bc_file2))
-    if not utils.file_exists(bc_dir):
+
+    if not utils.file_exists(bc_dir) and not demultiplexed:
         with file_transaction(bc_dir) as tx_bc_dir:
             with utils.chdir(tx_bc_dir):
                 tag_file, need_trim = _make_tag_file(multiplex, unmatched_str, config)
                 cl = [config["program"]["barcode"], tag_file,
-                      "%s_--b--_--r--_fastq.txt" % base_name,
-                      fastq1]
+                      "%s_--b--_--r--_fastq.txt" % base_name, fastq1]
                 if fastq2:
                     cl.append(fastq2)
+
                 cl.append("--mismatch=%s" % config["algorithm"]["bc_mismatch"])
                 cl.append("--metrics=%s" % metrics_file)
                 if int(config["algorithm"]["bc_read"]) > 1:
                     cl.append("--read=%s" % config["algorithm"]["bc_read"])
+
                 if int(config["algorithm"]["bc_position"]) == 5:
                     cl.append("--five")
+
                 if config["algorithm"].get("bc_allow_indels", True) is False:
                     cl.append("--noindel")
+
                 if "bc_offset" in config["algorithm"]:
                     cl.append("--bc_offset=%s" % config["algorithm"]["bc_offset"])
+
                 subprocess.check_call(cl)
+
     else:
         with utils.curdir_tmpdir() as tmp_dir:
             with utils.chdir(tmp_dir):
                 _, need_trim = _make_tag_file(multiplex, unmatched_str, config)
+
     out = {}
     for b, f1, f2 in out_files:
         if os.path.exists(f1):
-            if need_trim.has_key(b):
+            if b in need_trim:
                 f1, f2 = _basic_trim(f1, f2, need_trim[b], config)
+
             out[b] = (f1, f2)
+
     return out
 
 
@@ -82,10 +99,11 @@ def _basic_trim(f1, f2, trim_seq, config):
                                                            trimmer(qual)))
     return (trim_file, f2) if is_first else (f1, trim_file)
 
+
 def _make_tag_file(barcodes, unmatched_str, config):
     need_trim = {}
     tag_file = "%s-barcodes.cfg" % barcodes[0].get("barcode_type", "barcode")
-    barcodes = _adjust_illumina_tags(barcodes,config)
+    barcodes = _adjust_illumina_tags(barcodes, config)
     with open(tag_file, "w") as out_handle:
         for bc in barcodes:
             if bc["barcode_id"] != unmatched_str:
@@ -94,12 +112,13 @@ def _make_tag_file(barcodes, unmatched_str, config):
                 need_trim[bc["barcode_id"]] = bc["sequence"]
     return tag_file, need_trim
 
+
 def _adjust_illumina_tags(barcodes, config):
     """Handle additional trailing A in Illumina barcodes.
 
     Illumina barcodes are listed as 6bp sequences but have an additional
     A base when coming off on the sequencer. This checks for this case and
-    adjusts the sequences appropriately if needed. When the configuration 
+    adjusts the sequences appropriately if needed. When the configuration
     option to disregard the additional A in barcode matching is set, the
     added base is an ambigous N to avoid an additional mismatch.
     If the configuration uses bc_offset to adjust the comparison location,
@@ -146,8 +165,10 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             has_barcodes = True
             tag_sizes.extend([len(x["sequence"]) for x in xs])
             fastq_sizes.append(_get_fastq_size(xs[0], fastq_dir, fc_name))
+
     if not has_barcodes:  # nothing to worry about
         return run_items
+
     fastq_sizes = list(set(fastq_sizes))
 
     # discard 0 sizes to handle the case where lane(s) are empty or failed
@@ -162,9 +183,11 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
         if len(xs) == 1 and xs[0]["barcode_id"] is None:
             assert len(fastq_sizes) == 1, \
                    "Multi and non-multiplex reads with multiple sizes"
+
             expected_size = fastq_sizes[0]
             assert len(tag_sizes) == 1, \
                    "Expect identical tag size for a flowcell"
+
             tag_size = tag_sizes[0]
             this_size = _get_fastq_size(xs[0], fastq_dir, fc_name)
             if this_size == expected_size:
@@ -175,8 +198,11 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             else:
                 assert this_size == expected_size - tag_size, \
                        "Unexpected non-multiplex sequence"
+
         final_items.append(xs)
+
     return final_items
+
 
 def _get_fastq_size(item, fastq_dir, fc_name):
     """Retrieve the size of reads from the first flowcell sequence.
