@@ -3,6 +3,9 @@
 import os
 import copy
 import subprocess
+import glob
+
+from collections import defaultdict
 
 from Bio import SeqIO
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
@@ -10,6 +13,10 @@ from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 from bcbio.distributed.transaction import file_transaction
+
+from bs4 import BeautifulSoup
+
+import csv
 
 
 def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
@@ -75,7 +82,61 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
 
             out[b] = (f1, f2)
 
+    if not demultiplexed:
+        return out
+
+    import ipdb
+    ipdb.set_trace()
+
+    casava_stats = os.path.join("Unaligned", "Basecall_Stats_*", "Demultiplex_Stats.htm")
+
+    for b, f1, _ in out_files:
+        if "Unaligned" in f1:
+            base = f1.split("Unaligned")[0]
+            stats_htm = []
+            stats_htm.extend(glob.glob(os.path.join(base, casava_stats)))
+            # The list stats_htm should always only have one element, but let's
+            # be pragmatic.
+            bc_metrics = _parse_demultiplex_stats_htm(stats_htm[0])
+            lane_bc_metrics = bc_metrics[int(multiplex[0]["lane"])]
+            with open(metrics_file, "w") as out_handle:
+                writer = csv.writer(out_handle, dialect="excel-tab")
+                for bc, count in lane_bc_metrics.items():
+                    writer.writerow([bc, count])
+
+            break
+
     return out
+
+
+def _parse_demultiplex_stats_htm(htm_file):
+    """Parse the Unaligned/Basecall_Stats_*/Demultiplex_Stats.htm file
+    generated from CASAVA demultiplexing and returns barcode metrics.
+    """
+    with open(htm_file) as fh:
+        htm_doc = fh.read()
+
+    soup = BeautifulSoup(htm_doc)
+
+    # The second table in the htm file is the one with the metrics
+    table = soup.findAll("table")[1]
+
+    rows = table.findAll("tr")
+    column_gen = (row.findAll("td") for row in rows)
+    # Columns 1, 2, 4 and 10 contain Lane, Sample ID, Index sequence and the
+    # Number of reads, respectively.
+    parse_row = lambda row: {"lane": int(row[0].string), \
+                             "sample_id": row[1].string, \
+                             "barcode": row[3].string, \
+                             "read_count": int(row[9].string.replace(",", ""))}
+
+    metrics = map(parse_row, column_gen)
+
+    bc_metrics = defaultdict(dict)
+    for metric in metrics:
+        bc_metrics[metric["lane"]][metric["barcode"]] = metric["read_count"]
+
+    return dict(bc_metrics)
 
 
 def _basic_trim(f1, f2, trim_seq, config):
@@ -215,4 +276,3 @@ def _get_fastq_size(item, fastq_dir, fc_name):
         except StopIteration:
             size = 0
     return size
-
