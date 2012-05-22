@@ -234,8 +234,6 @@ class Flowcell:
         [lane]_*_barcode/[lane]_*_bc.metrics
         """
         if read_counts is None:
-            import ipdb
-            ipdb.set_trace()
             read_counts = get_barcode_metrics(self.get_fc_dir()) or {}
 
         for name in read_counts.keys():

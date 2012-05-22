@@ -31,6 +31,7 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     logger.info("Demultiplexing %s" % lane_name)
     bc_files = split_by_barcode(full_fastq1, full_fastq2, lane_items,
                                 lane_name, dirs, config)
+
     out = []
     for item in lane_items:
         config = _update_config_w_custom(config, item)
