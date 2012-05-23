@@ -56,7 +56,8 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
 
     with log_handler.applicationbound(), logbook.Processor(record_processor):
         try:
-            log.info("Started creating sequencing report on Google docs for %s_%s on %s" % (fc_date, fc_name, time.strftime("%x @ %X")))
+            log.info("Started creating sequencing report on Google docs for %s_%s on %s" \
+                % (fc_date, fc_name, time.strftime("%x @ %X")))
 
             # Get a flowcell object
             fc = Flowcell(fc_name, fc_date, run_info, dirs.get("work", None))

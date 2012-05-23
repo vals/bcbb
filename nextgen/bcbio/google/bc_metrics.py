@@ -206,6 +206,7 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
     else:
         if wsheet_title is None:
             wsheet_title = "%s_%s" % (fc_date, fc_name)
+
         success &= _write_to_worksheet(client, ssheet, wsheet_title, \
             fc.to_rows(), header, append)
 

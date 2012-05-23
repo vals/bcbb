@@ -60,7 +60,7 @@ def get_barcode_metrics(workdir):
     for bc_file in bc_files:
 
         m = re.match(r'^(\d+)\_', os.path.basename(bc_file))
-        if not m or len(m.groups()) != 1 or "Unaligned" not in bc_file:
+        if not m or len(m.groups()) != 1:
             continue
 
         lane = str(m.group(1))
