@@ -64,6 +64,10 @@ def search_for_new(config, config_file, post_config_file, fetch_msg, \
             if casava and _is_finished_dumping_read_1(dname):
                 logger2.info("Generating fastq.gz files for read 1 of %s" % dname)
                 _generate_fastq_with_casava(dname, config, r1=True)
+                _post_process_run(dname, config, config_file,
+                                  fastq_dir, post_config_file,
+                                  fetch_msg=True, process_msg=False,
+                                  store_msg)
 
             if _is_finished_dumping(dname):
                 # Injects run_name on logging calls.
