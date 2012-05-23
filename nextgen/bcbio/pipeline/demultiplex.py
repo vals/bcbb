@@ -85,9 +85,6 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     if not demultiplexed:
         return out
 
-    import ipdb
-    ipdb.set_trace()
-
     casava_stats = os.path.join("Unaligned", "Basecall_Stats_*", "Demultiplex_Stats.htm")
 
     for b, f1, _ in out_files:
@@ -95,16 +92,21 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
             base = f1.split("Unaligned")[0]
             stats_htm = []
             stats_htm.extend(glob.glob(os.path.join(base, casava_stats)))
-            # The list stats_htm should always only have one element, but let's
-            # be pragmatic.
-            bc_metrics = _parse_demultiplex_stats_htm(stats_htm[0])
-            lane_bc_metrics = bc_metrics[int(multiplex[0]["lane"])]
-            with open(metrics_file, "w") as out_handle:
-                writer = csv.writer(out_handle, dialect="excel-tab")
-                for bc, count in lane_bc_metrics.items():
-                    writer.writerow([bc, count])
 
             break
+
+    # The list stats_htm should always only have one element, but let's
+    # be pragmatic.
+    bc_metrics = _parse_demultiplex_stats_htm(stats_htm[0])
+
+    lane_bc_metrics = bc_metrics[int(multiplex[0]["lane"])]
+    with open(metrics_file, "w") as out_handle:
+        writer = csv.writer(out_handle, dialect="excel-tab")
+        for plex in multiplex:
+            sequence = plex["sequence"]
+            read_count = lane_bc_metrics[sequence]["read_count"]
+            name = lane_bc_metrics[sequence]["name"]
+            writer.writerow([plex["barcode_id"], read_count, sequence, name])
 
     return out
 
@@ -130,11 +132,13 @@ def _parse_demultiplex_stats_htm(htm_file):
                              "sequence": row[3].string, \
                              "read_count": int(row[9].string.replace(",", "")) // 2}
 
+    # (We divide "read_count" by 2 to get the number of read pairs)
+
     metrics = map(parse_row, column_gen)
 
     bc_metrics = defaultdict(dict)
     for metric in metrics:
-        bc_metrics[metric["lane"]][metric["barcode"]] = metric["read_count"]
+        bc_metrics[metric["lane"]][metric["sequence"]] = metric
 
     return dict(bc_metrics)
 
