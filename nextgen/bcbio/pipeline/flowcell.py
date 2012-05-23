@@ -8,8 +8,6 @@ import glob
 import yaml
 import string
 
-from collections import defaultdict
-
 from bcbio.solexa.flowcell import get_flowcell_info
 from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
@@ -53,6 +51,7 @@ def get_barcode_metrics(workdir):
     bc_files = []
     if workdir is not None:
         bc_files.extend(glob.glob(os.path.join(workdir, "*_barcode", "*_bc.metrics")))
+        bc_files.extend(glob.glob(os.path.join(workdir, "*_bc.metrics")))
 
     if not len(bc_files) > 0:
         return None
