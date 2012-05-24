@@ -250,7 +250,6 @@ def write_rows(client, ssheet, wsheet, header, rows):
     """Write the supplied data rows to the worksheet,
     using the supplied column headers.
     """
-
     # Get the keys
     ss_key = get_key(ssheet)
     ws_key = get_key(wsheet)
