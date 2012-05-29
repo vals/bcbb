@@ -515,7 +515,7 @@ demultiplexing is performed by the [barcode_sort_trim.py][in3] script.
 ## Upload of barcode read counts to google docs account
 
 Optionally, the read count distribution for each barcode as recorded in the
-`*_bc_metrics` file scan be uploaded to a spreadsheet  on Google Docs. If there
+`*_bc_metrics` files can be uploaded to a spreadsheet  on Google Docs. If there
 exists a `gdocs_upload` section in the `post_process.py` configuration file,
 the pipeline will attempt  to upload the read counts using the specified
 credentials. The `gdocs_upload` section should contain parameters specifying

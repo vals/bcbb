@@ -49,7 +49,6 @@ def get_cell_content(client, ssheet, wsheet, \
         col_start, row_end, col_end) or [])
 
     # Get the dimensions of the 2D-list
-    # rows = int(row_end) - int(row_start) + 1
     cols = int(col_end) - int(col_start) + 1
     content = []
     for i, cell in enumerate(feed.entry):
@@ -250,7 +249,6 @@ def write_rows(client, ssheet, wsheet, header, rows):
     """Write the supplied data rows to the worksheet,
     using the supplied column headers.
     """
-
     # Get the keys
     ss_key = get_key(ssheet)
     ws_key = get_key(wsheet)
