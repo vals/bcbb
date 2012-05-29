@@ -60,7 +60,7 @@ def get_barcode_metrics(workdir):
     for bc_file in bc_files:
 
         m = re.match(r'^(\d+)\_', os.path.basename(bc_file))
-        if not m or len(m.groups()) != 1 or "Unaligned" not in bc_file:
+        if not m or len(m.groups()) != 1:
             continue
 
         lane = str(m.group(1))
@@ -498,12 +498,13 @@ class Sample:
             struct["description"] = self.get_description()
         if (self.get_read_count() is not None):
             struct["read_count"] = self.get_read_count()
+
         return struct
 
 
 class BarcodedSample(Sample):
-    """A subclass of Sample for managing information about a barcoded sample"""
-
+    """A subclass of Sample for managing information about a barcoded sample.
+    """
     def __init__(self, data, lane=Lane({})):
         Sample.__init__(self, data, lane)
         self.set_barcode_id(data.get("barcode_id", None))
@@ -546,11 +547,15 @@ class BarcodedSample(Sample):
     def columns():
         cols = Sample.columns()
         cols.extend(["bcbb_barcode_id", "barcode_name", "barcode_sequence", "barcode_type"])
+
         return cols
 
     def to_rows(self):
         rows = Sample.to_rows(self)
-        rows.extend([self.get_barcode_id(), self.get_barcode_name(), self.get_barcode_sequence(), self.get_barcode_type()])
+        rows.extend([self.get_barcode_id(), \
+                     self.get_barcode_name(), \
+                     self.get_barcode_sequence(), \
+                     self.get_barcode_type()])
         return rows
 
     def to_structure(self):
@@ -561,4 +566,5 @@ class BarcodedSample(Sample):
             struct["sequence"] = self.get_barcode_sequence()
         if (self.get_barcode_type()):
             struct["barcode_type"] = self.get_barcode_type()
+
         return struct
