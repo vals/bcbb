@@ -100,16 +100,16 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
 
         except Exception as e:
             success = False
-            log.warn("Encountered exception when writing sequencing report to Google Docs: %s" % e)
+            log.warn("Encountered exception when writing sequencing " \
+                     "report to Google Docs: {}".format(e))
 
         if success:
-            log.info("Sequencing report successfully created on \
-                Google docs for %s_%s on %s" \
-                % (fc_date, fc_name, time.strftime("%x @ %X")))
+            log.info("Sequencing report successfully created on " \
+                "Google docs for {}_{} on {}".format(fc_date, fc_name, time.strftime("%x @ %X")))
         else:
-            log.warn("Encountered exception when writing sequencing \
-                report for %s_%s to Google docs on %s" \
-                % (fc_date, fc_name, time.strftime("%x @ %X")))
+            log.warn("Encountered exception when writing sequencing " \
+                     "report for %s_%s to Google docs on %s" \
+                     % (fc_date, fc_name, time.strftime("%x @ %X")))
 
     return success
 
@@ -118,7 +118,6 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
     """Upload the sample read distribution for a project to google docs.
     """
     success = True
-
     # Create a client class which will make HTTP requests with Google Docs server.
     client = g_spreadsheet.get_client(encoded_credentials)
     doc_client = g_document.get_client(encoded_credentials)
@@ -141,8 +140,9 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
         folder = g_document.get_folder(doc_client, folder_name)
         if not folder:
             folder = g_document.add_folder(doc_client, folder_name, parent_folder)
-            log.info("Folder '%s' created under '%s'" \
-                % (_from_unicode(folder_name), parent_folder_title))
+            log.info("Folder {!r} created " \
+                     "under {!r}".format(_from_unicode(folder_name), \
+                                         parent_folder_title))
 
         ssheet_title = project_name + "_sequencing_results"
         ssheet = g_spreadsheet.get_spreadsheet(client, ssheet_title)
@@ -151,15 +151,17 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
             ssheet = g_spreadsheet.get_spreadsheet(client, ssheet_title)
             ssheet = g_document.move_to_folder(doc_client, ssheet, folder)
             ssheet = g_spreadsheet.get_spreadsheet(client, ssheet_title)
-            log.info("Spreadsheet '%s' created in folder '%s'" \
-                % (_from_unicode(ssheet.title.text), _from_unicode(folder_name)))
+            log.info("Spreadsheet {!r} created in " \
+                     "folder {!r}".format(_from_unicode(ssheet.title.text), \
+                                          _from_unicode(folder_name)))
 
-        success &= bc_metrics._write_project_report_to_gdocs( \
-            client, ssheet, project_fc)
-        success &= bc_metrics._write_project_report_summary_to_gdocs( \
-            client, ssheet)
-        success &= qc_metrics.write_run_report_to_gdocs( \
-            project_fc, qc, ssheet_title, encoded_credentials)
+        success &= bc_metrics._write_project_report_to_gdocs(client, ssheet, project_fc)
+        success &= bc_metrics.write_project_report_summary_to_gdocs(client, ssheet)
+        success &= qc_metrics.write_run_report_to_gdocs(project_fc, \
+                                                        qc, \
+                                                        ssheet_title, \
+                                                        encoded_credentials)
+
         log.info("Sequencing results report written to spreadsheet '%s'" \
             % _from_unicode(ssheet.title.text))
 
