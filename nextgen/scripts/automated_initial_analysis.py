@@ -58,35 +58,35 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     config_file = os.path.join(config_dir, os.path.basename(config_file))
     dirs = {"fastq": fastq_dir, "galaxy": galaxy_dir, "align": align_dir,
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
-    # run_parallel = parallel_runner(run_module, dirs, config, config_file)
+    run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
-    # run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
+    run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
 
-    # lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
-    # lane_items = run_parallel("process_lane", lanes)
+    lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
+    lane_items = run_parallel("process_lane", lanes)
     
-    # # upload the sequencing report to Google Docs
-    # gdocs_indicator = os.path.join(work_dir,"gdocs_report_complete.txt")
-    # if not os.path.exists(gdocs_indicator) and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
-    #     utils.touch_file(gdocs_indicator)
+    # upload the sequencing report to Google Docs
+    gdocs_indicator = os.path.join(work_dir,"gdocs_report_complete.txt")
+    if not os.path.exists(gdocs_indicator) and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
+        utils.touch_file(gdocs_indicator)
 
-    # # Remove spiked in controls, contaminants etc.
-    # lane_items = run_parallel("remove_contaminants",lane_items)
+    # Remove spiked in controls, contaminants etc.
+    lane_items = run_parallel("remove_contaminants",lane_items)
     
-    # align_items = run_parallel("process_alignment", lane_items)
-    # # process samples, potentially multiplexed across multiple lanes
-    # samples = organize_samples(align_items, dirs, config_file)
-    # samples = run_parallel("merge_sample", samples)
-    # run_parallel("screen_sample_contaminants", samples)
-    # samples = run_parallel("recalibrate_sample", samples)
-    # samples = parallel_realign_sample(samples, run_parallel)
-    # samples = parallel_variantcall(samples, run_parallel)
-    # samples = run_parallel("detect_sv", samples)
-    # samples = run_parallel("process_sample", samples)
-    # samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
-    # write_project_summary(samples)
-    # write_metrics(run_info, fc_name, fc_date, dirs)
-    ## Write statusdb metrics
+    align_items = run_parallel("process_alignment", lane_items)
+    # process samples, potentially multiplexed across multiple lanes
+    samples = organize_samples(align_items, dirs, config_file)
+    samples = run_parallel("merge_sample", samples)
+    run_parallel("screen_sample_contaminants", samples)
+    samples = run_parallel("recalibrate_sample", samples)
+    samples = parallel_realign_sample(samples, run_parallel)
+    samples = parallel_variantcall(samples, run_parallel)
+    samples = run_parallel("detect_sv", samples)
+    samples = run_parallel("process_sample", samples)
+    samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
+    write_project_summary(samples)
+    write_metrics(run_info, fc_name, fc_date, dirs)
+    # Write statusdb metrics
     report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
