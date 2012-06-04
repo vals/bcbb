@@ -86,9 +86,9 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
             if gdocs_qc_spreadsheet is not None and qc is not None:
                 success &= qc_metrics.write_run_report_to_gdocs(fc, qc, gdocs_qc_spreadsheet, encoded_credentials)
             else:
-                log.warn("Could not find Google Docs QC file title in configuration. \
-                    No QC data were written to Google Docs for %s_%s" \
-                    % (fc_date, fc_name))
+                log.warn("Could not find Google Docs QC file title in configuration. " \
+                         "No QC data were written to Google Docs " \
+                         "for %s_%s".format(fc_date, fc_name))
 
             # Get the projects parent folder
             projects_folder = gdocs.get("gdocs_projects_folder", None)
@@ -100,12 +100,12 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
 
         except Exception as e:
             success = False
-            log.warn("Encountered exception when writing sequencing " \
-                     "report to Google Docs: {}".format(e))
+            log.warn("Encountered exception when writing sequencing report " \
+                     "to Google Docs: {}".format(e))
 
         if success:
-            log.info("Sequencing report successfully created on " \
-                "Google docs for {}_{} on {}".format(fc_date, fc_name, time.strftime("%x @ %X")))
+            log.info("Sequencing report successfully created on Google " \
+                     "docs for {}_{} on {}".format(fc_date, fc_name, time.strftime("%x @ %X")))
         else:
             log.warn("Encountered exception when writing sequencing " \
                      "report for %s_%s to Google docs on %s" \
