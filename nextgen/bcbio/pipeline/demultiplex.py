@@ -86,16 +86,9 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     if not demultiplexed:
         return out
 
-    casava_stats = os.path.join("Unaligned", "Basecall_Stats_*", "Demultiplex_Stats.htm")
-
-    for b, f1, _ in out_files:
-        if "Unaligned" in f1:
-            base = f1.split("Unaligned")[0]
-            stats_htm = []
-            stats_htm.extend(glob.glob(os.path.join(base, casava_stats)))
-
-            break
-
+    casava_stats = os.path.join(dirs.get("flowcell","."), "Unaligned", "Basecall_Stats_*", "Demultiplex_Stats.htm")
+    stats_htm = glob.glob(casava_stats)
+    
     # The list stats_htm should always only have one element, but let's
     # be pragmatic.
     try:
