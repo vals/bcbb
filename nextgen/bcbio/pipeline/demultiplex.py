@@ -13,6 +13,7 @@ from Bio.SeqIO.QualityIO import FastqGeneralIterator
 from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 from bcbio.distributed.transaction import file_transaction
+from bcbio.log import logger2
 
 from bs4 import BeautifulSoup
 
@@ -97,13 +98,28 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
 
     # The list stats_htm should always only have one element, but let's
     # be pragmatic.
-    bc_metrics = _parse_demultiplex_stats_htm(stats_htm[0])
+    try:
+        stats_htm = stats_htm[0]
+    except IndexError:
+        logger2.warn("Demultiplex_Stats.htm not found! " \
+                     "Barcode stats will be meaningless.")
+        bc_metrics = {int(multiplex[0]["lane"]): \
+                        {None: {
+                             "read_count": 0,
+                             "name": None,
+                             "barcode_id": None}}
+                             }
+    else:
+        bc_metrics = _parse_demultiplex_stats_htm(stats_htm)
 
     lane_bc_metrics = bc_metrics[int(multiplex[0]["lane"])]
     with open(metrics_file, "w") as out_handle:
         writer = csv.writer(out_handle, dialect="excel-tab")
         for plex in multiplex:
             sequence = plex["sequence"]
+            if sequence not in lane_bc_metrics:
+                sequence = None
+
             read_count = lane_bc_metrics[sequence]["read_count"]
             name = lane_bc_metrics[sequence]["name"]
             writer.writerow([plex["barcode_id"], read_count, sequence, name])
