@@ -43,8 +43,8 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
         if statusdb_config is None:
             log.info("Could not find statusdb section in configuration. No statusdb reporting will be done")
             return False
-        statusdb_couchdb =  statusdb_config.get("url", None)
-        if statusdb_couchdb is None:
+        statusdb_url =  statusdb_config.get("url", None)
+        if statusdb_url is None:
             log.warn("No url field found in statusdb configuration section.")
             return False
 
@@ -61,34 +61,27 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
                 # Create object and parse all available metrics; no checking
                 # is currently done for missing files
                 try:
-                    qc_obj = FlowcellQCMetrics(dirs.get("work", None), dirs.get("flowcell", None), url=statusdb_couchdb)
-                    qc_obj.parse_run_info_yaml()
-                    qc_obj.read_picard_metrics()
-                    qc_obj.read_fastqc_metrics()
-                    qc_obj.parse_filter_metrics()
-                    qc_obj.parse_fastq_screen()
-                    qc_obj.parse_bc_metrics()
-                    qc_obj.parse_illumina_metrics()
+                    qc_obj = FlowcellQCMetrics(dirs.get("work", None), dirs.get("flowcell", None))
                 except:
                     qc_obj = None
                 # FIXME: error checking!
                 if qc_obj is not None:
                     try:
                         # Save data at a sample level
-                        log.info("Connecting to server at %s" % qc_obj.url)
+                        log.info("Connecting to server at %s" % statusdb_url)
                         try:
-                            couch = couchdb.Server(url="http://%s" % qc_obj.url)
+                            couch = couchdb.Server(url="http://%s" % statusdb_url)
                         except:
-                            log.warn("Connecting to server at %s failed" % qc_obj.url)
-                        log.info("Connecting to server at %s succeeded" % qc_obj.url)
+                            log.warn("Connecting to server at %s failed" % statusdb_url)
+                        log.info("Connecting to server at %s succeeded" % statusdb_url)
                         db=couch['qc']
                         # Save samples
                         for s in qc_obj.sample.keys():
                             obj = qc_obj.sample[s]
                             log.info("Saving sample %s" % obj.name())
-                            _save_obj(db, obj, qc_obj.url)
+                            _save_obj(db, obj, statusdb_url)
                         # Save flowcell object
-                        _save_obj(db, qc_obj, qc_obj.url)
+                        _save_obj(db, qc_obj, statusdb_url)
                     except Exception as e:
                         success = False
                 else:
