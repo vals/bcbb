@@ -37,7 +37,7 @@ from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
 from bcbio.google.sequencing_report import create_report_on_gdocs
-from bcbio.qc import report_to_statusdb
+from bcbio.qc.qcreport import report_to_statusdb
 
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
