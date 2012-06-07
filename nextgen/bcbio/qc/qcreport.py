@@ -14,11 +14,15 @@ from bcbio.qc import FlowcellQCMetrics
 def _save_obj(db, obj, url):
     dbobj = db.get(obj.get_db_id())
     if dbobj is None:
+        obj["creation_time"] = time.strftime("%x %X")
+        obj["modification_time"] = time.strftime("%x %X")
         log.info("Creating entity type %s with id %s in url %s" % (obj["entity_type"], obj.get_db_id(), url))
         db.save(obj)
     else:
         obj["_rev"] = dbobj.get("_rev")
         if obj != dbobj:
+            obj["creation_time"] = dbobj["creation_time"]
+            obj["modification_time"] = time.strftime("%x %X")
             log.info("Updating %s object with id %s in url %s" % (obj["entity_type"], obj.get_db_id(), url))
             db.save(obj)
         else:

@@ -4,6 +4,7 @@ import re
 import yaml
 import xml.parsers.expat
 import hashlib
+import time
 
 import glob
 import json
@@ -346,7 +347,9 @@ class QCMetrics(dict):
         self["entity_type"] = self.entity_type()
         self["entity_version"] = self.entity_version()
         self["name"] = self.name()
-
+        self["creation_time"] = None
+        self["modification_time"] = None
+        
     def entity_version(self):
         return str(self._entity_version)
 
