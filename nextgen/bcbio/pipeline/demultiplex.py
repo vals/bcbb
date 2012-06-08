@@ -35,7 +35,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     for info in multiplex:
         if demultiplexed:
             out_tuple = [info["barcode_id"]]
-            out_tuple.extend(info["files"])
+            out_tuple.extend([fastq1,fastq2])
             out_files.append(tuple(out_tuple))
             continue
 
