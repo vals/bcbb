@@ -19,6 +19,7 @@ import re
 import glob
 import pkg_resources
 from sys import stderr
+from bcbio.log import logger as log
 
 # Regexp's defining how to extract the software version from each program's output
 # The keys in the dictionary should match the keys under the 'program' section in
