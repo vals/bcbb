@@ -46,17 +46,17 @@ log = logbook.Logger(LOG_NAME)
 
 
 def main(local_config, post_config_file=None,
-         fetch_msg=True, process_msg=True, store_msg=True, backup_msg=False, qseq=True, fastq=True):
+         fetch_msg=True, process_msg=True, store_msg=True, backup_msg=False, qseq=True, fastq=True, remove_qseq=False, compress_fastq=False):
     config = load_config(local_config)
     log_handler = create_log_handler(config,True)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
-                       fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq)
+                       fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq)
 
 
 def search_for_new(config, config_file, post_config_file,
-                   fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq):
+                   fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
@@ -76,6 +76,8 @@ def search_for_new(config, config_file, post_config_file,
                     if fastq:
                         logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
+                        if remove_qseq: _clean_qseq(get_qseq_dir(dname), fastq_dir)
+                        if compress_fastq: _compress_fastq(fastq_dir)
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       fetch_msg, process_msg, store_msg, backup_msg)
@@ -159,6 +161,40 @@ def _generate_fastq(fc_dir, config):
             logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
     return fastq_dir
+
+def _compress_fastq(fastq_dir):
+    """Compress the fastq files using gzip
+    """
+    glob_str = "*_fastq.txt"
+    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
+    
+    for fastq_file in fastq_files:
+        logger2.debug("Compressing %s using gzip" % fastq_file)
+        cl = ["gzip",fastq_file]
+        subprocess.check_call(cl)
+
+def _clean_qseq(bc_dir, fastq_dir):
+    """Remove the temporary qseq files if the corresponding fastq file 
+       has been created
+    """    
+    glob_str = "*_1_fastq.txt"
+    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
+    
+    for fastq_file in fastq_files:
+        try:
+            lane = int(os.path.basename(fastq_file)[0])
+        except ValueError:
+            continue
+        
+        logger2.debug("Removing qseq files for lane %d" % lane)
+        glob_str = "s_%d_*qseq.txt" % lane
+        
+        for qseq_file in glob.glob(os.path.join(bc_dir, glob_str)):
+            try:
+                os.unlink(qseq_file)
+            except:
+                logger2.debug("Could not remove %s" % qseq_file)
+
 
 def _generate_qseq(bc_dir, config):
     """Generate qseq files from illumina bcl files if not present.
@@ -343,8 +379,12 @@ if __name__ == "__main__":
             action="store_false", default=True)
     parser.add_option("-f", "--nofastq", dest="fastq",
             action="store_false", default=True)
+    parser.add_option("-c", "--compress-fastq", dest="compress_fastq",
+            action="store_true", default=False)
     parser.add_option("-q", "--noqseq", dest="qseq",
             action="store_false", default=True)
+    parser.add_option("-r", "--remove-qseq", dest="remove_qseq",
+            action="store_true", default=False)
     parser.add_option("-m", "--miseq", dest="miseq",
             action="store_true", default=False)
 
@@ -360,5 +400,5 @@ if __name__ == "__main__":
         options.qseq = False
     
     kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg, store_msg=options.store_msg, backup_msg=options.backup_msg,
-                  fastq=options.fastq, qseq=options.qseq)
+                  fastq=options.fastq, qseq=options.qseq, remove_qseq=options.remove_qseq, compress_fastq=options.compress_fastq)
     main(*args, **kwargs)
