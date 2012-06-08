@@ -76,6 +76,7 @@ def search_for_new(config, config_file, post_config_file,
                     if fastq:
                         logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
+                        _calculate_md5(fastq_dir)
                         if remove_qseq: _clean_qseq(get_qseq_dir(dname), fastq_dir)
                         if compress_fastq: _compress_fastq(fastq_dir)
                     _post_process_run(dname, config, config_file,
@@ -161,6 +162,19 @@ def _generate_fastq(fc_dir, config):
             logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
     return fastq_dir
+
+def _calculate_md5(fastq_dir):
+    """Calculate the md5sum for the fastq files
+    """
+    glob_str = "*_fastq.txt"
+    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
+    
+    md5sum_file = os.path.join(fastq_dir,"md5sums.txt")
+    with open(md5sum_file,'w') as fh:
+        for fastq_file in fastq_files:
+            logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
+            cl = ["md5sum",fastq_file]
+            fh.write(subprocess.check_output(cl))
 
 def _compress_fastq(fastq_dir):
     """Compress the fastq files using gzip
