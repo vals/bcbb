@@ -46,17 +46,17 @@ log = logbook.Logger(LOG_NAME)
 
 
 def main(local_config, post_config_file=None,
-         fetch_msg=True, process_msg=True, store_msg=True, backup_msg=False, qseq=True, fastq=True):
+         fetch_msg=True, process_msg=True, store_msg=True, backup_msg=False, qseq=True, fastq=True, remove_qseq=False, compress_fastq=False):
     config = load_config(local_config)
     log_handler = create_log_handler(config,True)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
-                       fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq)
+                       fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq)
 
 
 def search_for_new(config, config_file, post_config_file,
-                   fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq):
+                   fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
@@ -76,6 +76,9 @@ def search_for_new(config, config_file, post_config_file,
                     if fastq:
                         logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
+                        _calculate_md5(fastq_dir)
+                        if remove_qseq: _clean_qseq(get_qseq_dir(dname), fastq_dir)
+                        if compress_fastq: _compress_fastq(fastq_dir, config)
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       fetch_msg, process_msg, store_msg, backup_msg)
@@ -159,6 +162,78 @@ def _generate_fastq(fc_dir, config):
             logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
     return fastq_dir
+
+def _calculate_md5(fastq_dir):
+    """Calculate the md5sum for the fastq files
+    """
+    glob_str = "*_fastq.txt"
+    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
+    
+    md5sum_file = os.path.join(fastq_dir,"md5sums.txt")
+    with open(md5sum_file,'w') as fh:
+        for fastq_file in fastq_files:
+            logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
+            cl = ["md5sum",fastq_file]
+            fh.write(subprocess.check_output(cl))
+
+def _compress_fastq(fastq_dir, config):
+    """Compress the fastq files using gzip
+    """
+    glob_str = "*_fastq.txt"
+    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
+    num_cores = config["algorithm"].get("num_cores",1)
+    active_procs = []
+    for fastq_file in fastq_files:
+        # Sleep for one minute while waiting for an open slot
+        while len(active_procs) >= num_cores:
+            time.sleep(60)
+            active_procs, _ = _process_status(active_procs)
+            
+        logger2.debug("Compressing %s using gzip" % fastq_file)
+        cl = ["gzip",fastq_file]
+        active_procs.append(subprocess.Popen(cl))
+    
+    # Wait for the last processes to finish
+    while len(active_procs) > 0:
+        time.sleep(60)
+        active_procs, _ = _process_status(active_procs)
+    
+def _process_status(processes):
+    """Return a list of the processes that are still active and
+       a list of the returncodes of the processes that have finished
+    """
+    active = []
+    retcodes = []
+    for p in processes:
+        c = p.poll()
+        if c is None:
+            active.append(p)
+        else:
+            retcodes.append(c)
+    return active, retcodes
+     
+def _clean_qseq(bc_dir, fastq_dir):
+    """Remove the temporary qseq files if the corresponding fastq file 
+       has been created
+    """    
+    glob_str = "*_1_fastq.txt"
+    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
+    
+    for fastq_file in fastq_files:
+        try:
+            lane = int(os.path.basename(fastq_file)[0])
+        except ValueError:
+            continue
+        
+        logger2.debug("Removing qseq files for lane %d" % lane)
+        glob_str = "s_%d_*qseq.txt" % lane
+        
+        for qseq_file in glob.glob(os.path.join(bc_dir, glob_str)):
+            try:
+                os.unlink(qseq_file)
+            except:
+                logger2.debug("Could not remove %s" % qseq_file)
+
 
 def _generate_qseq(bc_dir, config):
     """Generate qseq files from illumina bcl files if not present.
@@ -343,8 +418,12 @@ if __name__ == "__main__":
             action="store_false", default=True)
     parser.add_option("-f", "--nofastq", dest="fastq",
             action="store_false", default=True)
+    parser.add_option("-c", "--compress-fastq", dest="compress_fastq",
+            action="store_true", default=False)
     parser.add_option("-q", "--noqseq", dest="qseq",
             action="store_false", default=True)
+    parser.add_option("-r", "--remove-qseq", dest="remove_qseq",
+            action="store_true", default=False)
     parser.add_option("-m", "--miseq", dest="miseq",
             action="store_true", default=False)
 
@@ -360,5 +439,5 @@ if __name__ == "__main__":
         options.qseq = False
     
     kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg, store_msg=options.store_msg, backup_msg=options.backup_msg,
-                  fastq=options.fastq, qseq=options.qseq)
+                  fastq=options.fastq, qseq=options.qseq, remove_qseq=options.remove_qseq, compress_fastq=options.compress_fastq)
     main(*args, **kwargs)
