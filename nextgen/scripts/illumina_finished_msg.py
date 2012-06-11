@@ -78,7 +78,7 @@ def search_for_new(config, config_file, post_config_file,
                         fastq_dir = _generate_fastq(dname, config)
                         _calculate_md5(fastq_dir)
                         if remove_qseq: _clean_qseq(get_qseq_dir(dname), fastq_dir)
-                        if compress_fastq: _compress_fastq(fastq_dir)
+                        if compress_fastq: _compress_fastq(fastq_dir, config)
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       fetch_msg, process_msg, store_msg, backup_msg)
@@ -176,17 +176,42 @@ def _calculate_md5(fastq_dir):
             cl = ["md5sum",fastq_file]
             fh.write(subprocess.check_output(cl))
 
-def _compress_fastq(fastq_dir):
+def _compress_fastq(fastq_dir, config):
     """Compress the fastq files using gzip
     """
     glob_str = "*_fastq.txt"
     fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
+    num_cores = config["algorithm"].get("num_cores",1)
+    active_procs = []
     for fastq_file in fastq_files:
+        # Sleep for one minute while waiting for an open slot
+        while len(active_procs) >= num_cores:
+            time.sleep(60)
+            active_procs, _ = _process_status(active_procs)
+            
         logger2.debug("Compressing %s using gzip" % fastq_file)
         cl = ["gzip",fastq_file]
-        subprocess.check_call(cl)
-
+        active_procs.append(subprocess.Popen(cl))
+    
+    # Wait for the last processes to finish
+    while len(active_procs) > 0:
+        time.sleep(60)
+        active_procs, _ = _process_status(active_procs)
+    
+def _process_status(processes):
+    """Return a list of the processes that are still active and
+       a list of the returncodes of the processes that have finished
+    """
+    active = []
+    retcodes = []
+    for p in processes:
+        c = p.poll()
+        if c is None:
+            active.append(p)
+        else:
+            retcodes.append(c)
+    return active, retcodes
+     
 def _clean_qseq(bc_dir, fastq_dir):
     """Remove the temporary qseq files if the corresponding fastq file 
        has been created
