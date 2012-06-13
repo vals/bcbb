@@ -28,10 +28,11 @@ def combine_fastq_files(in_files, work_dir, config):
                     with open(cur2) as in_handle:
                         shutil.copyfileobj(in_handle, out_handle)
         if not config["algorithm"].get("upload_fastq", False):
-            for f1, f2 in in_files:
-                utils.save_diskspace(f1, "fastq merged to %s" % out1, config)
-                if f2:
-                    utils.save_diskspace(f2, "fastq merged to %s" % out2, config)
+            return out1, out2
+        for f1, f2 in in_files:
+            utils.save_diskspace(f1, "fastq merged to %s" % out1, config)
+            if f2:
+                utils.save_diskspace(f2, "fastq merged to %s" % out2, config)
         return out1, out2
 
 
