@@ -92,7 +92,7 @@ def _read_input_csv(in_file):
                 if line:  # skip empty lines
                     # convert '__' to '.'
                     for key, val in line.items():
-                        if val is not None:
+                        if val is not None and type(val) is str:
                             line[key] = val.replace('__','.')
                             
                     yield line['FCID'], line['Lane'], line['SampleID'], \
