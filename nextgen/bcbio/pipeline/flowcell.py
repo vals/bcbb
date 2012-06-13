@@ -11,6 +11,7 @@ import string
 from bcbio.solexa.flowcell import get_flowcell_info
 from bcbio.google import (_to_unicode, _from_unicode)
 from bcbio.utils import UnicodeReader
+from bcbio.log import logger2
 
 from bcbio.log import logger2 as log
 
@@ -92,17 +93,37 @@ def get_project_name(description):
 
 
 def get_sample_name(barcode_name):
-    """Extract the sample name by stripping the barcode index part of the
-    sample description.
+    """Extract the sample name by stripping the barcode 
+       index part of the sample description
+    """ 
+    parts = split_sample_name(barcode_name)
+    return "_".join([parts[0],"".join([parts[1],parts[3],parts[4]])])
+                     
+def split_sample_name(sample_name):
+    """Split a sample name into parts consisting of 
+        - project_name [PNNN]
+        - sample_number [NNN]
+        - reception_qc [F]
+        - prep_version [B]
+        - index_id [indexN]
     """
-    regexp = r'^(.+?)[\.\-_]?ind?(?:ex)?[ar\.\-_]?\d+$'
-    m = re.search(regexp, (barcode_name or ""), re.I)
-    if not m or len(m.groups()) == 0:
-        return barcode_name
-
-    return m.group(1)
-
-
+    
+    splits = sample_name.split("_")
+    if len(splits) != 3:
+        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]_indexN" % sample_name)
+    
+    # Check for an extra flag indicating re-prep or failed qc
+    prep_version = ""
+    reception_qc = ""
+    if splits[1][-1] == 'B':
+        prep_version = splits[1][-1]
+        splits[1] = splits[1][:-1]
+    if splits[1][-1] == 'F':
+        reception_qc = splits[1][-1]
+        splits[1] = splits[1][:-1]
+    
+    return splits[0], splits[1], "_".join(splits[2:]), reception_qc, prep_version
+    
 class Flowcell:
     """A class for managing information about a flowcell"""
 

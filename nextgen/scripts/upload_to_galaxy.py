@@ -278,7 +278,7 @@ def _get_storage_dir(cur_folder, lane, bc_id, storage_base, fname_out=None):
     if fname_out:
         base = str(fname_out)
     else:
-    base = "%s_%s" % (lane, bc_id) if bc_id else str(lane)
+        base = "%s_%s" % (lane, bc_id) if bc_id else str(lane)
     store_dir = os.path.join(storage_base, cur_folder, base)
     utils.safe_makedir(store_dir)
     return store_dir

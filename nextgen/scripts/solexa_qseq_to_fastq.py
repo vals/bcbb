@@ -53,6 +53,8 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
     for lane_num in lane_nums:
         lane_prefix = "s_%s" % lane_num
         out_prefix = "%s_%s" % (lane_num, run_name)
+        # Skip conversion if outfiles already exists
+        if len(glob.glob(os.path.join(outdir,"%s*" % out_prefix))) > 0: continue
         write_lane(lane_prefix, out_prefix, outdir, fail_dir)
 
 
