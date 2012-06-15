@@ -16,12 +16,27 @@ from bcbio.pipeline.flowcell import Flowcell
 from bcbio.log import create_log_handler
 from bcbio.log import logger2 as log
 
+from bcbio.distributed import messaging
+import os
 
+def queue_report(fc_date, fc_name, run_info_yaml, dirs, config, config_file):
+    if "gdocs_upload" not in config:
+        return False
+    
+    runner = messaging.runner("bcbio.distributed.google_tasks", {"work": os.getcwd(),"config": os.path.dirname(config_file)}, config, config_file, wait=False)
+    runner("create_report_on_gdocs",[[fc_date,fc_name,run_info_yaml,dirs,config]])
+    return True
+    
 def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
     """Create reports on gdocs containing both demultiplexed read counts and QC data.
     """
     success = True
     try:
+
+        # Inject the fc_date and fc_name in the email subject
+        def record_processor(record):
+            return record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))
+
         # Parse the run_info.yaml file
         log.debug("This is the run_info being loaded:")
         log.debug(run_info_yaml)
@@ -45,10 +60,6 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         log_handler = create_log_handler({'email': email, \
                                           'smtp_host': smtp_host, \
                                           'smtp_port': smtp_port}, True)
-
-        # Inject the fc_date and fc_name in the email subject
-        def record_processor(record):
-            return record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))
 
     except Exception as e:
         success = False

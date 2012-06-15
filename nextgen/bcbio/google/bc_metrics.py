@@ -151,8 +151,6 @@ def write_project_report_summary_to_gdocs(client, ssheet):
             lane = bcbio.pipeline.flowcell.Lane({"lane": lane_name})
             sample = bcbio.pipeline.flowcell.BarcodedSample(data, lane)
 
-            logger2.debug("Comment in Sample object: {}".format(sample.get_comment()))
-
             if sample_name in samples:
                 samples[sample_name]["object"].add_sample(sample, delim)
                 samples[sample_name]["flowcells"] += "{}{}".format(delim, run_name)
@@ -184,8 +182,6 @@ def write_project_report_summary_to_gdocs(client, ssheet):
 
         sample_name = sample.get_name()
         comment, pass_field = name_data.get(sample_name, [None, ""])
-
-        logger2.debug("Comment passed in to 'rows': {}".format(comment))
 
         row = [sample_name, \
                flowcells, \

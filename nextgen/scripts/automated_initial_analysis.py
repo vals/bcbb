@@ -38,7 +38,7 @@ from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
-from bcbio.google.sequencing_report import create_report_on_gdocs
+from bcbio.google.sequencing_report import queue_report
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
@@ -74,7 +74,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     # upload the sequencing report to Google Docs
     gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
     if not os.path.exists(gdocs_indicator) \
-    and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
+    and queue_report(fc_date, fc_name, os.path.abspath(run_info_yaml), dirs, config, config_file):
         utils.touch_file(gdocs_indicator)
 
     # Remove spiked in controls, contaminants etc.

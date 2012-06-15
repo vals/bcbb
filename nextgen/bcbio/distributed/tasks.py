@@ -6,10 +6,18 @@ from celery.task import task
 
 from bcbio.pipeline import sample, lane, toplevel, storage, shared, variation
 from bcbio.variation import realign, genotype
+from bcbio.google import sequencing_report
 
 # Global configuration for tasks in the main celeryconfig module
 import celeryconfig
 
+
+@task(queue="google_docs")
+def create_report_on_gdocs(*args):
+    [fc_date, fc_name, run_info_yaml, dirs, config] = args
+    #print "dropping %s" % dirs['work']
+    #return False
+    return sequencing_report.create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config)
 
 @task(ignore_results=True, queue="toplevel")
 def analyze_and_upload(*args):

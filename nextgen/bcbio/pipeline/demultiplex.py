@@ -86,14 +86,16 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     if not demultiplexed:
         return out
 
-    casava_stats = os.path.join(dirs.get("flowcell","."), "Unaligned", "Basecall_Stats_*", "Demultiplex_Stats.htm")
-    stats_htm = glob.glob(casava_stats)
-    
-    # The list stats_htm should always only have one element, but let's
-    # be pragmatic.
     try:
-        stats_htm = stats_htm[0]
-    except IndexError:
+        fc_name = base_name.split("_")[-1]
+        basecall_stats_dir = os.path.join(config["analysis"]["base_dir"],"Basecall_Stats_%s" % fc_name)
+        # If directory doesn't exist, try stripping first character from name (which may corrspond to flowcell position)
+        if not os.path.exists(basecall_stats_dir):
+            basecall_stats_dir = os.path.join(config["analysis"]["base_dir"],"Basecall_Stats_%s" % fc_name[1:])
+        
+        casava_stats = os.path.join(basecall_stats_dir, "Demultiplex_Stats.htm")
+        assert os.path.exists(casava_stats)
+    except:
         logger2.warn("Demultiplex_Stats.htm not found! " \
                      "Barcode stats will be meaningless.")
         bc_metrics = {int(multiplex[0]["lane"]): \
@@ -103,7 +105,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                              "barcode_id": None}}
                              }
     else:
-        bc_metrics = _parse_demultiplex_stats_htm(stats_htm)
+        bc_metrics = _parse_demultiplex_stats_htm(casava_stats)
 
     lane_bc_metrics = bc_metrics[int(multiplex[0]["lane"])]
     with open(metrics_file, "w") as out_handle:

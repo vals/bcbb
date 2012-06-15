@@ -60,20 +60,20 @@ def search_for_new(config, config_file, post_config_file, fetch_msg, \
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
         if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
-            if casava and _is_finished_dumping_read_1(dname):
-                logger2.info("Generating fastq.gz files for read 1 of %s" % dname)
-                fastq_dir = None
-                _generate_fastq_with_casava(dname, config, r1=True)
-                _post_process_run(dname, config, config_file,
-                                  fastq_dir, post_config_file,
-                                  fetch_msg=True, process_msg=False,
-                                  store_msg=store_msg,backup_msg=False)
-
-            if _is_finished_dumping(dname):
-                # Injects run_name on logging calls.
-                # Convenient for run_name on "Subject" for email notifications
-                run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
-                with logbook.Processor(run_setter):
+            # Injects run_name on logging calls.
+            # Convenient for run_name on "Subject" for email notifications
+            run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
+            with logbook.Processor(run_setter):
+                if casava and _is_finished_dumping_read_1(dname):
+                    logger2.info("Generating fastq.gz files for read 1 of %s" % dname)
+                    fastq_dir = None
+                    _generate_fastq_with_casava(dname, config, r1=True)
+                    _post_process_run(dname, config, config_file,
+                                      fastq_dir, post_config_file,
+                                      fetch_msg=True, process_msg=False,
+                                      store_msg=store_msg,backup_msg=False)
+    
+                if _is_finished_dumping(dname):
                     logger2.info("The instrument has finished dumping on directory %s" % dname)
                     _update_reported(config["msg_db"], dname)
                     _process_samplesheets(dname, config)
@@ -85,8 +85,8 @@ def search_for_new(config, config_file, post_config_file, fetch_msg, \
                     if fastq:
                         logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
-                        _calculate_md5(fastq_dir)
                         if remove_qseq: _clean_qseq(get_qseq_dir(dname), fastq_dir)
+                        _calculate_md5(fastq_dir)
                         if compress_fastq: _compress_fastq(fastq_dir, config)
                     if casava:
                         logger2.info("Generating fastq.gz files for %s" % dname)
