@@ -54,7 +54,7 @@ def main(local_config, post_config_file=None, fetch_msg=True, process_msg=True, 
 
 
 def search_for_new(config, config_file, post_config_file, fetch_msg, \
-        process_msg, store_msg, qseq, fastq, remove_qseq, compress_fastq, casava):
+        process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq, casava):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
