@@ -538,7 +538,6 @@ if __name__ == "__main__":
         options.qseq = False
         options.casava = False
 
-    (options, args) = parser.parse_args()
     kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg,
                   store_msg=options.store_msg, backup_msg=options.backup_msg, fastq=options.fastq,
                   qseq=options.qseq, remove_qseq=options.remove_qseq, compress_fastq=options.compress_fastq, casava=options.casava)
