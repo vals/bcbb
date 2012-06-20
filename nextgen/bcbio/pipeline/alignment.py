@@ -23,13 +23,16 @@ NgsTool = namedtuple("NgsTool", ["align_fn", "galaxy_loc_file",
                                  "remap_index_fn"])
 _tools = {
     "bowtie": NgsTool(bowtie.align, bowtie.galaxy_location_file, None),
+    "bowtie_rmcont": NgsTool(bowtie.remove_contaminants, None, None),
     "bowtie2": NgsTool(bowtie2.align, bowtie2.galaxy_location_file, bowtie2.remap_index_fn),
+    "bowtie2_rmcont": NgsTool(bowtie2.remove_contaminants, None, None),
     "bwa": NgsTool(bwa.align, bwa.galaxy_location_file, None),
     "mosaik": NgsTool(mosaik.align, mosaik.galaxy_location_file, None),
     "novoalign": NgsTool(novoalign.align, bowtie.galaxy_location_file, novoalign.remap_index_fn),
     "tophat": NgsTool(tophat.align, tophat.galaxy_location_file, None),
     "samtools": NgsTool(None, "sam_fa_indices.loc", None),
     }
+
 
 def align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
                       lane_name, sample_name, dirs, config):
@@ -43,8 +46,25 @@ def align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
                         rg_name=rg_name)
     if fastq2 is None and aligner in ["bwa", "bowtie2"]:
         fastq1 = _remove_read_number(fastq1, sam_file)
-    return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
-                           rg_name, lane_name, config)
+    sort_method = config["algorithm"].get("bam_sort", "coordinate")
+    if sort_method == "queryname":
+        return sam_to_querysort_bam(sam_file, config)
+    else:
+        return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
+                               rg_name, lane_name, config)
+
+def remove_contaminants(fastq1, fastq2, genome_build, aligner,
+                      lane_name, dirs, config):
+    """Remove reads mapping to the specified contaminating reference
+    """
+    align_ref, _ = get_genome_ref(genome_build, aligner, dirs["galaxy"])
+    # If reference file could not be found, do nothing
+    if align_ref is None:
+        return [fastq1, fastq2]
+    
+    rmcont_fn = _tools["%s_rmcont" % aligner].align_fn
+    return rmcont_fn(fastq1, fastq2, align_ref, "%s_no%s" % (lane_name,genome_build), os.path.join(dirs["work"], "no%s" % genome_build), config)
+    
 
 def _remove_read_number(in_file, sam_file):
     """Work around problem with MergeBamAlignment with BWA and single end reads.
@@ -70,6 +90,17 @@ def _remove_read_number(in_file, sam_file):
                             name = name.rsplit("/", 1)[0]
                             out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
     return out_file
+
+
+def sam_to_querysort_bam(sam_file, config):
+    """Convert SAM file directly to a query sorted BAM without merging of FASTQ reads.
+
+    This allows merging of multiple mappers which do not work with MergeBamAlignment.
+    """
+    runner = broad.runner_from_config(config)
+    out_file = "{}.bam".format(os.path.splitext(sam_file)[0])
+    return runner.run_fn("picard_sort", sam_file, "queryname", out_file)
+
 
 def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
                     rg_name, lane_name, config):
@@ -99,6 +130,7 @@ def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
         if fastq2:
             utils.save_diskspace(fastq2, "Merged into output BAM %s" % out_bam, config)
     return sort_bam
+
 
 def get_genome_ref(genome_build, aligner, galaxy_base):
     """Retrieve the reference genome file location from galaxy configuration.
@@ -132,4 +164,3 @@ def get_genome_ref(genome_build, aligner, galaxy_base):
                 (genome_build, aligner))
     else:
         return tuple(out_info)
-

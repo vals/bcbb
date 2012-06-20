@@ -13,6 +13,7 @@ from mako.template import Template
 from bcbio.broad import runner_from_config
 from bcbio.broad.metrics import PicardMetrics, PicardMetricsParser
 from bcbio import utils
+from bcbio.solexa.run_configuration import IlluminaConfiguration
 
 
 # ## High level functions to generate summary PDF
@@ -34,13 +35,21 @@ def screen_for_contamination(fastq1, fastq2, config):
     _run_fastq_screen(fastq1, fastq2, config)
 
 
+def _safe_latex(to_fix):
+    """Escape characters that make LaTeX unhappy.
+    """
+    chars = ["%", "_", "&", "#"]
+    for char in chars:
+        to_fix = to_fix.replace(char, "\\%s" % char)
+    return to_fix
+
 def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
                   dirs, config):
     base = os.path.splitext(os.path.basename(bam_file))[0]
     sample_name = base if sample_name is None else " : ".join(sample_name)
     tmpl = Template(_section_template)
-    sample_name = "%s (%s)" % (sample_name.replace("_", "\_"),
-                               base.replace("_", "\_"))
+    sample_name = "%s (%s)" % (_safe_latex(sample_name),
+                               _safe_latex(base))
     recal_plots = sorted(glob.glob(os.path.join(dirs["work"], "reports", "images",
                                                 "%s*-plot.pdf" % base)))
     section = tmpl.render(name=sample_name, summary=None,
@@ -96,6 +105,11 @@ def write_project_summary(samples):
 
     def _percent(x):
         return x.replace("(", "").replace(")", "").replace("\\", "")
+
+    # In case of empty fastq input
+    if len(samples) == 0:
+        return
+
     out_file = os.path.join(samples[0][0]["dirs"]["work"], "project-summary.csv")
     sample_info = _get_sample_summaries(samples)
     header = ["Total", "Aligned", "Pair duplicates", "Insert size",
@@ -173,11 +187,11 @@ class FastQCParser:
     def get_fastqc_summary(self):
         stats = {}
         for stat_line in self._fastqc_data_section("Basic Statistics")[1:]:
-            k, v = [self._safe_latex(x) for x in stat_line.split("\t")[:2]]
+            k, v = [_safe_latex(x) for x in stat_line.split("\t")[:2]]
             stats[k] = v
         over_rep = []
         for line in self._fastqc_data_section("Overrepresented sequences")[1:]:
-            parts = [self._safe_latex(x) for x in line.split("\t")]
+            parts = [_safe_latex(x) for x in line.split("\t")]
             over_rep.append(parts)
             over_rep[-1][0] = self._splitseq(over_rep[-1][0])
         return stats, over_rep[:self._max_overrep]
@@ -208,13 +222,7 @@ class FastQCParser:
                         out.append(line.rstrip("\r\n"))
         return out
 
-    def _safe_latex(self, to_fix):
-        """Escape characters that make LaTeX unhappy.
-        """
-        chars = ["%", "_", "&"]
-        for char in chars:
-            to_fix = to_fix.replace(char, "\\%s" % char)
-        return to_fix
+
 
 def _run_fastqc(bam_file, config):
     out_base = "fastqc"
@@ -252,6 +260,31 @@ def _run_fastq_screen(fastq1, fastq2, config):
         cl.insert(1,"--illumina")
          
     subprocess.check_call(cl)
+
+def _run_fastq_screen(fastq1, fastq2, config):
+    """ Runs fastq_screen on a subset of a fastq file
+    """
+    out_base = "fastq_screen"
+    utils.safe_makedir(out_base)
+    program = config.get("program", {}).get("fastq_screen", "fastq_screen")
+
+    if fastq2 is not None:
+        if os.path.exists(fastq2):
+        # paired end
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1, "--paired", fastq2]
+        else:
+            cl = [program, "--outdir", out_base, "--subset", "2000000", \
+            "--multilib", fastq1]
+    else:
+        cl = [program, "--outdir", out_base, "--subset", "2000000", \
+        "--multilib", fastq1]
+
+    if config["algorithm"].get("quality_format","").lower() == 'illumina':
+        cl.insert(1,"--illumina")
+         
+    subprocess.check_call(cl)
+
 
 # ## High level summary in YAML format for loading into Galaxy.
 
@@ -368,6 +401,93 @@ def _lane_stats(cur_name, work_dir):
     metrics_files = glob.glob(os.path.join(work_dir, "%s*metrics" % cur_name))
     metrics = parser.extract_metrics(metrics_files)
     return metrics
+
+
+# Parser for the RTA-generated quality-metrics
+class RTAQCMetrics:
+    
+    def __init__(self, base_dir):
+        self._dir = base_dir
+        self._configuration = IlluminaConfiguration(base_dir)
+        self._metrics_path = os.path.join(base_dir,"Data","reports","Summary")
+        assert os.path.exists(self._metrics_path), "The RTA QC metrics folder %s does not exist" % self._metrics_path
+        
+        # Assert that the readN.xml qc metrics files exist
+        self._metric_files = []
+        for read in self._configuration.reads().keys():
+            qc_file = os.path.join(self._metrics_path,"read%s.xml" % read)
+            assert os.path.exists(qc_file), "The RTA QC metrics file %s does not exist" % qc_file
+            self._metric_files.append(qc_file)
+        
+        # Parse the XML files
+        self.readSummaries()
+         
+    @staticmethod
+    def metrics():
+        return [
+                ['error_rate', 'ErrRatePhiX', False],
+                ['error_rate_sd', 'ErrRatePhiXSD', False],
+                ['raw_cluster_dens', 'ClustersRaw', True],
+                ['raw_cluster_dens_sd', 'ClustersRawSD', True],
+                ['prc_cluster_pf', 'PrcPFClusters', False],
+                ['prc_cluster_pf_sd', 'PrcPFClustersSD', False],
+                ['pf_cluster_dens', 'ClustersPF', True],
+                ['pf_cluster_dens_sd', 'ClustersPFSD', True],
+                ['phasing', 'Phasing', False],
+                ['prephasing', 'Prephasing', False],
+                ['prc_aligned', 'PrcAlign', False],
+                ['prc_aligned_sd', 'PrcAlignSD', False]
+            ]
+    
+    def configuration(self):
+        return self._configuration
+    
+    # getQCstats() is probably the method you usually want to call
+    def getQCstats(self):
+        qc_stats = {}
+        for metric in self.metrics():
+            qc_stats[metric[0]] = self.getAllLaneMetrics(metric[1],metric[2])
+        return qc_stats
+
+    def readSummaries(self):
+        self._qc_roots = {}
+        for qc_file in self._metric_files:
+            tree = ET.parse(qc_file)
+            root = tree.getroot()
+            if root is not None:
+                read = root.get("Read","0")
+                self._qc_roots[read] = root
+
+    def getAllSingleLaneMetric(self, metric, lane, clu_dens = False):
+        metrics = {}
+        for read, root in self._qc_roots.items():
+            metrics["read%s" % read] = self.getSingleLaneMetric(root, metric, lane, clu_dens)
+        return metrics
+
+    def getSingleLaneMetric(self, root, metric, lane, clu_dens = False):
+        m = self.getLaneMetric(root, metric, clu_dens, lane)
+        return m[lane]
+    
+    def getAllLaneMetrics(self, metric, clu_dens):
+        metrics = {}
+        for read, root in self._qc_roots.items():
+            metrics["read%s" % read] = self.getLaneMetric(root, metric, clu_dens)
+        return metrics
+
+    def getLaneMetric(self, root, metric, clu_dens, lane=None):
+        if clu_dens: densRatio = float(root.get("densityRatio"))
+        lanes = root.findall("Lane")    
+        m = {}
+        for l in lanes:
+            k = l.get("key")
+            if lane is not None and k != str(lane):
+                continue
+            val = float(l.get(metric))
+            m[k] = val
+            if clu_dens: 
+                m[k] = str(int(round((densRatio * val)/1000))) + 'K'
+        return m
+
 
 # ## LaTeX templates for output PDF
 

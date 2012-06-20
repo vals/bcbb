@@ -11,6 +11,7 @@ from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 from bcbio.distributed.transaction import file_transaction
 
+
 def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     """Split a fastq file into multiplex pieces using barcode details.
     """
@@ -38,8 +39,8 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                     cl.append(fastq2)
                 cl.append("--mismatch=%s" % config["algorithm"]["bc_mismatch"])
                 cl.append("--metrics=%s" % metrics_file)
-                if int(config["algorithm"]["bc_read"]) == 2:
-                    cl.append("--second")
+                if int(config["algorithm"]["bc_read"]) > 1:
+                    cl.append("--read=%s" % config["algorithm"]["bc_read"])
                 if int(config["algorithm"]["bc_position"]) == 5:
                     cl.append("--five")
                 if config["algorithm"].get("bc_allow_indels", True) is False:
@@ -58,6 +59,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
                 f1, f2 = _basic_trim(f1, f2, need_trim[b], config)
             out[b] = (f1, f2)
     return out
+
 
 def _basic_trim(f1, f2, trim_seq, config):
     """Chop off barcodes on sequences based on expected sequence size.
@@ -92,21 +94,25 @@ def _make_tag_file(barcodes, unmatched_str, config):
                 need_trim[bc["barcode_id"]] = bc["sequence"]
     return tag_file, need_trim
 
-def _adjust_illumina_tags(barcodes,config):    
-    """Handle additional trailing A in Illumina barocdes.
+def _adjust_illumina_tags(barcodes, config):
+    """Handle additional trailing A in Illumina barcodes.
 
     Illumina barcodes are listed as 6bp sequences but have an additional
     A base when coming off on the sequencer. This checks for this case and
     adjusts the sequences appropriately if needed. When the configuration 
     option to disregard the additional A in barcode matching is set, the
     added base is an ambigous N to avoid an additional mismatch.
+    If the configuration uses bc_offset to adjust the comparison location,
+    we do not add trailing base and rely on the configuration setting.
     """
     illumina_size = 7
     all_illumina = True
     need_a = False
     for bc in barcodes:
-        if bc.get("barcode_type", "illumina").lower().find("illumina") == -1:
+        if (bc.get("barcode_type", "illumina").lower().find("illumina") == -1 or
+            int(config["algorithm"].get("bc_offset", 0)) == 1):
             all_illumina = False
+            break
         if (not bc["sequence"].upper().endswith("A") or
             len(bc["sequence"]) < illumina_size):
             need_a = True
@@ -121,6 +127,7 @@ def _adjust_illumina_tags(barcodes,config):
             new.append(new_bc)
         barcodes = new
     return barcodes
+
 
 def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
     """Add multiplex information to control and non-multiplexed lanes.
@@ -139,14 +146,15 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
             has_barcodes = True
             tag_sizes.extend([len(x["sequence"]) for x in xs])
             fastq_sizes.append(_get_fastq_size(xs[0], fastq_dir, fc_name))
-    if not has_barcodes: # nothing to worry about
+    if not has_barcodes:  # nothing to worry about
         return run_items
     fastq_sizes = list(set(fastq_sizes))
 
     # discard 0 sizes to handle the case where lane(s) are empty or failed
     try:
         fastq_sizes.remove(0)
-    except ValueError: pass
+    except ValueError:
+        pass
 
     tag_sizes = list(set(tag_sizes))
     final_items = []

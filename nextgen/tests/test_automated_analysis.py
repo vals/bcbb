@@ -9,13 +9,17 @@ import shutil
 import contextlib
 import collections
 
+from nose.plugins.attrib import attr
+
 
 @contextlib.contextmanager
 def make_workdir():
+    remove_old_dir = True
     dirname = os.path.join(os.path.dirname(__file__), "test_automated_output")
-    if os.path.exists(dirname):
-        shutil.rmtree(dirname)
-    os.makedirs(dirname)
+    if remove_old_dir:
+        if os.path.exists(dirname):
+            shutil.rmtree(dirname)
+        os.makedirs(dirname)
     orig_dir = os.getcwd()
     try:
         os.chdir(dirname)
@@ -35,7 +39,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         """
         DlInfo = collections.namedtuple("DlInfo", "fname dirname version")
         download_data = [DlInfo("110106_FC70BUKAAXX.tar.gz", None, None),
-                         DlInfo("genomes_automated_test.tar.gz", "genomes", 5),
+                         DlInfo("genomes_automated_test.tar.gz", "genomes", 6),
                          DlInfo("110907_ERP000591.tar.gz", None, None),
                          DlInfo("100326_FC6107FAAXX.tar.gz", None, 2)]
         for dl in download_data:
@@ -87,6 +91,8 @@ class AutomatedAnalysisTest(unittest.TestCase):
     def test_4_empty_fastq(self):
         """Handle analysis of empty fastq inputs from failed runs.
         """
+        self.setUp()
+        self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
                   self._get_post_process_yaml(),
@@ -97,6 +103,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
     def test_2_rnaseq(self):
         """Run an RNA-seq analysis with TopHat and Cufflinks.
         """
+        self.setUp()
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
@@ -105,9 +112,11 @@ class AutomatedAnalysisTest(unittest.TestCase):
                   os.path.join(self.data_dir, "run_info-rnaseq.yaml")]
             subprocess.check_call(cl)
 
+    @attr("standard")
     def test_1_variantcall(self):
         """Test variant calling with GATK pipeline.
         """
+        self.setUp()
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",

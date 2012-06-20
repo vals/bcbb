@@ -36,7 +36,7 @@ from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
-from bcbio.google.bc_metrics import create_bc_report_on_gdocs
+from bcbio.google.sequencing_report import create_report_on_gdocs
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
@@ -49,6 +49,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
+    
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -59,14 +60,18 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
     run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
-    # process each flowcell lane
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
+    
+    # upload the sequencing report to Google Docs
+    gdocs_indicator = os.path.join(work_dir,"gdocs_report_complete.txt")
+    if not os.path.exists(gdocs_indicator) and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
+        utils.touch_file(gdocs_indicator)
 
-    # upload the demultiplex counts to Google Docs
-    create_bc_report_on_gdocs(fc_date, fc_name, work_dir, run_info, config)
-
+    # Remove spiked in controls, contaminants etc.
+    lane_items = run_parallel("remove_contaminants",lane_items)
+    
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
@@ -75,6 +80,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     samples = run_parallel("recalibrate_sample", samples)
     samples = parallel_realign_sample(samples, run_parallel)
     samples = parallel_variantcall(samples, run_parallel)
+    samples = run_parallel("detect_sv", samples)
     samples = run_parallel("process_sample", samples)
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
     write_project_summary(samples)

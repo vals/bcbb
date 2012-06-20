@@ -23,6 +23,7 @@ def _organize_lanes(info_iter, barcode_ids):
     """
     all_lanes = []
     sorted_info = sorted(info_iter, key=operator.itemgetter(1))
+
     for lane, info in itertools.groupby(sorted_info, lambda x: x[1]):
         info = list(info)
         sampleref = info[0][3].lower()
@@ -32,14 +33,19 @@ def _organize_lanes(info_iter, barcode_ids):
 
         if _has_barcode(info):
             multiplex = []
-            for (_, _, sample_id, _, bc_seq, descr) in info:
+            for (_, _, sample_id, _, bc_seq, descr, _, _, sample_proj) in info:
                 bc_type, bc_id = barcode_ids[bc_seq]
                 bc_dict = dict(barcode_type=bc_type,
                               barcode_id=bc_id,
                               sequence=bc_seq,
-                              name=sample_id)
+                              name=sample_id,
+                              sample_prj=sample_proj)#,
+                              #genomes_filter_out="phix")
                 if descr != info[0][5]:
-                    bc_dict["description"] = descr
+                    # In order to avoid unintentional merging of samples based on descriptions, don't write it for samples.
+                    # The SampleProject field fulfills the function intended with sample-level description.
+                    pass
+                    #bc_dict["description"] = descr
                 multiplex.append(bc_dict)
             cur_lane["multiplex"] = multiplex
 
@@ -60,11 +66,12 @@ def _generate_barcode_ids(info_iter):
     """Create unique barcode IDs assigned to sequences
     """
     bc_type = "SampleSheet"
-    barcodes = list(set([x[-2] for x in info_iter]))
+    barcodes = list(set([x[4] for x in info_iter]))
     barcodes.sort()
     barcode_ids = {}
     for i, bc in enumerate(barcodes):
         barcode_ids[bc] = (bc_type, i + 1)
+    
     return barcode_ids
 
 
@@ -76,13 +83,17 @@ def _read_input_csv(in_file):
 
     try:
         with open(in_file, "rU") as in_handle:
-            reader = csv.reader(in_handle)
-            #reader = unicode_csv_reader(in_handle)
-            reader.next()  # header
+            dialect = csv.Sniffer().sniff(in_handle.read(1024))
+            in_handle.seek(0)
+
+            reader = csv.DictReader(in_handle, dialect=dialect)
+            #reader.next()  # No need to skip header with csv.sniffer
             for line in reader:
-                if line:  # empty lines
-                    (fc_id, lane, sample_id, genome, barcode, description) = line[:6]
-                    yield fc_id, lane, sample_id, genome, barcode, description
+                if line:  # skip empty lines
+                    yield line['FCID'], line['Lane'], line['SampleID'], \
+                          line['SampleRef'], line['Index'], line['Description'], \
+                          line.get('Recipe', None), line.get('Operator', None), \
+                          line.get('SampleProject', line['Description'])
     except ValueError:
         print "Corrupt samplesheet %s, please fix it" % in_file
         pass

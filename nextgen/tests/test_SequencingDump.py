@@ -10,7 +10,10 @@ import yaml
 
 from bcbio.solexa import samplesheet
 
+from nose.plugins.attrib import attr
 
+
+@attr("standard")
 class SampleSheetTest(unittest.TestCase):
     """Deal with Illumina SampleSheets and convert to YAML input.
     """

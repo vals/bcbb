@@ -145,26 +145,3 @@ def _unique_flowcell_info():
         if n == 0: break
     return ''.join(reversed(s)), fc_date
 
-def prune_run_info(run_info, desc=None, lanes=None, bc=None):
-    """Prune a run_info file by lane description, and optionally, add barcode indices for multiplexed lanes."""
-    run_info_ret = list()
-    for lane in run_info:
-        lane_ret = []
-        check_lane = True
-        for mp in lane:
-            if check_lane:
-                if not desc is None:
-                    if not (mp['description'].find(desc) or desc=="ALL"):
-                        break
-                elif not lanes is None:
-                    if not (str(mp['lane']) in lanes.split(",")):
-                        break
-            check_lane = False
-            if not bc is None:
-                if str(mp['barcode_id']) in bc.split(","):
-                    lane_ret.append(mp)
-            else:
-                lane_ret.append(mp)
-        if len(lane_ret) > 1:
-            run_info_ret.append(lane_ret)
-    return run_info_ret     

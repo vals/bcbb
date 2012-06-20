@@ -4,22 +4,30 @@ import os
 import copy
 import glob
 
-from operator import itemgetter
-from bcbio.utils import UnicodeWriter
-# from bcbio.pipeline import log
 from bcbio.log import logger
 from bcbio.pipeline.fastq import get_fastq_files, get_multiplex_items
 from bcbio.pipeline.demultiplex import split_by_barcode
-from bcbio.pipeline.alignment import align_to_sort_bam
+from bcbio.pipeline.alignment import align_to_sort_bam, remove_contaminants as rc
 from bcbio.solexa.flowcell import get_flowcell_info
+from bcbio.bam.trim import brun_trim_fastq
 
 def process_lane(lane_items, fc_name, fc_date, dirs, config):
     """Prepare lanes, potentially splitting based on barcodes.
     """
+        
     lane_name = "%s_%s_%s" % (lane_items[0]['lane'], fc_date, fc_name)
-    logger.info("Demulitplexing %s" % lane_name)
     full_fastq1, full_fastq2 = get_fastq_files(dirs["fastq"], dirs["work"],
                                                lane_items[0], fc_name, config=config)
+    
+    # Filter phiX
+    custom_config = _update_config_w_custom(config, lane_items[0])
+    if custom_config["algorithm"].get("filter_phix",False):
+        logger.info("Filtering phiX from %s" % lane_name)
+        info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
+        processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, custom_config)
+        (full_fastq1, full_fastq2, _, lane_name) = processed[0][0:4]
+        
+    logger.info("Demultiplexing %s" % lane_name)
     bc_files = split_by_barcode(full_fastq1, full_fastq2, lane_items,
                                 lane_name, dirs, config)
     out = []
@@ -27,7 +35,7 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
         config = _update_config_w_custom(config, item)
         # Can specify all barcodes but might not have actual sequences
         # Would be nice to have a good way to check this is okay here.
-        if bc_files.has_key(item["barcode_id"]):
+        if item["barcode_id"] in bc_files:
             fastq1, fastq2 = bc_files[item["barcode_id"]]
             cur_lane_name = lane_name
             cur_lane_desc = item["description"]
@@ -35,10 +43,32 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
                 cur_lane_desc = "%s : %s" % (item["name"], cur_lane_desc)
             if item["barcode_id"] is not None:
                 cur_lane_name += "_%s" % (item["barcode_id"])
+            if config["algorithm"].get("trim_reads", False):
+                trim_info = brun_trim_fastq([x for x in [fastq1, fastq2] if x is not None],
+                                            dirs, config)
+                fastq1 = trim_info[0]
+                if fastq2 is not None:
+                    fastq2 = trim_info[1]
             out.append((fastq1, fastq2, item, cur_lane_name, cur_lane_desc,
                         dirs, config))
     return out
 
+
+def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
+                      dirs, config):
+    """Remove reads mapping to the specified contaminating reference
+    """
+    
+    base_name = None
+    genome_build = info.get("genomes_filter_out",None)
+    # Skip filtering of phix in case we have already done that for the lane
+    if genome_build is not None and not (genome_build == "phix" and config["algorithm"].get("filter_phix",False)) and os.path.exists(fastq1):
+        if genome_build == "spiked_phix": genome_build = "phix"
+        program = config["algorithm"].get("remove_contaminants","bowtie")
+        logger.info("Removing %s contaminants on %s, using %s" % (genome_build,info["description"],program))
+        fastq1, fastq2, base_name = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
+            
+    return [[fastq1, fastq2, info, (base_name or lane_name), lane_desc, dirs, config]]
 
 def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
                       dirs, config):
@@ -48,8 +78,8 @@ def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
     out_bam = ""
     if os.path.exists(fastq1) and aligner:
         logger.info("Aligning lane %s with %s aligner" % (lane_name, aligner))
-        out_bam = align_to_sort_bam(fastq1, fastq2, info["genome_build"], aligner,
-                                    lane_name, lane_desc, dirs, config)
+        out_bam = align_to_sort_bam(fastq1, fastq2, info["genome_build"], \
+                                aligner, lane_name, lane_desc, dirs, config)
     return [{"fastq": [fastq1, fastq2], "out_bam": out_bam, "info": info,
              "config": config}]
 

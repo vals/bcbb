@@ -15,10 +15,9 @@ from BCBio import GFF
 
 def main(gff_file, fasta_file):
     out_file = "%s.gb" % os.path.splitext(gff_file)[0]
-    fasta_input = SeqIO.to_dict(_fix_ncbi_id(
-        SeqIO.parse(fasta_file, "fasta", generic_dna)))
+    fasta_input = SeqIO.to_dict(SeqIO.parse(fasta_file, "fasta", generic_dna))
     gff_iter = GFF.parse(gff_file, fasta_input)
-    SeqIO.write(_check_gff(gff_iter), out_file, "genbank")
+    SeqIO.write(_check_gff(_fix_ncbi_id(gff_iter)), out_file, "genbank")
 
 def _fix_ncbi_id(fasta_iter):
     """GenBank identifiers can only be 16 characters; try to shorten NCBI.
@@ -29,7 +28,7 @@ def _fix_ncbi_id(fasta_iter):
             print "Warning: shortening NCBI name %s to %s" % (rec.id, new_id)
             rec.id = new_id
             rec.name = new_id
-            yield rec
+        yield rec
 
 def _check_gff(gff_iterator):
     """Check GFF files before feeding to SeqIO to be sure they have sequences.
@@ -39,7 +38,26 @@ def _check_gff(gff_iterator):
             print "Warning: FASTA sequence not found for '%s' in GFF file" % (
                     rec.id)
             rec.seq.alphabet = generic_dna
-        yield rec
+        yield _flatten_features(rec)
+
+def _flatten_features(rec):
+    """Make sub_features in an input rec flat for output.
+
+    GenBank does not handle nested features, so we want to make
+    everything top level.
+    """
+    out = []
+    for f in rec.features:
+        cur = [f]
+        while len(cur) > 0:
+            nextf = []
+            for curf in cur:
+                out.append(curf)
+                if len(curf.sub_features) > 0:
+                    nextf.extend(curf.sub_features)
+            cur = nextf
+    rec.features = out
+    return rec
 
 if __name__ == "__main__":
     main(*sys.argv[1:])

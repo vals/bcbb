@@ -46,15 +46,18 @@ def get_client(encoded_credentials=None):
         authenticate(client,encoded_credentials)
         
     return client
-  
-def get_folder(client,folder_name):
+
+
+def get_folder(client, folder_name):
     """Get a folder if it exists"""
     q = gdata.docs.service.DocumentQuery(categories=['folder'], params={'showfolders': 'true'})
     for entry in (client.Query(q.ToUri()).entry or []):
         if entry.title.text == folder_name:
             return entry
+
     return None
-  
+
+
 def move_to_folder(client,doc,folder):
     """Move a document into the supplied folder"""
     moved_doc = client.MoveIntoFolder(doc,folder)

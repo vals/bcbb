@@ -27,6 +27,7 @@ import socket
 import glob
 import getpass
 import subprocess
+import time
 from optparse import OptionParser
 from xml.etree.ElementTree import ElementTree
 
@@ -45,22 +46,22 @@ log = logbook.Logger(LOG_NAME)
 
 
 def main(local_config, post_config_file=None,
-         process_msg=True, store_msg=True, qseq=True, fastq=True):
+         fetch_msg=True, process_msg=True, store_msg=True, backup_msg=False, qseq=True, fastq=True):
     config = load_config(local_config)
-    log_handler = create_log_handler(config)
+    log_handler = create_log_handler(config,True)
 
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
-                       process_msg, store_msg, qseq, fastq)
+                       fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq)
 
 
 def search_for_new(config, config_file, post_config_file,
-                   process_msg, store_msg, qseq, fastq):
+                   fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
-        if os.path.isdir(dname) and dname not in reported:
+        if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
             if _is_finished_dumping(dname):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
@@ -77,25 +78,33 @@ def search_for_new(config, config_file, post_config_file,
                         fastq_dir = _generate_fastq(dname, config)
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
-                                      process_msg, store_msg)
+                                      fetch_msg, process_msg, store_msg, backup_msg)
+                    # Update the reported database after successful processing
+                    _update_reported(config["msg_db"], dname)
                 # Re-read the reported database to make sure it hasn't changed while processing
                 reported = _read_reported(config["msg_db"])
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
-                      process_msg, store_msg):
+                      fetch_msg, process_msg, store_msg, backup_msg):
     """With a finished directory, send out message or process directly.
     """
     run_module = "bcbio.distributed.tasks"
     # without a configuration file, send out message for processing
     if post_config_file is None:
-        store_files, process_files = _files_to_copy(dname)
+        store_files, process_files, backup_files = _files_to_copy(dname)
         if process_msg:
             finished_message("analyze_and_upload", run_module, dname,
+                             process_files, config, config_file)
+        elif fetch_msg:
+            finished_message("fetch_data", run_module, dname,
                              process_files, config, config_file)
         if store_msg:
             raise NotImplementedError("Storage server needs update.")
             finished_message("long_term_storage", run_module, dname,
                              store_files, config, config_file)
+        if backup_msg:
+            finished_message("backup", run_module, dname,
+                             backup_files, config, config_file)
     # otherwise process locally
     else:
         analyze_locally(dname, post_config_file, fastq_dir)
@@ -139,7 +148,7 @@ def _generate_fastq(fc_dir, config):
     if postprocess_dir:
         fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir),
                                  "fastq")
-    if not fastq_dir == fc_dir and not os.path.exists(fastq_dir):
+    if not fastq_dir == fc_dir:# and not os.path.exists(fastq_dir):
         with utils.chdir(basecall_dir):
             lanes = sorted(list(set([f.split("_")[1] for f in
                 glob.glob("*qseq.txt")])))
@@ -169,6 +178,7 @@ def _generate_qseq(bc_dir, config):
         (out, _) = p.communicate()
         olb_version = float(out.strip().split()[-1].rsplit(".", 1)[0])
         if olb_version > 1.8:
+            cl += ["-P", ".clocs"]
             cl += ["-b", bc_dir]
         else:
             cl += ["-i", bc_dir, "-p", os.path.split(bc_dir)[0]]
@@ -189,15 +199,18 @@ def _is_finished_dumping(directory):
     """
     #if _is_finished_dumping_checkpoint(directory):
     #    return True
-    # Check final output files; handles both HiSeq and GAII
+    # Check final output files; handles both HiSeq, MiSeq and GAII
     run_info = os.path.join(directory, "RunInfo.xml")
     hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
                         _expected_reads(run_info)
+    # include a check to wait for any ongoing MiSeq analysis
+    miseq_analysis_checkpoint = (not os.path.exists(os.path.join(directory, "QueuedForAnalysis.txt")) or os.path.exists(os.path.join(directory, "CompletedJobInfo.xml")))
+    
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
                 "Basecalling_Netcopy_complete_READ2.txt",
                 hi_seq_checkpoint]
-    return reduce(operator.or_,
-            [os.path.exists(os.path.join(directory, f)) for f in to_check])
+    return (reduce(operator.or_,
+            [os.path.exists(os.path.join(directory, f)) for f in to_check]) and miseq_analysis_checkpoint)
 
 def _expected_reads(run_info_file):
     """Parse the number of expected reads from the RunInfo.xml file.
@@ -209,6 +222,7 @@ def _expected_reads(run_info_file):
         read_elem = tree.find("Run/Reads")
         reads = read_elem.findall("Read")
     return len(reads)
+
 
 def _is_finished_dumping_checkpoint(directory):
     """Recent versions of RTA (1.10 or better), write the complete file.
@@ -227,6 +241,7 @@ def _is_finished_dumping_checkpoint(directory):
             v1, v2 = [float(v) for v in version.split(".")[:2]]
             if ((v1 > check_v1) or (v1 == check_v1 and v2 >= check_v2)):
                 return True
+
 
 def _files_to_copy(directory):
     """Retrieve files that should be remotely copied.
@@ -250,11 +265,17 @@ def _files_to_copy(directory):
         run_info = reduce(operator.add,
                         [glob.glob("run_info.yaml"),
                          glob.glob("*.csv"),
+                         glob.glob("*.txt")
                         ])
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
-        fastq = ["Data/Intensities/BaseCalls/fastq"]
+        fastq = reduce(operator.add, 
+                       [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
+                        ["Data/Intensities/BaseCalls/fastq"]])
+        analysis = reduce(operator.add, [glob.glob("Data/Intensities/BaseCalls/Alignment")])
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
-            sorted(reports + fastq + run_info))
+            sorted(reports + fastq + run_info + analysis),
+            ["*"])
+
 
 def _read_reported(msg_db):
     """Retrieve a list of directories previous reported.
@@ -266,17 +287,30 @@ def _read_reported(msg_db):
                 reported.append(line.strip())
     return reported
 
+
 def _get_directories(config):
     for directory in config["dump_directories"]:
-        for dname in sorted(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]"))):
+        globs = []
+        globs.extend(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]")))
+        # Glob to capture MiSeq flowcells
+        globs.extend(glob.glob(os.path.join(directory, "*_M*AMS*")))
+        for dname in sorted(globs):
             if os.path.isdir(dname):
                 yield dname
+
 
 def _update_reported(msg_db, new_dname):
     """Add a new directory to the database of reported messages.
     """
-    with open(msg_db, "a") as out_handle:
-        out_handle.write("%s\n" % new_dname)
+    reported = _read_reported(msg_db)
+    for d in [dir for dir in reported if dir.startswith(new_dname)]:
+        new_dname = d
+        reported.remove(d)
+    reported.append("%s\t%s" % (new_dname,time.strftime("%x-%X")))
+    
+    with open(msg_db, "w") as out_handle:
+        for dir in reported:
+            out_handle.write("%s\n" % dir)
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
                      config, config_file):
@@ -299,6 +333,10 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
 
 if __name__ == "__main__":
     parser = OptionParser()
+    parser.add_option("-b", "--backup", dest="backup_msg",
+            action="store_true", default=False)
+    parser.add_option("-d", "--nofetch", dest="fetch_msg",
+            action="store_false", default=True)
     parser.add_option("-p", "--noprocess", dest="process_msg",
             action="store_false", default=True)
     parser.add_option("-s", "--nostore", dest="store_msg",
@@ -307,8 +345,20 @@ if __name__ == "__main__":
             action="store_false", default=True)
     parser.add_option("-q", "--noqseq", dest="qseq",
             action="store_false", default=True)
+    parser.add_option("-m", "--miseq", dest="miseq",
+            action="store_true", default=False)
 
     (options, args) = parser.parse_args()
-    kwargs = dict(process_msg=options.process_msg, store_msg=options.store_msg,
+    
+    # Option --miseq implies --noprocess, --nostore, --nofastq, --noqseq
+    if options.miseq:
+        options.fetch_msg = False
+        options.process_msg = False
+        options.store_msg = False
+        options.backup_msg = True
+        options.fastq = False
+        options.qseq = False
+    
+    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg, store_msg=options.store_msg, backup_msg=options.backup_msg,
                   fastq=options.fastq, qseq=options.qseq)
     main(*args, **kwargs)

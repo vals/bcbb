@@ -8,6 +8,7 @@ import subprocess
 
 from bcbio.broad import picardrun
 
+
 class BroadRunner:
     """Simplify running Broad commandline tools.
     """
@@ -53,7 +54,6 @@ class BroadRunner:
                             "VariantRecalibrator"]
         gatk_jar = self._get_jar("GenomeAnalysisTK")
         local_args = []
-        params.extend(["--phone_home", "NO_ET"])
         cores = self._config.get("resources", {}).get("gatk", {}).get("cores", None)
         if cores:
             do_parallel = False
@@ -66,7 +66,6 @@ class BroadRunner:
             local_args.append("-Djava.io.tmpdir=%s" % tmp_dir)
         cl = ["java"] + self._memory_args + local_args + \
                 ["-jar", gatk_jar] + [str(x) for x in params]
-        #print " ".join(cl)
         subprocess.check_call(cl)
 
     def _get_jar(self, command):
