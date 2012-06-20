@@ -20,8 +20,7 @@ def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="
         names = item["files"]
         if isinstance(names, basestring):
             names = [names]
-        files = [os.path.join(directory, x) for x in names]
-   
+        files = [x if os.path.isabs(x) else os.path.join(directory, x) for x in names]
     else:
         assert fc_name is not None
         lane = item["lane"]
@@ -30,6 +29,11 @@ def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="
         else:
             glob_str = "%s_*%s*%s" % (lane, fc_name, glob_ext)
         files = glob.glob(os.path.join(directory, glob_str))
+        
+        # Include gzipped files
+        glob_str = "%s.gz" % glob_str
+        files.extend(glob.glob(os.path.join(directory, glob_str)))
+        
         files.sort()
         if len(files) > 2 or len(files) == 0:
             raise ValueError("Did not find correct files for %s %s %s %s" %

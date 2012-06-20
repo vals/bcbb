@@ -90,12 +90,15 @@ def _close_taskset(ts):
             except:
                 pass
 
+
 # ## Handle memory bound processes on multi-core machines
 
 def cores_including_resources(cores, metadata, config):
     """Retrieve number of cores to use, considering program resources.
     """
-    if metadata is None: metadata = {}
+    if metadata is None:
+        metadata = {}
+
     required_memory = -1
     for program in metadata.get("programs", []):
         presources = config.get("resources", {}).get(program, {})
@@ -114,6 +117,7 @@ def cores_including_resources(cores, metadata, config):
     if cores < 1:
         cores = 1
     return cores
+
 
 def _machine_memory():
     """Retrieve available memory on current machine using 'free.'
@@ -140,12 +144,14 @@ CELERYD_CONCURRENCY = ${cores}
 CELERY_ACKS_LATE = False
 CELERYD_PREFETCH_MULTIPLIER = 1
 BCBIO_CONFIG_FILE = "${config_file}"
+BROKER_CONNECTION_MAX_RETRIES = 200
 """
+
 
 @contextlib.contextmanager
 def create_celeryconfig(task_module, dirs, config, config_file):
     amqp_config = utils.read_galaxy_amqp_config(config["galaxy_config"], dirs["config"])
-    if not amqp_config.has_key("host") or not amqp_config.has_key("userid"):
+    if not "host" in amqp_config or not "userid" in amqp_config:
         raise ValueError("universe_wsgi.ini does not have RabbitMQ messaging details set")
     out_file = os.path.join(dirs["work"], "celeryconfig.py")
     amqp_config["rabbitmq_vhost"] = config["distributed"]["rabbitmq_vhost"]

@@ -5,12 +5,13 @@ import os
 from bcbio.utils import curdir_tmpdir, file_exists
 from bcbio.distributed.transaction import file_transaction
 
-
-def picard_sort(picard, align_bam, sort_order="coordinate"):
+def picard_sort(picard, align_bam, sort_order="coordinate",
+                out_file=None):
     """Sort a BAM file by coordinates.
     """
     base, ext = os.path.splitext(align_bam)
-    out_file = "%s-sort%s" % (base, ext)
+    if out_file is None:
+        out_file = "%s-sort%s" % (base, ext)
     if not file_exists(out_file):
         with curdir_tmpdir() as tmp_dir:
             with file_transaction(out_file) as tx_out_file:
@@ -103,8 +104,8 @@ def picard_bam_to_fastq(picard, in_bam, fastq_one, fastq_two=None):
                 picard.run("SamToFastq", opts)
     return (fastq_one, fastq_two)
 
-def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file,
-                      is_paired=False):
+
+def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file, is_paired=False):
     """Convert SAM to BAM, including unmapped reads from fastq BAM file.
     """
     if align_sam.endswith(".sam"):
@@ -142,6 +143,7 @@ def picard_formatconverter(picard, align_sam):
 
 def picard_mark_duplicates(picard, align_bam):
     base, ext = os.path.splitext(align_bam)
+    base = base.replace(".", "-")
     dup_bam = "%s-dup%s" % (base, ext)
     dup_metrics = "%s-dup.dup_metrics" % base
     if not file_exists(dup_bam):

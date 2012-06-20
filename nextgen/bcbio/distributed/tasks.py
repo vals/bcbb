@@ -4,7 +4,7 @@ import time
 
 from celery.task import task
 
-from bcbio.pipeline import sample, lane, toplevel, storage, shared
+from bcbio.pipeline import sample, lane, toplevel, storage, shared, variation
 from bcbio.variation import realign, genotype
 
 # Global configuration for tasks in the main celeryconfig module
@@ -22,6 +22,23 @@ def analyze_and_upload(*args):
     remote_info = args[0]
     toplevel.analyze_and_upload(remote_info, config_file)
 
+@task(ignore_results=True, queue="toplevel")
+def fetch_data(*args):
+    """Transfer sequencing data from a remote machine. Could be e.g. a sequencer
+       or a pre-processing machine. 
+    """
+    config_file = celeryconfig.BCBIO_CONFIG_FILE
+    remote_info = args[0]
+    toplevel.fetch_data(remote_info, config_file)
+
+@task(ignore_results=True, queue="toplevel")
+def backup_data(*args):
+    """Backup sequencing data from a remote machine. Could be e.g. a sequencer
+       or a pre-processing machine. 
+    """
+    config_file = celeryconfig.BCBIO_CONFIG_FILE
+    remote_info = args[0]
+    toplevel.backup_data(remote_info, config_file)
 
 @task(ignore_results=True, queue="storage")
 def long_term_storage(*args):
@@ -33,6 +50,11 @@ def long_term_storage(*args):
 @task
 def process_lane(*args):
     return lane.process_lane(*args)
+
+
+@task
+def remove_contaminants(*args):
+    return lane.remove_contaminants(*args)
 
 
 @task
@@ -83,6 +105,11 @@ def variantcall_sample(*args):
 @task
 def combine_variant_files(*args):
     return genotype.combine_variant_files(*args)
+
+
+@task
+def detect_sv(*args):
+    return variation.detect_sv(*args)
 
 
 @task

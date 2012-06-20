@@ -10,6 +10,7 @@ other architectures as well.
 """
 import time
 import math
+import subprocess
 
 def run_and_monitor(config, config_file, args, workers_needed=None,
                     task_module=None, queues=None):
@@ -19,19 +20,30 @@ def run_and_monitor(config, config_file, args, workers_needed=None,
     cluster = __import__("bcbio.distributed.{0}".format(cp), fromlist=[cp])
     jobids = []
     try:
-        print "Starting manager"
-        manager_id = start_analysis_manager(cluster, args, config)
+        # If the manager is going to be run on a cluster, submit the job
+        manager_id = None
+        local_manager = config["distributed"].get("run_process_program_locally",False)
+        if not local_manager:
+            print "Starting manager"
+            manager_id = start_analysis_manager(cluster, args, config)
+            jobids.append(manager_id)
+            
         print "Starting cluster workers"
         jobids.extend(start_workers(cluster, config, config_file, workers_needed,
                                     task_module, queues))
-        jobids.append(manager_id)
         while not(cluster.are_running(jobids)):
             time.sleep(5)
+        
+        # If manager should run locally, run it as a regular subprocess rather than monitor its status on the cluster
         print "Running analysis"
-        monitor_analysis(cluster, manager_id)
+        if not local_manager:
+            monitor_analysis(cluster, manager_id)
+        else:
+            start_analysis_manager(cluster, args, config)
     finally:
         print "Cleaning up cluster workers"
         stop_workers(cluster, jobids)
+
 
 def start_workers(cluster, config, config_file, workers_needed=None,
                   task_module=None, queues=None):
@@ -54,22 +66,31 @@ def start_workers(cluster, config, config_file, workers_needed=None,
     args = config["distributed"]["platform_args"].split()
     return [cluster.submit_job(args, program_cl) for _ in range(num_workers)]
 
+
 def start_analysis_manager(cluster, args, config):
     """Start analysis manager node on cluster.
     """
     cluster_args = config["distributed"]["platform_args"].split()
     program_cl = [config["analysis"]["process_program"]] + args
-    job_id = cluster.submit_job(cluster_args, program_cl)
+    if not config["distributed"].get("run_process_program_locally",False):
+        job_id = cluster.submit_job(cluster_args, program_cl)
+    else:
+        cl = [str(i) for i in program_cl]
+        subprocess.check_call(cl)
+        job_id = None
     # wait for job to start
-    while not(cluster.are_running([job_id])):
-        time.sleep(5)
+    # Avoid this for systems where everything queues as batches
+    #while not(cluster.are_running([job_id])):
+    #    time.sleep(5)
     return job_id
+
 
 def monitor_analysis(cluster, job_id):
     """Wait for manager cluster job to finish
     """
     while cluster.are_running([job_id]):
         time.sleep(5)
+
 
 def stop_workers(cluster, jobids):
     for jobid in jobids:

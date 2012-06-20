@@ -8,11 +8,10 @@ Usage:
 import sys
 from optparse import OptionParser
 
-import yaml
-
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.distributed.manage import run_and_monitor
 from bcbio.pipeline.config_loader import load_config
+
 
 def main(config_file, fc_dir, run_info_yaml=None, num_workers=None):
     config = load_config(config_file)
@@ -30,6 +29,7 @@ def main(config_file, fc_dir, run_info_yaml=None, num_workers=None):
     if run_info_yaml:
         args.append(run_info_yaml)
     run_and_monitor(config, config_file, args, num_workers, task_module)
+
 
 def _needed_workers(run_info):
     """Determine workers needed to run multiplex flowcells in parallel.

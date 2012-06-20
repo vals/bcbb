@@ -12,6 +12,17 @@ from bcbio.distributed.transaction import file_transaction
 from bcbio.variation import annotation, genotype
 from bcbio.log import logger
 
+def _freebayes_options_from_config(aconfig):
+    opts = []
+    opts += ["--ploidy", str(aconfig.get("ploidy", 2))]
+    regions = aconfig.get("variant_regions", None)
+    if regions:
+        opts += ["--targets", regions]
+    background = aconfig.get("call_background", None)
+    if background:
+        opts += ["--variant-input", background]
+    return opts
+
 def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
                   out_file=None):
     """Detect small polymorphisms with FreeBayes.
@@ -23,30 +34,23 @@ def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
             region=region, fname=os.path.basename(align_bam)))
         with file_transaction(out_file) as tx_out_file:
             cl = [config["program"].get("freebayes", "freebayes"),
-                  "-b", align_bam, "-v", tx_out_file, "-f", ref_file]
+                  "-b", align_bam, "-v", tx_out_file, "-f", ref_file,
+                  "--left-align-indels"]
+            cl += _freebayes_options_from_config(config["algorithm"])
             if region:
                 cl.extend(["-r", region])
-            try:
-                subprocess.check_call(cl)
-            # XXX Temporary, work around freebayes issue; need to recall these regions
-            # later so this is an ugly silent fix. Will need to grep for 'freebayes failed'
-            # https://github.com/ekg/freebayes/issues/22
-            except subprocess.CalledProcessError:
-                with open(tx_out_file, "w") as out_handle:
-                    out_handle.write("##fileformat=VCFv4.1\n"
-                                     "## No variants; freebayes failed\n"
-                                     "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+            subprocess.check_call(cl)
     return out_file
 
-def postcall_filter(in_file, ref_file, vrn_files, config):
-    """Perform quality score filtering on FreeBayes variant calls.
+def postcall_annotate(in_file, ref_file, vrn_files, config):
+    """Perform post-call annotation of FreeBayes calls in preparation for filtering.
     """
-    out_file = _check_file_gatk_merge(in_file)
-    out_file = annotation.annotate_dbsnp(out_file, vrn_files.dbsnp,
-                                         ref_file, config)
-    filters = ["QUAL < 20.0", "DP < 5"]
-    out_file = genotype.variant_filtration_with_exp(broad.runner_from_config(config),
-                                                    out_file, ref_file, "", filters)
+    #out_file = _check_file_gatk_merge(in_file)
+    out_file = annotation.annotate_nongatk_vcf(in_file, vrn_files.dbsnp,
+                                               ref_file, config)
+    #filters = ["QUAL < 20.0", "DP < 5"]
+    #out_file = genotype.variant_filtration_with_exp(broad.runner_from_config(config),
+    #                                                out_file, ref_file, "", filters)
     return out_file
 
 def _check_file_gatk_merge(vcf_file):
