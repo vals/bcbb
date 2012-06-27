@@ -14,6 +14,7 @@ from bcbio import utils
 from bcbio.pipeline.fastq import get_fastq_files
 from bcbio.distributed.transaction import file_transaction
 from bcbio.log import logger2
+from bcbio.solexa.flowcell import get_flowcell_info
 
 from bs4 import BeautifulSoup
 
@@ -87,7 +88,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
         return out
 
     try:
-        fc_name = base_name.split("_")[-1]
+        fc_name, _ = get_flowcell_info(base_name)
         basecall_stats_dir = os.path.join(config["analysis"]["base_dir"],"Basecall_Stats_%s" % fc_name)
         # If directory doesn't exist, try stripping first character from name (which may corrspond to flowcell position)
         if not os.path.exists(basecall_stats_dir):
