@@ -61,7 +61,14 @@ def get_cell_content(client, ssheet, wsheet, \
 
     return content
 
-
+def delete_row(client, ssheet, wsheet, row_num):
+    feed = client.GetListFeed(get_key(ssheet), get_key(wsheet))
+    for i, row in enumerate(feed.entry):
+        if i+1 != row_num:
+            continue
+        client.DeleteRow(row)
+        break
+    
 def get_cell_feed(client, ssheet, wsheet, \
     row_start=0, col_start=0, row_end=0, col_end=0):
     """Get a cell feed from the supplied spreadsheet and worksheet and

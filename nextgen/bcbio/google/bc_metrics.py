@@ -33,7 +33,7 @@ SEQUENCING_RESULT_HEADER = [
                  ['Lane', 'lane'],
                  ['Read (pair) count', 'read_count'],
                  ['Read (pair) count (millions)', 'rounded_read_count'],
-                 ['Barcode sequence'],
+                 ['Barcode sequence', 'barcode_sequence'],
                  ['Comment', 'comment'],
                  ['Pass', 'pass']
                 ]
@@ -51,7 +51,25 @@ def _create_header(header, columns):
         names.append(head[0])
     return names
 
-
+def _header_index(header, label, header2=[]):
+    """Returns the index of the label in the supplied header (assumed to have a structure of [[header, label]]).
+       or -1 if not found. If a second header is supplied, will instead return the index of the corresponding 
+       header string in that.
+    """
+    try:
+        ind = [head[1] for head in header].index(label)
+    except:
+        return -1
+        
+    if len(header2) > 0:
+        try:
+            ind = header2.index(header[ind][0])
+        except:
+            return -1
+    
+    return ind
+        
+    
 def get_spreadsheet(ssheet_title, encoded_credentials):
     """Connect to Google docs and get a spreadsheet"""
 
@@ -90,8 +108,8 @@ def _write_project_report_to_gdocs(client, ssheet, flowcell):
 
     success = True
     for sample in samples.values():
-        wsheet_title = sample.get_name()
         run_name = "{}_{}".format(flowcell.fc_date, flowcell.fc_name)
+        wsheet_title = run_name
         row = (sample.get_name(), \
                run_name, \
                sample.get_lane(), \
@@ -104,7 +122,8 @@ def _write_project_report_to_gdocs(client, ssheet, flowcell):
                                        wsheet_title, \
                                        [row], \
                                        column_headers, \
-                                       append=True)
+                                       append=True,
+                                       keys=[head[0] for head in SEQUENCING_RESULT_HEADER if head[1] in ["sample_name", "lane", "barcode_sequence"]])
 
     return success
 
@@ -125,21 +144,27 @@ def write_project_report_summary_to_gdocs(client, ssheet):
         wsheet_title = wsheet.title.text
         if wsheet_title.endswith("_QC"):
             continue
-
-        if wsheet_title == "Summary":
+        
+        # Use the bcbio.solexa.flowcell.get_flowcell_info method to determine if the wsheet title contains a valid flowcell id
+        try:
+            bcbio.solexa.flowcell.get_flowcell_info(wsheet_title)
+        except ValueError:
             continue
+
+        # Get the worksheet header
+        wsheet_header = g_spreadsheet.get_header(client, ssheet, wsheet)
 
         wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
         delim = ';'
 
         # Add the results from the worksheet to the summarized data.
         for row in wsheet_data:
-            sample_name = row[0]
-            run_name = row[1]
-            lane_name = row[2]
-            read_count = row[3]
+            sample_name = row[_header_index(SEQUENCING_RESULT_HEADER,'sample_name',wsheet_header)]
+            run_name = row[_header_index(SEQUENCING_RESULT_HEADER,'run',wsheet_header)]
+            lane_name = row[_header_index(SEQUENCING_RESULT_HEADER,'lane',wsheet_header)]
+            read_count = row[_header_index(SEQUENCING_RESULT_HEADER,'read_count',wsheet_header)]
             try:
-                barcode_sequence = row[5]
+                barcode_sequence = row[_header_index(SEQUENCING_RESULT_HEADER,'barcode_sequence',wsheet_header)]
             except IndexError:
                 # For compatibility with old worksheets.
                 barcode_sequence = None
@@ -163,16 +188,18 @@ def write_project_report_summary_to_gdocs(client, ssheet):
     wsheet_title = "Summary"
 
     # Try getting already existing 'comment' and 'pass' values.
-    existing_summary_wsheet = g_spreadsheet.get_worksheet(client, ssheet, wsheet_title)
-    num_rows = g_spreadsheet.row_count(existing_summary_wsheet)
     name_data = {}
-    for row_num in range(2, num_rows + 1):
-        content = g_spreadsheet.get_row(client, ssheet, existing_summary_wsheet, row_num)
-        sample_name = content[0]
-        comment = content[5]
-        pass_field = content[6]
-
-        name_data[sample_name] = [comment, pass_field]
+    existing_summary_wsheet = g_spreadsheet.get_worksheet(client, ssheet, wsheet_title)
+    if existing_summary_wsheet:
+        summary_header = g_spreadsheet.get_header(client, ssheet, existing_summary_wsheet)
+        summary_data = g_spreadsheet.get_cell_content(client, ssheet, existing_summary_wsheet, '2')
+    
+        for content in summary_data:
+            sample_name = content[_header_index(SEQUENCING_RESULT_HEADER,'sample_name',summary_header)]
+            comment = content[_header_index(SEQUENCING_RESULT_HEADER,'comment',summary_header)]
+            pass_field = content[_header_index(SEQUENCING_RESULT_HEADER,'pass',summary_header)]
+    
+            name_data[sample_name] = [comment, pass_field]
 
     # Flatten the project_data structure into a list
     rows = []
@@ -181,7 +208,7 @@ def write_project_report_summary_to_gdocs(client, ssheet):
         flowcells = sample_data["flowcells"]
 
         sample_name = sample.get_name()
-        comment, pass_field = name_data.get(sample_name, [None, ""])
+        comment, pass_field = name_data.get(sample_name, ["", ""])
 
         row = [sample_name, \
                flowcells, \
@@ -229,7 +256,8 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
         for project in projects:
             pruned_fc = fc.prune_to_project(project)
             success &= _write_to_worksheet(client, ssheet, project, \
-                pruned_fc.to_rows(), header, append)
+                pruned_fc.to_rows(), header, append, \
+                keys=[head[0] for head in BARCODE_STATS_HEADER if head[1] in ["sample_name", "lane", "barcode_sequence"]])
 
     # Otherwise, set the default title of the worksheet to be a string of
     # concatenated date and flowcell id.
@@ -238,12 +266,13 @@ def write_run_report_to_gdocs(fc, fc_date, fc_name, ssheet_title, \
             wsheet_title = "{}_{}".format(fc_date, fc_name)
 
         success &= _write_to_worksheet(client, ssheet, wsheet_title, \
-            fc.to_rows(), header, append)
+            fc.to_rows(), header, append, \
+            keys=[head[0] for head in BARCODE_STATS_HEADER if head[1] in ["sample_name", "lane", "barcode_sequence"]])
 
     return success
 
 
-def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append):
+def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append, keys=[]):
     """Generic method to write a set of rows to a worksheet on google docs.
     """
     # Convert the worksheet title to unicode
@@ -261,6 +290,24 @@ def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append):
         logger2.error("ERROR: Could not add a worksheet {!r} to " \
             "spreadsheet {!r}".format(wsheet_title, ssheet.title.text))
         return False
+    
+    # If keys are specified (will correspond to indexes in the header), delete pre-existing rows with matching keys
+    if append and len(keys) > 0:
+        wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
+        wsheet_header = g_spreadsheet.get_header(client, ssheet, wsheet)
+        wsheet_indexes = [wsheet_header.index(key) for key in keys]
+        header_indexes = [header.index(key) for key in keys]
+        for row in rows:
+            try:
+                key = "#".join([row[i] for i in header_indexes])        
+                for i, wrow in enumerate(wsheet_data):
+                    wkey = "#".join([wrow[j] for j in wsheet_indexes])
+                    if wkey == key:
+                        g_spreadsheet.delete_row(client, ssheet, wsheet, i+1)
+                        wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
+                        break
+            except:
+                logger2.warn("WARNING: Could not identify/replace duplicate rows")
 
     # Write the data to the worksheet
     success = g_spreadsheet.write_rows(client, ssheet, wsheet, header, rows)
