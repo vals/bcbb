@@ -295,19 +295,23 @@ def _write_to_worksheet(client, ssheet, wsheet_title, rows, header, append, keys
     if append and len(keys) > 0:
         wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
         wsheet_header = g_spreadsheet.get_header(client, ssheet, wsheet)
-        wsheet_indexes = [wsheet_header.index(key) for key in keys]
-        header_indexes = [header.index(key) for key in keys]
-        for row in rows:
-            try:
-                key = "#".join([row[i] for i in header_indexes])        
-                for i, wrow in enumerate(wsheet_data):
-                    wkey = "#".join([wrow[j] for j in wsheet_indexes])
-                    if wkey == key:
-                        g_spreadsheet.delete_row(client, ssheet, wsheet, i+1)
-                        wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
-                        break
-            except:
-                logger2.warn("WARNING: Could not identify/replace duplicate rows")
+        try:
+            wsheet_indexes = [wsheet_header.index(key) for key in keys]
+            header_indexes = [header.index(key) for key in keys]
+        except ValueError:
+            logger2.warn("WARNING: Could not identify correct header for duplicate detection")
+        else:
+            for row in rows:
+                try:
+                    key = "#".join([row[i] for i in header_indexes])        
+                    for i, wrow in enumerate(wsheet_data):
+                        wkey = "#".join([wrow[j] for j in wsheet_indexes])
+                        if wkey == key:
+                            g_spreadsheet.delete_row(client, ssheet, wsheet, i+1)
+                            wsheet_data.pop(i)
+                            break
+                except:
+                    logger2.warn("WARNING: Could not identify/replace duplicate rows")
 
     # Write the data to the worksheet
     success = g_spreadsheet.write_rows(client, ssheet, wsheet, header, rows)
