@@ -91,18 +91,34 @@ def get_project_name(description):
 
     return description
 
-
+   
 def get_sample_name(barcode_name):
-    """Extract the sample name by stripping the barcode 
-       index part of the sample description. Assume the 
-       index is the last "_"-delimited piece.
-    """ 
-    splits = barcode_name.split("_")
-    if len(splits) < 2 or not splits[1].startswith('ind'):
-        return barcode_name
-    index = splits[-1]
-    sample_name = "_".join(splits[0:-1])
-    return sample_name
+    """Extract the sample name by stripping the barcode index part of the sample description""" 
+    name, index = split_sample_name(barcode_name)
+    return name
+                     
+def split_sample_name(sample_name):
+    """Split a sample name into parts consisting of 
+        - project_name [PNNN]
+        - sample_number [NNN]
+        - reception_qc [F]
+        - prep_version [B]
+        - index_id [indexN]
+    """
+    
+    splits = sample_name.split("_")
+    if len(splits) != 3:
+        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]_indexN" % sample_name)
+    name = []
+    index = []
+    for s in splits:
+        if len(index) == 0 and s.find('index') < 0:
+            name.append(s)
+        else:
+            index.append(s)
+    
+    return "_".join(name), "_".join(index)
+
         
 class Flowcell:
     """A class for managing information about a flowcell"""
