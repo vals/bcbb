@@ -79,8 +79,8 @@ def get_project_name(description):
        
 def get_sample_name(barcode_name):
     """Extract the sample name by stripping the barcode index part of the sample description""" 
-    parts = split_sample_name(barcode_name)
-    return "_".join([parts[0],"".join([parts[1],parts[3],parts[4]])])
+    name, index = split_sample_name(barcode_name)
+    return name#"_".join([parts[0],"".join([parts[1],parts[3],parts[4]])])
                      
 def split_sample_name(sample_name):
     """Split a sample name into parts consisting of 
@@ -94,7 +94,16 @@ def split_sample_name(sample_name):
     splits = sample_name.split("_")
     if len(splits) != 3:
         logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]_indexN" % sample_name)
+    name = []
+    index = []
+    for s in splits:
+        if len(index) == 0 and s.find('index') < 0:
+            name.append(s)
+        else:
+            index.append(s)
     
+    return "_".join(name), "_".join(index)
+
     # Check for an extra flag indicating re-prep or failed qc
     prep_version = ""
     reception_qc = ""
