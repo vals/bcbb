@@ -91,7 +91,6 @@ def get_project_name(description):
 
     return description
 
-   
 def get_sample_name(barcode_name):
     """Extract the sample name by stripping the barcode index part of the sample description""" 
     name, index = split_sample_name(barcode_name)
@@ -134,7 +133,6 @@ def split_sample_name(sample_name):
             index.append(s)
     
     return "_".join(name), "_".join(index)
-
         
 class Flowcell:
     """A class for managing information about a flowcell"""
