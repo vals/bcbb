@@ -77,10 +77,11 @@ def get_project_name(description):
         return format_project_name(m.group(1).strip())
     return description
        
+
 def get_sample_name(barcode_name):
     """Extract the sample name by stripping the barcode index part of the sample description""" 
     name, index = split_sample_name(barcode_name)
-    return name#"_".join([parts[0],"".join([parts[1],parts[3],parts[4]])])
+    return name
                      
 def split_sample_name(sample_name):
     """Split a sample name into parts consisting of 
@@ -92,8 +93,24 @@ def split_sample_name(sample_name):
     """
     
     splits = sample_name.split("_")
-    if len(splits) != 3:
-        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]_indexN" % sample_name)
+    prep = ""
+    try:
+        if len(splits) < 2:
+            raise ValueError()
+        if splits[0][0] != 'P':
+            raise ValueError()
+        if type(int(splits[0][1:])) != int:
+            raise ValueError()
+        while splits[1][-1] in "FB":
+            prep = "%c%s" % (splits[1][-1],prep)
+            splits[1] = splits[1][0:-1]
+        if type(int(splits[1])) != int:
+            raise ValueError()
+    except:
+        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]" % sample_name)
+    if len(prep) > 0:
+        splits[1] = "%s%s" % (splits[1],prep)
+        
     name = []
     index = []
     for s in splits:
@@ -104,18 +121,6 @@ def split_sample_name(sample_name):
     
     return "_".join(name), "_".join(index)
 
-    # Check for an extra flag indicating re-prep or failed qc
-    prep_version = ""
-    reception_qc = ""
-    if splits[1][-1] == 'B':
-        prep_version = splits[1][-1]
-        splits[1] = splits[1][:-1]
-    if splits[1][-1] == 'F':
-        reception_qc = splits[1][-1]
-        splits[1] = splits[1][:-1]
-    
-    return splits[0], splits[1], "_".join(splits[2:]), reception_qc, prep_version
-    
 
 class Flowcell:
     """A class for managing information about a flowcell"""
