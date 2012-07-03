@@ -107,8 +107,24 @@ def split_sample_name(sample_name):
     """
     
     splits = sample_name.split("_")
-    if len(splits) != 3:
-        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]_indexN" % sample_name)
+    prep = ""
+    try:
+        if len(splits) < 2:
+            raise ValueError()
+        if splits[0][0] != 'P':
+            raise ValueError()
+        if type(int(splits[0][1:])) != int:
+            raise ValueError()
+        while splits[1][-1] in "FB":
+            prep = "%c%s" % (splits[1][-1],prep)
+            splits[1] = splits[1][0:-1]
+        if type(int(splits[1])) != int:
+            raise ValueError()
+    except:
+        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]" % sample_name)
+    if len(prep) > 0:
+        splits[1] = "%s%s" % (splits[1],prep)
+        
     name = []
     index = []
     for s in splits:
