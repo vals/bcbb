@@ -38,7 +38,7 @@ from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
 from bcbio.google.sequencing_report import create_report_on_gdocs
-
+from bcbio.qc.qcreport import report_to_statusdb
 
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
@@ -64,6 +64,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
+
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
     
@@ -88,6 +89,8 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
+    # Write statusdb metrics
+    report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
 # ## Utility functions
