@@ -118,9 +118,7 @@ def split_sample_name(sample_name):
             name.append(s)
         else:
             index.append(s)
-
     return "_".join(name), "_".join(index)
-
 
 
 class Flowcell:
