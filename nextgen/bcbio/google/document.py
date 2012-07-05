@@ -52,7 +52,7 @@ def get_folder(client, folder_name):
     """Get a folder if it exists"""
     q = gdata.docs.service.DocumentQuery(categories=['folder'], params={'showfolders': 'true'})
     for entry in (client.Query(q.ToUri()).entry or []):
-        if entry.title.text == folder_name:
+        if _to_unicode(entry.title.text) == _to_unicode(folder_name):
             return entry
 
     return None

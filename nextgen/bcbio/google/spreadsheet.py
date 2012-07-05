@@ -49,7 +49,6 @@ def get_cell_content(client, ssheet, wsheet, \
         col_start, row_end, col_end) or [])
 
     # Get the dimensions of the 2D-list
-    # rows = int(row_end) - int(row_start) + 1
     cols = int(col_end) - int(col_start) + 1
     content = []
     for i, cell in enumerate(feed.entry):
@@ -62,7 +61,14 @@ def get_cell_content(client, ssheet, wsheet, \
 
     return content
 
-
+def delete_row(client, ssheet, wsheet, row_num):
+    feed = client.GetListFeed(get_key(ssheet), get_key(wsheet))
+    for i, row in enumerate(feed.entry):
+        if i+1 != row_num:
+            continue
+        client.DeleteRow(row)
+        break
+    
 def get_cell_feed(client, ssheet, wsheet, \
     row_start=0, col_start=0, row_end=0, col_end=0):
     """Get a cell feed from the supplied spreadsheet and worksheet and
@@ -250,7 +256,6 @@ def write_rows(client, ssheet, wsheet, header, rows):
     """Write the supplied data rows to the worksheet,
     using the supplied column headers.
     """
-
     # Get the keys
     ss_key = get_key(ssheet)
     ws_key = get_key(wsheet)
