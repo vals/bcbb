@@ -140,7 +140,7 @@ class ExtendedPicardMetricsParser(PicardMetricsParser):
             if not line:
                 return None
         return in_handle.readline().rstrip("\n").split("\t")
-
+          
 class RunInfoParser():
     """RunInfo parser"""
     def __init__(self):
@@ -148,7 +148,8 @@ class RunInfoParser():
         self._element = None
 
     def parse(self, fp):
-        self._parse_RunInfo(fp)
+        if os.path.exists(fp):
+            self._parse_RunInfo(fp)
         return self._data
 
     def _start_element(self, name, attrs):
@@ -356,7 +357,7 @@ class QCMetrics(dict):
     def entity_type(self):
         return type(self).__name__
     
-    # FIXME: raise error: QCMetrics should be subclassed
+    # FIXME: should raise error: QCMetrics must be subclassed
     def name(self):
         return "%s" % (self.get("entity_type", None))
 
@@ -365,7 +366,10 @@ class QCMetrics(dict):
     
     def get_db_id(self):
         return hashlib.md5(self.get_id()).hexdigest()
-        
+
+    # Use this field to get correct equality comparison
+    def __eq__(self, other): 
+        return self.__dict__ == other.__dict__
     
 class LaneQCMetrics(QCMetrics):
     """Lane level class for holding qc data"""
@@ -421,19 +425,22 @@ class FlowcellQCMetrics(QCMetrics):
     _metrics = ["RunInfo", "run_info_yaml"]
     _entity_version = 0.1
 
-    def __init__(self, flowcell_dir, archive_dir, runinfo="RunInfo.xml", parse=True, fullRTA=False):
+    def __init__(self, fc_date, fc_name, run_info_yaml, flowcell_dir, archive_dir, runinfo="RunInfo.xml", parse=True, fullRTA=False):
         self.flowcell_dir = flowcell_dir
         self.archive_dir = archive_dir
+        self.run_id = "%s_%s" % (fc_date, fc_name)
         self.db=None
         self.sample = dict()
         self["lane"] = dict()
         self["metrics"] = dict()
         for m in self._metrics:
             self["metrics"][m] = None
+        ## initialize runinfo in case no RunInfo.xml
+        self["metrics"]["RunInfo"] = {"Id" : self.run_id, "Flowcell":fc_name, "Date": fc_date, "Instrument": "NA"}
         self._parseRunInfo(runinfo)
         QCMetrics.__init__(self)
         if parse:
-            self.parse_run_info_yaml()
+            self.parse_run_info_yaml(run_info_yaml)
             self.read_picard_metrics()
             self.read_fastqc_metrics()
             self.parse_filter_metrics()
@@ -441,19 +448,22 @@ class FlowcellQCMetrics(QCMetrics):
             self.parse_bc_metrics()
             self.parse_illumina_metrics(fullRTA)
 
-        
     def _parseRunInfo(self, fn="RunInfo.xml"):
         log.info("_parseRunInfo")
-        fp = open(os.path.join(self.archive_dir, fn))
-        parser = RunInfoParser()
-        data = parser.parse(fp)
-        fp.close()
-        self["metrics"]["RunInfo"] = data
-        self.run_id = data.get("Id")
+        try:
+            fp = open(os.path.join(self.archive_dir, fn))
+            parser = RunInfoParser()
+            data = parser.parse(fp)
+            fp.close()
+            self["metrics"]["RunInfo"] = data
+            self.run_id = data.get("Id")
+        except:
+            log.warn("No such file %s" % os.path.join(self.archive_dir, fn))
 
-    def parse_run_info_yaml(self, fn="run_info.yaml"):
+
+    def parse_run_info_yaml(self, run_info_yaml):
         log.info("parse_run_info_yaml")
-        fp = open(os.path.join(self.archive_dir, fn))
+        fp = open(run_info_yaml)
         runinfo = yaml.load(fp)
         fp.close()
         for info in runinfo:
@@ -464,15 +474,19 @@ class FlowcellQCMetrics(QCMetrics):
                 sample = SampleQCMetrics(self.get_full_flowcell(), self.get_date(), info["lane"], "unmatched", "unmatched", "NA", "NA", "NA", "NA")
                 bc_index = "%s_%s" % (info["lane"], "unmatched")
                 self.sample[bc_index] = sample
-            for mp in info["multiplex"]:
-                sample = SampleQCMetrics(self.get_full_flowcell(), self.get_date(), info["lane"], mp["name"], mp["barcode_id"], mp["sample_prj"], mp["sequence"], mp["barcode_type"], mp.get("genomes_filter_out", None))
-                bc_index = "%s_%s" % (info["lane"], mp["barcode_id"])
-                self.sample[bc_index] = sample
+            ## Lane could be empty
+            try:
+                for mp in info["multiplex"]:
+                    sample = SampleQCMetrics(self.get_full_flowcell(), self.get_date(), info["lane"], mp["name"], mp["barcode_id"], mp.get("sample_prj", None), mp["sequence"], mp["barcode_type"], mp.get("genomes_filter_out", None))
+                    bc_index = "%s_%s" % (info["lane"], mp["barcode_id"])
+                    self.sample[bc_index] = sample
+            except:
+                log.warn("No multiplexing information for lane %s" % info['lane'])
         self["metrics"]["run_info_yaml"] = runinfo
 
     def get_full_flowcell(self):
         vals = self["metrics"]["RunInfo"]["Id"].split("_")
-        return vals[3]
+        return vals[-1]
     def get_flowcell(self):
         return self.get("metrics").get("RunInfo").get("Flowcell")
     def get_date(self):
@@ -498,12 +512,11 @@ class FlowcellQCMetrics(QCMetrics):
             (lane, date, flowcell, bc) = m.groups()
             bc_index = "%s_%s" % (lane, bc)
             if self.sample.has_key(bc_index):
-                pass
+                self.sample[bc_index].picard_files.append(fn)
                 #print >> sys.stderr, "reading metrics %s for sample %s" % (fn, bc_index)
             else:
-                pass
-                #print >> sys.stderr, "WARNING: no sample %s for metrics %s" % (bc_index, fn)
-            self.sample[bc_index].picard_files.append(fn)
+                log.warn("no sample %s for metrics %s" % (bc_index, fn))
+
         for s in self.sample:
             metrics = picard_parser.extract_metrics(self.sample[s].picard_files)
             self.sample[s]["metrics"]["picard_metrics"] = metrics
@@ -520,12 +533,18 @@ class FlowcellQCMetrics(QCMetrics):
     def parse_filter_metrics(self, re_str="*filter[_.]metrics"):
         log.info("parse_filter_metrics")
         for l in self["lane"].keys():
-            f = glob.glob(os.path.join(self.flowcell_dir, "nophix", "%s_%s_%s%s" % (l, self.get_date(), self.get_full_flowcell(), re_str)))
-            fp = open(f[0])
-            parser = MetricsParser()
-            data = parser.parse_filter_metrics(fp)
-            fp.close()
-            self["lane"][l]["filter_metrics"] = data
+            glob_str = os.path.join(self.flowcell_dir, "nophix", "%s_%s_%s%s" % (l, self.get_date(), self.get_full_flowcell(), re_str))
+            f = glob.glob(glob_str)
+            self["lane"][l]["filter_metrics"] = {"reads":None, "reads_aligned":None, "reads_fail_align":None}
+            try:
+                fp = open(f[0])
+                parser = MetricsParser()
+                data = parser.parse_filter_metrics(fp)
+                fp.close()
+                self["lane"][l]["filter_metrics"] = data
+            except:
+                log.warn("No filter nophix metrics for lane %s" % l)
+
             
     def parse_fastq_screen(self):
         log.info("parse_fastq_screen")
@@ -542,24 +561,35 @@ class FlowcellQCMetrics(QCMetrics):
             fp.close()
             self.sample[s]["metrics"]["fastq_scr"] = data
 
-    def parse_bc_metrics(self, re_str="*.metrics"):
+    def parse_bc_metrics(self, re_str="*.bc_metrics"):
         log.info("parse_bc_metrics")
         for l in self["lane"].keys():
-            f = glob.glob(os.path.join(self.flowcell_dir, "%s_%s_*barcode" % (l, self.get_run_name()), re_str))
-            parser = MetricsParser()
-            fp = open(f[0])
-            data = parser.parse_bc_metrics(fp)
-            fp.close()
-            for key in data.keys():
-                s = "%s_%s" % (l, key)
-                self.sample[s]["bc_count"] = data[key]
-            self["lane"][l]["bc_metrics"] = data
+            glob_str = os.path.join(self.flowcell_dir, "%s_%s_*barcode" % (l, self.get_run_name()), re_str)
+            f = glob.glob(glob_str)
+            try:
+                parser = MetricsParser()
+                fp = open(f[0])
+                data = parser.parse_bc_metrics(fp)
+                fp.close()
+                for key in data.keys():
+                    s = "%s_%s" % (l, key)
+                    self.sample[s]["bc_count"] = data[key]
+                self["lane"][l]["bc_metrics"] = data
+            except:
+                log.warn("No bc_metrics info for lane %s: glob %s" % (s, glob_str))
+                    
                 
     def read_fastqc_metrics(self):
+        log.info("read_fastqc_metrics")
         for s in self.sample:
             if s.endswith("unmatched"):
                 continue
-            d = glob.glob(os.path.join(self.flowcell_dir, "fastqc", "%s_%s_*_%s*" % (self.sample[s]["lane"], self.get_run_name(), self.sample[s]["barcode_id"])))
+            self.sample[s]["metrics"]["fastqc"] = {'stats':None}
+            glob_str = os.path.join(self.flowcell_dir, "fastqc", "%s_%s*%s-*" % (self.sample[s]["lane"], self.get_run_name(), self.sample[s]["barcode_id"]))
+            d = glob.glob(glob_str)
+            if len(d) == 0:
+                log.warn("No fastqc metrics info for sample %s: glob %s" % (s, glob_str) )
+                continue
             fastqc_dir=d[0]
             fqparser = ExtendedFastQCParser(fastqc_dir)
             stats = fqparser.get_fastqc_summary()

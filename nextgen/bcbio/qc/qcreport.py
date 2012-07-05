@@ -1,7 +1,7 @@
 """
 Create statusdb report
 """
-
+import sys
 import logbook
 import time
 import yaml
@@ -20,8 +20,9 @@ def _save_obj(db, obj, url):
         db.save(obj)
     else:
         obj["_rev"] = dbobj.get("_rev")
+        obj["creation_time"] = dbobj["creation_time"]
+        ## FIXME: always ne: probably some date field gets updated somewhere
         if obj != dbobj:
-            obj["creation_time"] = dbobj["creation_time"]
             obj["modification_time"] = time.strftime("%x %X")
             log.info("Updating %s object with id %s in url %s" % (obj["entity_type"], obj.get_db_id(), url))
             db.save(obj)
@@ -65,7 +66,7 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
                 # Create object and parse all available metrics; no checking
                 # is currently done for missing files
                 try:
-                    qc_obj = FlowcellQCMetrics(dirs.get("work", None), dirs.get("flowcell", None))
+                    qc_obj = FlowcellQCMetrics(fc_date, fc_name, run_info_yaml, dirs.get("work", None), dirs.get("flowcell", None))
                 except:
                     qc_obj = None
                 # FIXME: error checking!
@@ -90,6 +91,7 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
                         success = False
                 else:
                     log.warn("Couldn't populate FlowcellQCMetrics object. No QC data written to statusdb for %s_%s" % (fc_date, fc_name))
+                    success = False
             if success:
                 log.info("QC Metrics report successfully written to statusdb for %s_%s on %s" \
                          % (fc_date, fc_name, time.strftime("%x @ %X")))
