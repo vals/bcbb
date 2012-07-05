@@ -158,7 +158,7 @@ def write_project_report_summary_to_gdocs(client, ssheet):
         wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
         delim = ';'
         # Map the column names to the correct index using the header
-        sample_col, run_col, lane_col, count_col, bc_col = [_header_index(SEQUENCING_RESULT_HEADER,col_name,summary_header) for col_name in ('sample_name', 'run', 'lane', 'read_count', 'barcode_sequence')]
+        sample_col, run_col, lane_col, count_col, bc_col = [_header_index(SEQUENCING_RESULT_HEADER,col_name,wsheet_header) for col_name in ('sample_name', 'run', 'lane', 'read_count', 'barcode_sequence')]
         
 
         # Add the results from the worksheet to the summarized data.
