@@ -137,9 +137,10 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
     parent_folder = g_document.get_folder(doc_client, gdocs_folder)
 
     if not parent_folder:
-        parent_folder_title = "root directory"
-    else:
-        parent_folder_title = _from_unicode(parent_folder.title.text)
+        parent_folder = g_document.add_folder(doc_client, gdocs_folder)
+        log.info("Folder {!r} created".format(gdocs_folder))
+            
+    parent_folder_title = _from_unicode(parent_folder.title.text)
 
     # Loop over the projects
     for project_name in fc.get_project_names():
@@ -147,24 +148,15 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
         # Get a flowcell object containing just the data for the project
         project_fc = fc.prune_to_project(project_name)
 
-        folder_name = project_name
-        folder = g_document.get_folder(doc_client, folder_name)
-        if not folder:
-            folder = g_document.add_folder(doc_client, folder_name, parent_folder)
-            log.info("Folder {!r} created " \
-                     "under {!r}".format(_from_unicode(folder_name), \
-                                         parent_folder_title))
-
         ssheet_title = project_name + "_sequencing_results"
         ssheet = g_spreadsheet.get_spreadsheet(client, ssheet_title)
         if not ssheet:
-            g_document.add_spreadsheet(doc_client, ssheet_title)
-            ssheet = g_spreadsheet.get_spreadsheet(client, ssheet_title)
-            ssheet = g_document.move_to_folder(doc_client, ssheet, folder)
+            ssheet = g_document.add_spreadsheet(doc_client, ssheet_title)
+            g_document.move_to_folder(doc_client, ssheet, parent_folder)
             ssheet = g_spreadsheet.get_spreadsheet(client, ssheet_title)
             log.info("Spreadsheet {!r} created in " \
                      "folder {!r}".format(_from_unicode(ssheet.title.text), \
-                                          _from_unicode(folder_name)))
+                                          parent_folder_title))
 
         success &= bc_metrics._write_project_report_to_gdocs(client, ssheet, project_fc)
         success &= bc_metrics.write_project_report_summary_to_gdocs(client, ssheet)
