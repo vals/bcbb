@@ -51,9 +51,8 @@ def get_barcode_metrics(workdir):
     """
     bc_files = []
     if workdir is not None:
-        bc_files.extend(glob.glob(os.path.join(workdir, "*_barcode", "*_bc.metrics")))
-        bc_files.extend(glob.glob(os.path.join(workdir, "*_bc.metrics")))
-
+        bc_files.extend(glob.glob(os.path.join(workdir, "*_barcode", "*.bc_metrics")))
+        bc_files.extend(glob.glob(os.path.join(workdir, "*.bc_metrics")))
     if not len(bc_files) > 0:
         return None
 
@@ -225,7 +224,7 @@ class Flowcell:
         as key and counts as values. If no read counts are supplied, attempts
         to parse the read counts from the flowcell directory, assuming that the
         read counts can be found using a glob like
-        [lane]_*_barcode/[lane]_*_bc.metrics
+        [lane]_*_barcode/[lane]_*.bc_metrics
         """
         if read_counts is None:
             read_counts = get_barcode_metrics(self.get_fc_dir()) or {}

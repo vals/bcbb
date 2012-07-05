@@ -31,7 +31,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
 
     bc_dir = os.path.join(dirs["work"], "%s_barcode" % base_name)
     nomatch_file = "%s_%s_1_fastq.txt" % (base_name, unmatched_str)
-    metrics_file = "%s_bc.metrics" % base_name
+    metrics_file = "%s.bc_metrics" % base_name
     out_files = []
     for info in multiplex:
         if demultiplexed:

@@ -161,7 +161,7 @@ def write_project_report_summary_to_gdocs(client, ssheet):
         
         # Add the results from the worksheet to the summarized data.
         for row in wsheet_data:
-       
+
             sample_name, run_name, lane_name, read_count, barcode_sequence = [row[col] if col >= 0 else None for col in (sample_col, run_col, lane_col, count_col, bc_col)]
                  
             data = {"name": sample_name,
