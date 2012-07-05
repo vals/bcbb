@@ -40,11 +40,11 @@ def format_project_name(unformated_name):
 
 
 def get_barcode_metrics(workdir):
-    """Parse the [lane]_*_bc.metrics files in the *_barcode directories into a dictionary"""
+    """Parse the [lane]_*.bc_metrics files in the *_barcode directories into a dictionary"""
     
     bc_files = []
     if workdir is not None:
-        bc_files = glob.glob(os.path.join(workdir,"*_barcode","*_bc.metrics"))
+        bc_files = glob.glob(os.path.join(workdir,"*_barcode","*.bc_metrics"))
     if not len(bc_files) > 0:
         return None
     
@@ -77,10 +77,11 @@ def get_project_name(description):
         return format_project_name(m.group(1).strip())
     return description
        
+
 def get_sample_name(barcode_name):
     """Extract the sample name by stripping the barcode index part of the sample description""" 
-    parts = split_sample_name(barcode_name)
-    return "_".join([parts[0],"".join([parts[1],parts[3],parts[4]])])
+    name, index = split_sample_name(barcode_name)
+    return name
                      
 def split_sample_name(sample_name):
     """Split a sample name into parts consisting of 
@@ -92,23 +93,35 @@ def split_sample_name(sample_name):
     """
     
     splits = sample_name.split("_")
-    if len(splits) != 3:
-        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]_indexN" % sample_name)
-    
-    # Check for an extra flag indicating re-prep or failed qc
-    prep_version = ""
-    reception_qc = ""
-    if splits [1]:
-        if splits[1][-1] == 'B':
-            prep_version = splits[1][-1]
-            splits[1] = splits[1][:-1]
-    if splits[1]:
-        if splits[1][-1] == 'F':
-            reception_qc = splits[1][-1]
-            splits[1] = splits[1][:-1]
-    
-    return splits[0], splits[1], "_".join(splits[2:]), reception_qc, prep_version
-    
+    prep = ""
+    try:
+        if len(splits) < 2:
+            raise ValueError()
+        if splits[0][0] != 'P':
+            raise ValueError()
+        if type(int(splits[0][1:])) != int:
+            raise ValueError()
+        while splits[1][-1] in "FB":
+            prep = "%c%s" % (splits[1][-1],prep)
+            splits[1] = splits[1][0:-1]
+        if type(int(splits[1])) != int:
+            raise ValueError()
+    except:
+        logger2.warn("Sample name '%s' does not follow the expected format PXXX_XXX[FB]" % sample_name)
+    if len(prep) > 0:
+        splits[1] = "%s%s" % (splits[1],prep)
+        
+    name = []
+    index = []
+    for s in splits:
+        if len(index) == 0 and s.find('index') < 0:
+            name.append(s)
+        else:
+            index.append(s)
+
+    return "_".join(name), "_".join(index)
+
+
 
 class Flowcell:
     """A class for managing information about a flowcell"""
@@ -196,7 +209,7 @@ class Flowcell:
            dictionary with barcode indexes (or 'unmatched' or 'trim') as key and counts
            as values. If no read counts are supplied, attempts to parse the read counts
            from the flowcell directory, assuming that the read counts can be found using a glob
-           like [lane]_*_barcode/[lane]_*_bc.metrics
+           like [lane]_*_barcode/[lane]_*.bc_metrics
         """
         if read_counts is None:
             read_counts = get_barcode_metrics(self.get_fc_dir()) or {}
