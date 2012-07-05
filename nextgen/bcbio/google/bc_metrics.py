@@ -157,19 +157,15 @@ def write_project_report_summary_to_gdocs(client, ssheet):
 
         wsheet_data = g_spreadsheet.get_cell_content(client, ssheet, wsheet, '2')
         delim = ';'
+        # Map the column names to the correct index using the header
+        sample_col, run_col, lane_col, count_col, bc_col = [_header_index(SEQUENCING_RESULT_HEADER,col_name,summary_header) for col_name in ('sample_name', 'run', 'lane', 'read_count', 'barcode_sequence')]
+        
 
         # Add the results from the worksheet to the summarized data.
         for row in wsheet_data:
-            sample_name = row[_header_index(SEQUENCING_RESULT_HEADER,'sample_name',wsheet_header)]
-            run_name = row[_header_index(SEQUENCING_RESULT_HEADER,'run',wsheet_header)]
-            lane_name = row[_header_index(SEQUENCING_RESULT_HEADER,'lane',wsheet_header)]
-            read_count = row[_header_index(SEQUENCING_RESULT_HEADER,'read_count',wsheet_header)]
-            try:
-                barcode_sequence = row[_header_index(SEQUENCING_RESULT_HEADER,'barcode_sequence',wsheet_header)]
-            except IndexError:
-                # For compatibility with old worksheets.
-                barcode_sequence = None
 
+            sample_name, run_name, lane_name, read_count, barcode_sequence = [row[col] if col >= 0 else None for col in (sample_col, run_col, lane_col, count_col, bc_col)]
+                 
             data = {"name": sample_name,
                     "read_count": read_count,
                     "sequence": barcode_sequence}
@@ -194,12 +190,10 @@ def write_project_report_summary_to_gdocs(client, ssheet):
     if existing_summary_wsheet:
         summary_header = g_spreadsheet.get_header(client, ssheet, existing_summary_wsheet)
         summary_data = g_spreadsheet.get_cell_content(client, ssheet, existing_summary_wsheet, '2')
-    
+        sample_col, comment_col, pass_col = [_header_index(SEQUENCING_RESULT_HEADER,col_name,summary_header) for col_name in ('sample_name', 'comment', 'pass')]
+        
         for content in summary_data:
-            sample_name = content[_header_index(SEQUENCING_RESULT_HEADER,'sample_name',summary_header)]
-            comment = content[_header_index(SEQUENCING_RESULT_HEADER,'comment',summary_header)]
-            pass_field = content[_header_index(SEQUENCING_RESULT_HEADER,'pass',summary_header)]
-    
+            sample_name, comment, pass_field = [content[col] if col >= 0 else None for col in (sample_col, comment_col, pass_col)]
             name_data[sample_name] = [comment, pass_field]
 
     # Flatten the project_data structure into a list
