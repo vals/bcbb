@@ -366,10 +366,6 @@ class QCMetrics(dict):
     
     def get_db_id(self):
         return hashlib.md5(self.get_id()).hexdigest()
-
-    # Use this field to get correct equality comparison
-    def __eq__(self, other): 
-        return self.__dict__ == other.__dict__
     
 class LaneQCMetrics(QCMetrics):
     """Lane level class for holding qc data"""
