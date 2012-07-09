@@ -366,10 +366,6 @@ class QCMetrics(dict):
     
     def get_db_id(self):
         return hashlib.md5(self.get_id()).hexdigest()
-
-    # Use this field to get correct equality comparison
-    def __eq__(self, other): 
-        return self.__dict__ == other.__dict__
     
 class LaneQCMetrics(QCMetrics):
     """Lane level class for holding qc data"""
@@ -451,14 +447,14 @@ class FlowcellQCMetrics(QCMetrics):
     def _parseRunInfo(self, fn="RunInfo.xml"):
         log.info("_parseRunInfo")
         try:
-            fp = open(os.path.join(self.archive_dir, fn))
+            fp = open(os.path.join(os.path.abspath(self.archive_dir), fn))
             parser = RunInfoParser()
             data = parser.parse(fp)
             fp.close()
             self["metrics"]["RunInfo"] = data
             self.run_id = data.get("Id")
         except:
-            log.warn("No such file %s" % os.path.join(self.archive_dir, fn))
+            log.warn("No such file %s" % os.path.join(os.path.abspath(self.archive_dir), fn))
 
 
     def parse_run_info_yaml(self, run_info_yaml):
@@ -503,7 +499,7 @@ class FlowcellQCMetrics(QCMetrics):
     def read_picard_metrics(self):
         log.info("read_picard_metrics")
         picard_parser = ExtendedPicardMetricsParser()
-        files = self._get_metrics(self.flowcell_dir)
+        files = self._get_metrics(os.path.abspath(self.flowcell_dir))
         # Group files to samples
         for fn in files:
             fn_tgt = os.path.basename(fn).replace("_nophix_", "_")
@@ -533,7 +529,7 @@ class FlowcellQCMetrics(QCMetrics):
     def parse_filter_metrics(self, re_str="*filter[_.]metrics"):
         log.info("parse_filter_metrics")
         for l in self["lane"].keys():
-            glob_str = os.path.join(self.flowcell_dir, "nophix", "%s_%s_%s%s" % (l, self.get_date(), self.get_full_flowcell(), re_str))
+            glob_str = os.path.join(os.path.abspath(self.flowcell_dir), "nophix", "%s_%s_%s%s" % (l, self.get_date(), self.get_full_flowcell(), re_str))
             f = glob.glob(glob_str)
             self["lane"][l]["filter_metrics"] = {"reads":None, "reads_aligned":None, "reads_fail_align":None}
             try:
@@ -549,7 +545,7 @@ class FlowcellQCMetrics(QCMetrics):
     def parse_fastq_screen(self):
         log.info("parse_fastq_screen")
         for s in self.sample:
-            g = os.path.join(self.flowcell_dir, "fastq_screen", "%s_%s_[nophix_]*%s_[12]_fastq_screen.txt" % (self.sample[s]["lane"], self.get_run_name(), self.sample[s]["barcode_id"]))
+            g = os.path.join(os.path.abspath(self.flowcell_dir), "fastq_screen", "%s_%s_[nophix_]*%s_[12]_fastq_screen.txt" % (self.sample[s]["lane"], self.get_run_name(), self.sample[s]["barcode_id"]))
             f = glob.glob(g)
             if len(f) < 1:
                 continue
@@ -564,7 +560,7 @@ class FlowcellQCMetrics(QCMetrics):
     def parse_bc_metrics(self, re_str="*.bc_metrics"):
         log.info("parse_bc_metrics")
         for l in self["lane"].keys():
-            glob_str = os.path.join(self.flowcell_dir, "%s_%s_*barcode" % (l, self.get_run_name()), re_str)
+            glob_str = os.path.join(os.path.abspath(self.flowcell_dir), "%s_%s_*barcode" % (l, self.get_run_name()), re_str)
             f = glob.glob(glob_str)
             try:
                 parser = MetricsParser()
@@ -585,7 +581,7 @@ class FlowcellQCMetrics(QCMetrics):
             if s.endswith("unmatched"):
                 continue
             self.sample[s]["metrics"]["fastqc"] = {'stats':None}
-            glob_str = os.path.join(self.flowcell_dir, "fastqc", "%s_%s*%s-*" % (self.sample[s]["lane"], self.get_run_name(), self.sample[s]["barcode_id"]))
+            glob_str = os.path.join(os.path.abspath(self.flowcell_dir), "fastqc", "%s_%s*%s-*" % (self.sample[s]["lane"], self.get_run_name(), self.sample[s]["barcode_id"]))
             d = glob.glob(glob_str)
             if len(d) == 0:
                 log.warn("No fastqc metrics info for sample %s: glob %s" % (s, glob_str) )
@@ -598,7 +594,7 @@ class FlowcellQCMetrics(QCMetrics):
     def parse_illumina_metrics(self, fullRTA):
         log.info("parse_illumina_metrics")
         fn = []
-        for root, dirs, files in os.walk(self.archive_dir):
+        for root, dirs, files in os.walk(os.path.abspath(self.archive_dir)):
             for file in files:
                 if file.endswith(".xml"):
                     fn.append(os.path.join(root, file))
