@@ -55,7 +55,6 @@ class StatusDBTest(unittest.TestCase):
         from bcbio.qc import FlowcellQCMetrics
         from bcbio.log import logger, setup_logging, version
         from bcbio.pipeline.config_loader import load_config
-        statusdb_url = "maggie.scilifelab.se:5984"
         config_file = os.path.join(self.data_dir, "post_process-statusdb.yaml")
         config = load_config(config_file)
         setup_logging(config)
