@@ -47,6 +47,8 @@ log = logbook.Logger(LOG_NAME)
 def main(local_config, post_config_file=None,
          fetch_msg=True, process_msg=True, store_msg=True,
          backup_msg=False, qseq=True, fastq=True):
+    """Main function.
+    """
     config = load_config(local_config)
     log_handler = create_log_handler(config, True)
 
@@ -82,14 +84,15 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
                         logger2.info("Generating fastq files for {}".format(dname))
                         fastq_dir = _generate_fastq(dname, config)
 
-                    _post_process_run(dname, config, config_file,
-                                      fastq_dir, post_config_file,
-                                      fetch_msg, process_msg, store_msg, backup_msg)
+                    _post_process_run(dname, config, config_file, fastq_dir,
+                                      post_config_file, fetch_msg, process_msg,
+                                      store_msg, backup_msg)
 
                     # Update the reported database after successful processing
                     _update_reported(config["msg_db"], dname)
 
-                # Re-read the reported database to make sure it hasn't changed while processing
+                # Re-read the reported database to make sure it hasn't
+                # changed while processing
                 reported = _read_reported(config["msg_db"])
 
 
@@ -278,7 +281,7 @@ def _files_to_copy(directory):
                          glob.glob("*.txt")
                         ])
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
-        fastq = reduce(operator.add, 
+        fastq = reduce(operator.add,
                        [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
                         ["Data/Intensities/BaseCalls/fastq"]])
         analysis = reduce(operator.add, [glob.glob("Data/Intensities/BaseCalls/Alignment")])
@@ -295,6 +298,7 @@ def _read_reported(msg_db):
         with open(msg_db) as in_handle:
             for line in in_handle:
                 reported.append(line.strip())
+
     return reported
 
 
@@ -341,6 +345,36 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
             "config": os.path.dirname(config_file)}
     runner = messaging.runner(run_module, dirs, config, config_file, wait=False)
     runner(fn_name, [[data]])
+
+
+# --- Testing code: run with 'nosetests -v -s illumina_finished_message.py'
+import unittest
+import random
+import string
+
+
+class Test(unittest.TestCase):
+    """General tests for illumina_finished_message.py
+    """
+    def setUp(self):
+        pass
+
+    def test__read_reported(self):
+        test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(8))
+        assert _read_reported(test_file) == [], \
+        "Inputting nonexistant file does not return empty list"
+
+        with open(test_file, "w") as test_handle:
+            test_handle.write("TEST")
+
+        test_read = _read_reported(test_file)
+
+        assert len(test_read) == 1, \
+        "Unexpted number of lines in test file"
+
+        assert test_read[0] == "TEST", \
+        "Unexpted contents of the test file"
+
 
 if __name__ == "__main__":
     parser = OptionParser()
