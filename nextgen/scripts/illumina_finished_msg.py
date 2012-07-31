@@ -359,7 +359,7 @@ class Test(unittest.TestCase):
     """General tests for illumina_finished_message.py
     """
     def setUp(self):
-        pass
+        self.temp_files = []
 
     def test__read_reported(self):
         test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(8))
@@ -370,6 +370,8 @@ class Test(unittest.TestCase):
         with open(test_file, "w") as test_handle:
             test_handle.write("TEST")
 
+        self.temp_files.append(test_file)
+
         test_read = _read_reported(test_file)
 
         assert len(test_read) == 1, \
@@ -377,6 +379,10 @@ class Test(unittest.TestCase):
 
         assert test_read[0] == "TEST", \
         "Unexpted contents of the test file"
+
+    def tearDown(self):
+        for temp_file in self.temp_files:
+            os.remove(temp_file)
 
 
 if __name__ == "__main__":
