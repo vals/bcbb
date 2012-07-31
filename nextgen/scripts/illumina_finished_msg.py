@@ -307,6 +307,7 @@ def _read_reported(msg_db):
 def _get_directories(config):
     for directory in config["dump_directories"]:
         globs = []
+        # Glob to capture general flowcells
         globs.extend(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]")))
         # Glob to capture MiSeq flowcells
         globs.extend(glob.glob(os.path.join(directory, "*_M*AMS*")))
@@ -322,6 +323,7 @@ def _update_reported(msg_db, new_dname):
     for d in [dir for dir in reported if dir.startswith(new_dname)]:
         new_dname = d
         reported.remove(d)
+
     reported.append("%s\t%s" % (new_dname, time.strftime("%x-%X")))
 
     with open(msg_db, "w") as out_handle:
@@ -362,6 +364,8 @@ class Test(unittest.TestCase):
         self.temp_files = []
 
     def test__read_reported(self):
+        """Test _read_reported()
+        """
         test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(8))
 
         assert _read_reported(test_file) == [], \
