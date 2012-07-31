@@ -31,7 +31,6 @@ import time
 from optparse import OptionParser
 from xml.etree.ElementTree import ElementTree
 
-import yaml
 import logbook
 
 from bcbio.solexa import samplesheet
@@ -46,17 +45,18 @@ log = logbook.Logger(LOG_NAME)
 
 
 def main(local_config, post_config_file=None,
-         fetch_msg=True, process_msg=True, store_msg=True, backup_msg=False, qseq=True, fastq=True):
+         fetch_msg=True, process_msg=True, store_msg=True,
+         backup_msg=False, qseq=True, fastq=True):
     config = load_config(local_config)
-    log_handler = create_log_handler(config,True)
+    log_handler = create_log_handler(config, True)
 
     with log_handler.applicationbound():
-        search_for_new(config, local_config, post_config_file,
-                       fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq)
+        search_for_new(config, local_config, post_config_file, fetch_msg,
+                       process_msg, store_msg, backup_msg, qseq, fastq)
 
 
-def search_for_new(config, config_file, post_config_file,
-                   fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq):
+def search_for_new(config, config_file, post_config_file, fetch_msg,
+                   process_msg, store_msg, backup_msg, qseq, fastq):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
@@ -72,17 +72,22 @@ def search_for_new(config, config_file, post_config_file,
                     if qseq:
                         logger2.info("Generating qseq files for %s" % dname)
                         _generate_qseq(get_qseq_dir(dname), config)
+
                     fastq_dir = None
                     if fastq:
                         logger2.info("Generating fastq files for %s" % dname)
                         fastq_dir = _generate_fastq(dname, config)
+
                     _post_process_run(dname, config, config_file,
                                       fastq_dir, post_config_file,
                                       fetch_msg, process_msg, store_msg, backup_msg)
+
                     # Update the reported database after successful processing
                     _update_reported(config["msg_db"], dname)
+
                 # Re-read the reported database to make sure it hasn't changed while processing
                 reported = _read_reported(config["msg_db"])
+
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
                       fetch_msg, process_msg, store_msg, backup_msg):
@@ -108,6 +113,7 @@ def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
     # otherwise process locally
     else:
         analyze_locally(dname, post_config_file, fastq_dir)
+
 
 def analyze_locally(dname, post_config_file, fastq_dir):
     """Run analysis directly on the local machine.
@@ -306,11 +312,12 @@ def _update_reported(msg_db, new_dname):
     for d in [dir for dir in reported if dir.startswith(new_dname)]:
         new_dname = d
         reported.remove(d)
-    reported.append("%s\t%s" % (new_dname,time.strftime("%x-%X")))
-    
+    reported.append("%s\t%s" % (new_dname, time.strftime("%x-%X")))
+
     with open(msg_db, "w") as out_handle:
         for dir in reported:
             out_handle.write("%s\n" % dir)
+
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
                      config, config_file):
@@ -349,7 +356,7 @@ if __name__ == "__main__":
             action="store_true", default=False)
 
     (options, args) = parser.parse_args()
-    
+
     # Option --miseq implies --noprocess, --nostore, --nofastq, --noqseq
     if options.miseq:
         options.fetch_msg = False
@@ -358,7 +365,8 @@ if __name__ == "__main__":
         options.backup_msg = True
         options.fastq = False
         options.qseq = False
-    
-    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg, store_msg=options.store_msg, backup_msg=options.backup_msg,
+
+    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg,
+                  store_msg=options.store_msg, backup_msg=options.backup_msg,
                   fastq=options.fastq, qseq=options.qseq)
     main(*args, **kwargs)
