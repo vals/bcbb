@@ -294,10 +294,12 @@ def _read_reported(msg_db):
     """Retrieve a list of directories previous reported.
     """
     reported = []
-    if os.path.exists(msg_db):
-        with open(msg_db) as in_handle:
-            for line in in_handle:
-                reported.append(line.strip())
+    if not os.path.exists(msg_db):
+        return reported
+
+    with open(msg_db) as in_handle:
+        for line in in_handle:
+            reported.append(line.strip())
 
     return reported
 
@@ -361,6 +363,7 @@ class Test(unittest.TestCase):
 
     def test__read_reported(self):
         test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(8))
+
         assert _read_reported(test_file) == [], \
         "Inputting nonexistant file does not return empty list"
 
