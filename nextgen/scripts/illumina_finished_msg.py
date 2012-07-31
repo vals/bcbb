@@ -61,11 +61,15 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
     """
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
-        if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
+        starts_with_dname = any(r_dir.startswith(dname) for r_dir in reported)
+        if os.path.isdir(dname) and not starts_with_dname:
             if _is_finished_dumping(dname):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
-                with logbook.Processor(lambda record: record.extra.__setitem__('run', os.path.basename(dname))):
+                def inject_run_name(record):
+                    return record.extra.__setitem__('run', os.path.basename(dname))
+
+                with logbook.Processor(inject_run_name):
                     logger2.info("The instrument has finished dumping on directory %s" % dname)
                     _update_reported(config["msg_db"], dname)
                     _process_samplesheets(dname, config)
