@@ -70,16 +70,16 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
                     return record.extra.__setitem__('run', os.path.basename(dname))
 
                 with logbook.Processor(inject_run_name):
-                    logger2.info("The instrument has finished dumping on directory %s" % dname)
+                    logger2.info("The instrument has finished dumping on directory {}".format(dname))
                     _update_reported(config["msg_db"], dname)
                     _process_samplesheets(dname, config)
                     if qseq:
-                        logger2.info("Generating qseq files for %s" % dname)
+                        logger2.info("Generating qseq files for {}".format(dname))
                         _generate_qseq(get_qseq_dir(dname), config)
 
                     fastq_dir = None
                     if fastq:
-                        logger2.info("Generating fastq files for %s" % dname)
+                        logger2.info("Generating fastq files for {}".format(dname))
                         fastq_dir = _generate_fastq(dname, config)
 
                     _post_process_run(dname, config, config_file,
