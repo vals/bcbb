@@ -173,6 +173,7 @@ def _generate_fastq(fc_dir, config):
             subprocess.check_call(cl)
     return fastq_dir
 
+
 def _generate_qseq(bc_dir, config):
     """Generate qseq files from illumina bcl files if not present.
 
@@ -184,7 +185,7 @@ def _generate_qseq(bc_dir, config):
         bcl2qseq_log = os.path.join(config["log_dir"], "setupBclToQseq.log")
         cmd = os.path.join(config["program"]["olb"], "bin", "setupBclToQseq.py")
         cl = [cmd, "-L", bcl2qseq_log, "-o", bc_dir, "--in-place", "--overwrite",
-              "--ignore-missing-stats","--ignore-missing-control"]
+              "--ignore-missing-stats", "--ignore-missing-control"]
         # in OLB version 1.9, the -i flag changed to intensities instead of input
         version_cl = [cmd, "-v"]
         p = subprocess.Popen(version_cl, stdout=subprocess.PIPE)
@@ -204,26 +205,27 @@ def _generate_qseq(bc_dir, config):
             cl = config["program"].get("olb_make", "make").split() + ["-j", str(processors)]
             subprocess.check_call(cl)
 
+
 def _is_finished_dumping(directory):
     """Determine if the sequencing directory has all files.
 
     The final checkpoint file will differ depending if we are a
     single or paired end run.
     """
-    #if _is_finished_dumping_checkpoint(directory):
-    #    return True
     # Check final output files; handles both HiSeq, MiSeq and GAII
     run_info = os.path.join(directory, "RunInfo.xml")
     hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
                         _expected_reads(run_info)
-    # include a check to wait for any ongoing MiSeq analysis
+
+    # Include a check to wait for any ongoing MiSeq analysis
     miseq_analysis_checkpoint = (not os.path.exists(os.path.join(directory, "QueuedForAnalysis.txt")) or os.path.exists(os.path.join(directory, "CompletedJobInfo.xml")))
-    
+
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
                 "Basecalling_Netcopy_complete_READ2.txt",
                 hi_seq_checkpoint]
-    return (reduce(operator.or_,
-            [os.path.exists(os.path.join(directory, f)) for f in to_check]) and miseq_analysis_checkpoint)
+
+    return (reduce(operator.or_, [os.path.exists(os.path.join(directory, f)) for f in to_check]) and miseq_analysis_checkpoint)
+
 
 def _expected_reads(run_info_file):
     """Parse the number of expected reads from the RunInfo.xml file.
@@ -234,6 +236,7 @@ def _expected_reads(run_info_file):
         tree.parse(run_info_file)
         read_elem = tree.find("Run/Reads")
         reads = read_elem.findall("Read")
+
     return len(reads)
 
 
@@ -249,6 +252,7 @@ def _is_finished_dumping_checkpoint(directory):
     if os.path.exists(check_file):
         with open(check_file) as in_handle:
             line = in_handle.readline().strip()
+
         if line:
             version = line.split()[-1]
             v1, v2 = [float(v) for v in version.split(".")[:2]]
@@ -355,10 +359,56 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
 import unittest
 import random
 import string
+import shutil
 
 
-class Test(unittest.TestCase):
-    """General tests for illumina_finished_message.py
+class FinishedDumpingTest(unittest.TestCase):
+    """Tests for _is_finished_dumping
+    """
+    def setUp(self):
+        self.test_dir = "".join(random.choice(string.ascii_uppercase) for i in xrange(9))
+        os.mkdir(self.test_dir)
+
+    def test__is_finsihed_dumping(self):
+        """Test determining if a sequencer is finished dumping.
+        """
+        assert _is_finished_dumping(self.test_dir) == False, \
+        "Empty directory was interpreted as finished"
+
+        test_xml_file = os.path.join(self.test_dir, "RunInfo.xml")
+
+        test_xml = \
+        """<?xml version="1.0"?>
+            <RunInfo>
+                <Run>
+                    <Reads>
+                        <Read Number="1" />
+                        <Read Number="2" />
+                    </Reads>
+                </Run>
+            </RunInfo>
+        """
+
+        with open(test_xml_file, "w") as txf:
+            txf.write(test_xml)
+
+        assert _is_finished_dumping(self.test_dir) == False, \
+        "Existance of RunInfo.xml should not signal finished"
+
+        with open(os.path.join(self.test_dir, "Basecalling_Netcopy_complete_Read2.txt"), "w") as tfh:
+            tfh.write("")
+
+        assert _is_finished_dumping(self.test_dir) == True, \
+        """Existance of Basecalling_Netcopy_complete_Read2.txt should signal that
+        the dump is finished.
+        """
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+
+class ReadReportedTest(unittest.TestCase):
+    """Tests for _read_reported()
     """
     def setUp(self):
         self.temp_files = []
@@ -366,7 +416,7 @@ class Test(unittest.TestCase):
     def test__read_reported(self):
         """Test _read_reported()
         """
-        test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(8))
+        test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(9))
 
         assert _read_reported(test_file) == [], \
         "Inputting nonexistant file does not return empty list"
