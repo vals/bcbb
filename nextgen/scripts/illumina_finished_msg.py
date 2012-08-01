@@ -214,8 +214,8 @@ def _is_finished_dumping(directory):
     """
     # Check final output files; handles both HiSeq, MiSeq and GAII
     run_info = os.path.join(directory, "RunInfo.xml")
-    hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
-                        _expected_reads(run_info)
+    hi_seq_checkpoint = \
+    "Basecalling_Netcopy_complete_Read{}.txt".format(_expected_reads(run_info))
 
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
                 "Basecalling_Netcopy_complete_READ2.txt",
