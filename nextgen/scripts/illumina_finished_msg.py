@@ -221,12 +221,15 @@ def _is_finished_dumping(directory):
                 "Basecalling_Netcopy_complete_READ2.txt",
                 hi_seq_checkpoint]
 
+    dump_done = any(os.path.exists(os.path.join(directory, f)) for f in to_check)
+
     # Include a check to wait for any ongoing MiSeq analysis
     is_queued_for_analysis = os.path.exists(os.path.join(directory, "QueuedForAnalysis.txt"))
     job_is_completed = os.path.exists(os.path.join(directory, "CompletedJobInfo.xml"))
+
     miseq_analysis_checkpoint = not is_queued_for_analysis or job_is_completed
 
-    return (reduce(operator.or_, [os.path.exists(os.path.join(directory, f)) for f in to_check]) and miseq_analysis_checkpoint)
+    return dump_done and miseq_analysis_checkpoint
 
 
 def _expected_reads(run_info_file):
