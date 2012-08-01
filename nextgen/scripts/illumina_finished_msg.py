@@ -386,8 +386,7 @@ class FinishedDumpingTest(unittest.TestCase):
                         <Read Number="2" />
                     </Reads>
                 </Run>
-            </RunInfo>
-        """
+            </RunInfo>"""
 
         with open(test_xml_file, "w") as txf:
             txf.write(test_xml)
@@ -400,8 +399,23 @@ class FinishedDumpingTest(unittest.TestCase):
 
         assert _is_finished_dumping(self.test_dir) == True, \
         """Existance of Basecalling_Netcopy_complete_Read2.txt should signal that
-        the dump is finished.
-        """
+        the dump is finished."""
+
+        miseq_queued = os.path.join(self.test_dir, "QueuedForAnalysis.txt")
+        with open(miseq_queued, "w") as mqfh:
+            mqfh.write("")
+
+        assert _is_finished_dumping(self.test_dir) == False, \
+        """Existance of QueuedForAnalysis.txt should prevent signalling the dump
+        being finished."""
+
+        job_completed = os.path.join(self.test_dir, "CompletedJobInfo.xml")
+        with open(job_completed, "w") as jcfh:
+            jcfh.write("")
+
+        assert _is_finished_dumping(self.test_dir) == True, \
+        """Existance of CompletedJobInfo.xml should counteract QueuedForAnalysis.txt,
+        and signal that the dump is finished."""
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
