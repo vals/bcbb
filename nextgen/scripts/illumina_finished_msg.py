@@ -426,7 +426,7 @@ class FinishedDumpingTest(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
 
-class ReadReportedTest(unittest.TestCase):
+class ReportedTest(unittest.TestCase):
     """Tests for _read_reported()
     """
     def setUp(self):
@@ -452,6 +452,21 @@ class ReadReportedTest(unittest.TestCase):
 
         assert test_read[0] == "TEST", \
         "Unexpected contents of the test file"
+
+    def test__update_reported(self):
+        """Test _update_reported()
+        """
+        test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(9))
+
+        _update_reported(test_file, "Test")
+
+        self.temp_files.append(test_file)
+
+        reported = _read_reported(test_file)
+
+        assert reported[0].startswith("Test"), \
+        "Nonexistant report was not created and updated"
+
 
     def tearDown(self):
         for temp_file in self.temp_files:
