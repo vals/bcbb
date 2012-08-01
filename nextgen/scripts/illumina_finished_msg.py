@@ -63,8 +63,8 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
     """
     reported = _read_reported(config["msg_db"])
     for dir_name in _get_directories(config["dump_directories"]):
-        starts_with_dname = any(r_dir.startswith(dir_name) for r_dir in reported)
-        if os.path.isdir(dir_name) and not starts_with_dname:
+        starts_with_dir_name = any(r_dir.startswith(dir_name) for r_dir in reported)
+        if os.path.isdir(dir_name) and not starts_with_dir_name:
             if _is_finished_dumping(dir_name):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
