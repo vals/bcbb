@@ -62,7 +62,7 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
-    for dname in _get_directories(config):
+    for dname in _get_directories(config["dump_directories"]):
         starts_with_dname = any(r_dir.startswith(dname) for r_dir in reported)
         if os.path.isdir(dname) and not starts_with_dname:
             if _is_finished_dumping(dname):
@@ -304,8 +304,8 @@ def _read_reported(msg_db):
     return reported
 
 
-def _get_directories(config):
-    for directory in config["dump_directories"]:
+def _get_directories(dump_directories):
+    for directory in dump_directories:
         globs = []
         # Glob to capture general flowcells
         globs.extend(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]")))
@@ -379,10 +379,10 @@ class Test(unittest.TestCase):
         test_read = _read_reported(test_file)
 
         assert len(test_read) == 1, \
-        "Unexpted number of lines in test file"
+        "Unexpected number of lines in test file"
 
         assert test_read[0] == "TEST", \
-        "Unexpted contents of the test file"
+        "Unexpected contents of the test file"
 
     def tearDown(self):
         for temp_file in self.temp_files:
