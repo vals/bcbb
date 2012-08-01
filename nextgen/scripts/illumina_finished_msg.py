@@ -62,34 +62,34 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
-    for dname in _get_directories(config["dump_directories"]):
-        starts_with_dname = any(r_dir.startswith(dname) for r_dir in reported)
-        if os.path.isdir(dname) and not starts_with_dname:
-            if _is_finished_dumping(dname):
+    for dir_name in _get_directories(config["dump_directories"]):
+        starts_with_dname = any(r_dir.startswith(dir_name) for r_dir in reported)
+        if os.path.isdir(dir_name) and not starts_with_dname:
+            if _is_finished_dumping(dir_name):
                 # Injects run_name on logging calls.
                 # Convenient for run_name on "Subject" for email notifications
                 def inject_run_name(record):
-                    return record.extra.__setitem__('run', os.path.basename(dname))
+                    return record.extra.__setitem__('run', os.path.basename(dir_name))
 
                 with logbook.Processor(inject_run_name):
-                    logger2.info("The instrument has finished dumping on directory {}".format(dname))
-                    _update_reported(config["msg_db"], dname)
-                    _process_samplesheets(dname, config)
+                    logger2.info("The instrument has finished dumping on directory {}".format(dir_name))
+                    _update_reported(config["msg_db"], dir_name)
+                    _process_samplesheets(dir_name, config)
                     if qseq:
-                        logger2.info("Generating qseq files for {}".format(dname))
-                        _generate_qseq(get_qseq_dir(dname), config)
+                        logger2.info("Generating qseq files for {}".format(dir_name))
+                        _generate_qseq(get_qseq_dir(dir_name), config)
 
                     fastq_dir = None
                     if fastq:
-                        logger2.info("Generating fastq files for {}".format(dname))
-                        fastq_dir = _generate_fastq(dname, config)
+                        logger2.info("Generating fastq files for {}".format(dir_name))
+                        fastq_dir = _generate_fastq(dir_name, config)
 
-                    _post_process_run(dname, config, config_file, fastq_dir,
+                    _post_process_run(dir_name, config, config_file, fastq_dir,
                                       post_config_file, fetch_msg, process_msg,
                                       store_msg, backup_msg)
 
                     # Update the reported database after successful processing
-                    _update_reported(config["msg_db"], dname)
+                    _update_reported(config["msg_db"], dir_name)
 
                 # Re-read the reported database to make sure it hasn't
                 # changed while processing
