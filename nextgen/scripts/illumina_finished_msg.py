@@ -329,15 +329,16 @@ def _update_reported(msg_db, new_dname):
     """Add a new directory to the database of reported messages.
     """
     reported = _read_reported(msg_db)
-    for d in [dir for dir in reported if dir.startswith(new_dname)]:
-        new_dname = d
-        reported.remove(d)
+    startswith = lambda dname: dname.startswith(new_dname)
+    for r_dir in filter(startswith, reported):
+        new_dname = r_dir
+        reported.remove(r_dir)
 
-    reported.append("%s\t%s" % (new_dname, time.strftime("%x-%X")))
+    reported.append("{}\t{}".format(new_dname, time.strftime("%x-%X")))
 
     with open(msg_db, "w") as out_handle:
-        for dir in reported:
-            out_handle.write("%s\n" % dir)
+        for r_dir in reported:
+            out_handle.write("{}\n".format(r_dir))
 
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
@@ -476,8 +477,9 @@ class ReportedTest(unittest.TestCase):
 
         reported = _read_reported(test_file)
 
-        assert len(reported) == 3, \
-        "Unexpected number of lines in test_file"
+        n = len(reported)
+        assert n == 3, \
+        "Unexpected number of lines in test_file: {}".format(n)
 
         # Update already existing line "Line 1"
         _update_reported(test_file, "Line 1")
