@@ -63,47 +63,52 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
     """
     reported = _read_reported(config["msg_db"])
     for dir_name in _get_directories(config["dump_directories"]):
-        starts_with_dir_name = any(r_dir.startswith(dir_name) for r_dir in reported)
-        if os.path.isdir(dir_name) and not starts_with_dir_name:
-            if _is_finished_dumping(dir_name):
-                # Injects run_name on logging calls.
-                # Convenient for run_name on "Subject" for email notifications
-                def inject_run_name(record):
-                    return record.extra.__setitem__('run', os.path.basename(dir_name))
+        dir_name_is_reported = any(r_dir.startswith(dir_name) for r_dir in reported)
 
-                with logbook.Processor(inject_run_name):
-                    logger2.info("The instrument has finished dumping on directory {}".format(dir_name))
-                    _update_reported(config["msg_db"], dir_name)
-                    _process_samplesheets(dir_name, config)
-                    if qseq:
-                        logger2.info("Generating qseq files for {}".format(dir_name))
-                        _generate_qseq(get_qseq_dir(dir_name), config)
+        if not os.path.isdir(dir_name) or dir_name_is_reported:
+            continue  # Try the next dir_name
 
-                    fastq_dir = None
-                    if fastq:
-                        logger2.info("Generating fastq files for {}".format(dir_name))
-                        fastq_dir = _generate_fastq(dir_name, config)
+        if not _is_finished_dumping(dir_name):
+            continue
 
-                    post_process_arguments = { \
-                        "dname": dir_name, \
-                        "config": config, \
-                        "config_file": config_file, \
-                        "fastq_dir": fastq_dir, \
-                        "post_config_file": post_config_file, \
-                        "fetch_msg": fetch_msg, \
-                        "process_msg": process_msg, \
-                        "store_msg": store_msg, \
-                        "backup_msg": backup_msg \
-                        }
+        # Injects run_name on logging calls.
+        # Convenient for run_name on "Subject" for email notifications
+        def inject_run_name(record):
+            return record.extra.__setitem__('run', os.path.basename(dir_name))
 
-                    _post_process_run(**post_process_arguments)
+        with logbook.Processor(inject_run_name):
+            logger2.info("The instrument has finished dumping on directory {}".format(dir_name))
+            _update_reported(config["msg_db"], dir_name)
+            _process_samplesheets(dir_name, config)
+            if qseq:
+                logger2.info("Generating qseq files for {}".format(dir_name))
+                _generate_qseq(get_qseq_dir(dir_name), config)
 
-                    # Update the reported database after successful processing
-                    _update_reported(config["msg_db"], dir_name)
+            fastq_dir = None
+            if fastq:
+                logger2.info("Generating fastq files for {}".format(dir_name))
+                fastq_dir = _generate_fastq(dir_name, config)
 
-                # Re-read the reported database to make sure it hasn't
-                # changed while processing
-                reported = _read_reported(config["msg_db"])
+            post_process_arguments = { \
+                "dname": dir_name, \
+                "config": config, \
+                "config_file": config_file, \
+                "fastq_dir": fastq_dir, \
+                "post_config_file": post_config_file, \
+                "fetch_msg": fetch_msg, \
+                "process_msg": process_msg, \
+                "store_msg": store_msg, \
+                "backup_msg": backup_msg \
+                }
+
+            _post_process_run(**post_process_arguments)
+
+            # Update the reported database after successful processing
+            _update_reported(config["msg_db"], dir_name)
+
+        # Re-read the reported database to make sure it hasn't
+        # changed while processing
+        reported = _read_reported(config["msg_db"])
 
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
