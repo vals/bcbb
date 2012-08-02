@@ -84,9 +84,19 @@ def search_for_new(config, config_file, post_config_file, fetch_msg,
                         logger2.info("Generating fastq files for {}".format(dir_name))
                         fastq_dir = _generate_fastq(dir_name, config)
 
-                    _post_process_run(dir_name, config, config_file, fastq_dir,
-                                      post_config_file, fetch_msg, process_msg,
-                                      store_msg, backup_msg)
+                    post_process_arguments = { \
+                        "dname": dir_name, \
+                        "config": config, \
+                        "config_file": config_file, \
+                        "fastq_dir": fastq_dir, \
+                        "post_config_file": post_config_file, \
+                        "fetch_msg": fetch_msg, \
+                        "process_msg": process_msg, \
+                        "store_msg": store_msg, \
+                        "backup_msg": backup_msg \
+                        }
+
+                    _post_process_run(**post_process_arguments)
 
                     # Update the reported database after successful processing
                     _update_reported(config["msg_db"], dir_name)
