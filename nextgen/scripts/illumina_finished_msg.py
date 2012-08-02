@@ -519,7 +519,7 @@ class ReportedTest(unittest.TestCase):
         "File was not reduced to a single line."
 
         assert reported[0].startswith("Line"), \
-        "Unmatching lines: Expected '{}*', got '{}'".format(exp_line, line)        
+        "Unmatching lines: Expected '{}*', got '{}'".format(exp_line, line)
 
     def tearDown(self):
         for temp_file in self.temp_files:
