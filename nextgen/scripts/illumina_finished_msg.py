@@ -140,15 +140,17 @@ def analyze_locally(dname, post_config_file, fastq_dir):
             cl.append(run_yaml)
         subprocess.check_call(cl)
 
+
 def _process_samplesheets(dname, config):
     """Process Illumina samplesheets into YAML files for post-processing.
     """
     ss_file = samplesheet.run_has_samplesheet(dname, config)
     if ss_file:
         out_file = os.path.join(dname, "run_info.yaml")
-        logger2.info("CSV Samplesheet %s found, converting to %s" %
-                 (ss_file, out_file))
+        logger2.info("CSV Samplesheet {0} found, converting to {1}" + \
+        "".format(ss_file, out_file))
         samplesheet.csv2yaml(ss_file, out_file)
+
 
 def _generate_fastq(fc_dir, config):
     """Generate fastq files for the current flowcell.
@@ -161,7 +163,7 @@ def _generate_fastq(fc_dir, config):
     if postprocess_dir:
         fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir),
                                  "fastq")
-    if not fastq_dir == fc_dir:# and not os.path.exists(fastq_dir):
+    if not fastq_dir == fc_dir:  # and not os.path.exists(fastq_dir):
         with utils.chdir(basecall_dir):
             lanes = sorted(list(set([f.split("_")[1] for f in
                 glob.glob("*qseq.txt")])))
