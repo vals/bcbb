@@ -458,15 +458,49 @@ class ReportedTest(unittest.TestCase):
         """
         test_file = "".join(random.choice(string.ascii_uppercase) for i in xrange(9))
 
-        _update_reported(test_file, "Test")
+        _update_reported(test_file, "Line 1")
 
         self.temp_files.append(test_file)
 
         reported = _read_reported(test_file)
 
-        assert reported[0].startswith("Test"), \
+        assert reported[0].startswith("Line 1"), \
         "Nonexistant report was not created and updated"
 
+        reported_time = time.strptime(reported[0].split("\t")[-1], "%x-%X")
+        assert isinstance(reported_time, time.struct_time), \
+        "Could not parse report time."
+
+        _update_reported(test_file, "Line 2")
+        _update_reported(test_file, "Line 3")
+
+        reported = _read_reported(test_file)
+
+        assert len(reported) == 3, \
+        "Unexpected number of lines in test_file"
+
+        # Update already existing line "Line 1"
+        _update_reported(test_file, "Line 1")
+
+        reported = _read_reported(test_file)
+
+        assert len(reported) == 3, \
+        "Unexpected number of lines in test_file"
+
+        for exp_line, line in zip(["Line 2", "Line 3", "Line 1"], reported):
+            assert line.startswith(exp_line), \
+            "Unmatching lines: " \
+            "Expected '{}*', got '{}'".format(exp_line, line)
+
+        _update_reported(test_file, "Line")
+
+        reported = _read_reported(test_file)
+
+        assert len(reported) == 1, \
+        "File was not reduced to a single line."
+
+        assert reported[0].startswith("Line"), \
+        "Unmatching lines: Expected '{}*', got '{}'".format(exp_line, line)        
 
     def tearDown(self):
         for temp_file in self.temp_files:
