@@ -199,41 +199,44 @@ def _generate_fastq(fc_dir, config):
             subprocess.check_call(cl)
     return fastq_dir
 
+
 def _calculate_md5(fastq_dir):
     """Calculate the md5sum for the fastq files
     """
     glob_str = "*_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
-    md5sum_file = os.path.join(fastq_dir,"md5sums.txt")
-    with open(md5sum_file,'w') as fh:
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+
+    md5sum_file = os.path.join(fastq_dir, "md5sums.txt")
+    with open(md5sum_file, 'w') as fh:
         for fastq_file in fastq_files:
             logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
-            cl = ["md5sum",fastq_file]
+            cl = ["md5sum", fastq_file]
             fh.write(subprocess.check_output(cl))
+
 
 def _compress_fastq(fastq_dir, config):
     """Compress the fastq files using gzip
     """
     glob_str = "*_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    num_cores = config["algorithm"].get("num_cores",1)
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+    num_cores = config["algorithm"].get("num_cores", 1)
     active_procs = []
     for fastq_file in fastq_files:
         # Sleep for one minute while waiting for an open slot
         while len(active_procs) >= num_cores:
             time.sleep(60)
             active_procs, _ = _process_status(active_procs)
-            
+
         logger2.debug("Compressing %s using gzip" % fastq_file)
-        cl = ["gzip",fastq_file]
+        cl = ["gzip", fastq_file]
         active_procs.append(subprocess.Popen(cl))
-    
+
     # Wait for the last processes to finish
     while len(active_procs) > 0:
         time.sleep(60)
         active_procs, _ = _process_status(active_procs)
-    
+
+
 def _process_status(processes):
     """Return a list of the processes that are still active and
        a list of the returncodes of the processes that have finished
@@ -247,23 +250,24 @@ def _process_status(processes):
         else:
             retcodes.append(c)
     return active, retcodes
-     
+
+
 def _clean_qseq(bc_dir, fastq_dir):
-    """Remove the temporary qseq files if the corresponding fastq file 
+    """Remove the temporary qseq files if the corresponding fastq file
        has been created
-    """    
+    """
     glob_str = "*_1_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+
     for fastq_file in fastq_files:
         try:
             lane = int(os.path.basename(fastq_file)[0])
         except ValueError:
             continue
-        
+
         logger2.debug("Removing qseq files for lane %d" % lane)
         glob_str = "s_%d_*qseq.txt" % lane
-        
+
         for qseq_file in glob.glob(os.path.join(bc_dir, glob_str)):
             try:
                 os.unlink(qseq_file)
