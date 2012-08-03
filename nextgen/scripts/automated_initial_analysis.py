@@ -23,11 +23,12 @@ import os
 import sys
 from optparse import OptionParser
 
+import datetime
 import yaml
 
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
-from bcbio.log import logger, setup_logging
+from bcbio.log import logger, setup_logging, version
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
@@ -37,7 +38,7 @@ from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
 from bcbio.google.sequencing_report import create_report_on_gdocs
-
+from bcbio.qc.qcreport import report_to_statusdb
 
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
@@ -50,6 +51,8 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     
+    _record_sw_versions(config, os.path.join(work_dir,"bcbb_software_versions.txt"))
+    
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -61,6 +64,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
+
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
     
@@ -85,9 +89,25 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
+    # Write statusdb metrics
+    report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
 # ## Utility functions
+
+def _record_sw_versions(config, sw_version_file):
+    """Get the versions of software used in the pipeline and output to
+       log and text file in working directory
+    """
+    sw_versions = version.get_versions(config)
+    sw_versions['bcbb'] = version._get_git_commit()
+
+    logger.info("bcbb pipeline is running with software versions: %s" % sw_versions)
+    
+    with open(sw_version_file,'w') as fh:
+        fh.write("%s\n" % datetime.datetime.now().isoformat())
+        for sw, ver in sw_versions.items():
+            fh.write("%s\t%s\n" % (sw,ver))
 
 def _get_full_paths(fastq_dir, config, config_file):
     """Retrieve full paths for directories in the case of relative locations.

@@ -33,13 +33,14 @@ def _organize_lanes(info_iter, barcode_ids):
 
         if _has_barcode(info):
             multiplex = []
-            for (_, _, sample_id, _, bc_seq, descr, _, _, sample_proj) in info:
+            for (_, _, sample_id, sample_ref, bc_seq, descr, _, _, sample_proj) in info:
                 bc_type, bc_id = barcode_ids[bc_seq]
                 bc_dict = dict(barcode_type=bc_type,
                               barcode_id=bc_id,
                               sequence=bc_seq,
                               name=sample_id,
-                              sample_prj=sample_proj)#,
+                              sample_prj=sample_proj,
+                              genome_build=sample_ref.lower())#,
                               #genomes_filter_out="phix")
                 if descr != info[0][5]:
                     # In order to avoid unintentional merging of samples based on descriptions, don't write it for samples.
@@ -90,6 +91,11 @@ def _read_input_csv(in_file):
             #reader.next()  # No need to skip header with csv.sniffer
             for line in reader:
                 if line:  # skip empty lines
+                    # convert '__' to '.'
+                    for key, val in line.items():
+                        if val is not None and type(val) is str:
+                            line[key] = val.replace('__','.')
+                            
                     yield line['FCID'], line['Lane'], line['SampleID'], \
                           line['SampleRef'], line['Index'], line['Description'], \
                           line.get('Recipe', None), line.get('Operator', None), \
