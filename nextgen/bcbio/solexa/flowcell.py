@@ -7,6 +7,7 @@ import urllib2
 import cookielib
 import json
 
+
 def get_flowcell_info(fc_dir):
     """Parse the flow cell ID and date from a flow cell directory.
     """
@@ -18,18 +19,24 @@ def get_flowcell_info(fc_dir):
         # Support for Hiseq 2000 flowcell id updates
         if p.endswith(("XX", "xx")):
             name = p
+
         # MiSeq flowcell ids
         elif p.startswith("AMS"):
             name = p
+
         elif len(p) == 6:
             try:
                 int(p)
                 date = p
+
             except ValueError:
                 pass
+
     if name is None or date is None:
-        raise ValueError("Did not find flowcell name: %s" % fc_dir)
+        raise ValueError("Did not find flowcell name: %s".format(fc_dir))
+
     return name, date
+
 
 def get_qseq_dir(fc_dir):
     """Retrieve the qseq directory within Solexa flowcell output.
@@ -38,9 +45,10 @@ def get_qseq_dir(fc_dir):
     if os.path.exists(machine_bc):
         return machine_bc
     # otherwise assume we are in the qseq directory
-    # XXX What other cases can we end up with here?
+    # TODO: What other cases can we end up with here?
     else:
         return fc_dir
+
 
 def get_fastq_dir(fc_dir):
     """Retrieve the fastq directory within Solexa flowcell output.

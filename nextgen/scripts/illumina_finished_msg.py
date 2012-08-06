@@ -95,6 +95,7 @@ def search_for_new(config, config_file, post_config_file,
                 _calculate_md5(fastq_dir)
                 if remove_qseq:
                     _clean_qseq(get_qseq_dir(dir_name), fastq_dir)
+
                 if compress_fastq:
                     _compress_fastq(fastq_dir, config)
 
@@ -122,7 +123,7 @@ def search_for_new(config, config_file, post_config_file,
 
 def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
                       fetch_msg, process_msg, store_msg, backup_msg):
-    """With a finished directory, send out message or process directly.
+    """For a finished directory, send out message or process directly.
     """
     run_module = "bcbio.distributed.tasks"
     # without a configuration file, send out message for processing
@@ -180,23 +181,30 @@ def _generate_fastq(fc_dir, config):
     """Generate fastq files for the current flowcell.
     """
     fc_name, fc_date = get_flowcell_info(fc_dir)
-    short_fc_name = "%s_%s" % (fc_date, fc_name)
+    short_fc_name = "{}_{}".format(fc_date, fc_name)
     fastq_dir = get_fastq_dir(fc_dir)
     basecall_dir = os.path.split(fastq_dir)[0]
     postprocess_dir = config.get("postprocess_dir", "")
     if postprocess_dir:
         fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir),
                                  "fastq")
-    if not fastq_dir == fc_dir:  # and not os.path.exists(fastq_dir):
+
+    if not fastq_dir == fc_dir:
         with utils.chdir(basecall_dir):
-            lanes = sorted(list(set([f.split("_")[1] for f in
-                glob.glob("*qseq.txt")])))
-            cl = ["solexa_qseq_to_fastq.py", short_fc_name,
-                  ",".join(lanes)]
+            qseq_files = glob.glob("*qseq.txt")
+            lanes = (f.split("_")[1] for f in qseq_files)
+            unique_lanes = sorted(list(set(lanes)))
+            cl = ["solexa_qseq_to_fastq.py", short_fc_name, ",".join(unique_lanes)]
+
+            import ipdb
+            ipdb.set_trace()
+
             if postprocess_dir:
                 cl += ["-o", fastq_dir]
+
             logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
+
     return fastq_dir
 
 
@@ -446,7 +454,7 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
                      config, config_file):
     """Wait for messages with the give tag, passing on to the supplied handler.
     """
-    logger2.debug("Calling remote function: %s" % fn_name)
+    logger2.debug("Calling remote function: {}".format(fn_name))
     user = getpass.getuser()
     hostname = socket.gethostbyaddr(socket.gethostname())[0]
     data = dict(
