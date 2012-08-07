@@ -55,7 +55,7 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
     else:
         fail_dir = None
 
-    for lane_num in lane_nums:
+    for lane_num in set(lane_nums):
         lane_prefix = "s_%s" % lane_num
         out_prefix = "%s_%s" % (lane_num, run_name)
         # Skip conversion if outfiles already exists
