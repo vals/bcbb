@@ -193,11 +193,8 @@ def _generate_fastq(fc_dir, config):
         with utils.chdir(basecall_dir):
             qseq_files = glob.glob("*qseq.txt")
             lanes = (f.split("_")[1] for f in qseq_files)
-            unique_lanes = sorted(list(set(lanes)))
+            unique_lanes = sorted(set(lanes))
             cl = ["solexa_qseq_to_fastq.py", short_fc_name, ",".join(unique_lanes)]
-
-            import ipdb
-            ipdb.set_trace()
 
             if postprocess_dir:
                 cl += ["-o", fastq_dir]
