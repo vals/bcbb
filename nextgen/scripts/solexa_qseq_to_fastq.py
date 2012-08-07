@@ -40,6 +40,7 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
     if not os.path.exists(outdir):
         try:
             os.makedirs(outdir)
+
         except OSError:
             assert os.path.isdir(outdir)
 
@@ -56,10 +57,10 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
         fail_dir = None
 
     for lane_num in set(lane_nums):
-        lane_prefix = "s_%s" % lane_num
-        out_prefix = "%s_%s" % (lane_num, run_name)
+        lane_prefix = "s_{}".format(lane_num)
+        out_prefix = "{0}_{1}".format(lane_num, run_name)
         # Skip conversion if outfiles already exists
-        if len(glob.glob(os.path.join(outdir, "%s*" % out_prefix))) > 0:
+        if len(glob.glob(os.path.join(outdir, "{}*".format(out_prefix)))) > 0:
             continue
 
         write_lane(lane_prefix, out_prefix, outdir, fail_dir)
@@ -90,7 +91,9 @@ def _get_associated_barcode(read_num, file_num, fname, bc_files):
         assert (bc_parts[1] == read_parts[1] and
                 bc_parts[3] == read_parts[3]), (bc_parts, read_parts)
         return bc_file
+
     return None
+
 
 def convert_qseq_to_fastq(fname, num, bc_file, out_files, fail_files=None):
     """Convert a qseq file into the appropriate fastq output.
@@ -109,6 +112,7 @@ def convert_qseq_to_fastq(fname, num, bc_file, out_files, fail_files=None):
         elif fail_files:
             fail_files[num].write(out)
 
+
 def _qseq_iterator(fname, pass_wanted):
     """Return the name, sequence, quality, and pass info of qseq reads.
 
@@ -121,11 +125,12 @@ def _qseq_iterator(fname, pass_wanted):
             parts = line.strip().split("\t")
             passed = int(parts[-1]) == 1
             if passed is pass_wanted:
-                name = ":".join([parts[0]] +  parts[2:6]) + "#" + parts[6]
+                name = ":".join([parts[0]] + parts[2:6]) + "#" + parts[6]
                 seq = parts[8].replace(".", "N")
                 qual = parts[9]
                 assert len(seq) == len(qual)
                 yield name, seq, qual, passed
+
 
 def _get_outfiles(out_prefix, outdir, has_paired_files):
     out_files = {}
@@ -138,6 +143,7 @@ def _get_outfiles(out_prefix, outdir, has_paired_files):
     for index, fname in out_files.items():
         out_files[index] = open(fname, "w")
     return out_files
+
 
 def _split_paired(files):
     """Identify first read, second read and barcode sequences in qseqs.
