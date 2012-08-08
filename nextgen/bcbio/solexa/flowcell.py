@@ -58,14 +58,18 @@ def get_fastq_dir(fc_dir):
     machine_bc = os.path.join(fc_dir, "Data", "Intensities", "BaseCalls")
     if os.path.exists(machine_bc):
         return os.path.join(machine_bc, "fastq")
+
     elif len(full_goat_bc) > 0:
         return os.path.join(full_goat_bc[0], "fastq")
+
     elif len(bustard_bc) > 0:
         return os.path.join(bustard_bc[0], "fastq")
+
     # otherwise assume we are in the fastq directory
-    # XXX What other cases can we end up with here?
+    # TODO: What other cases can we end up with here?
     else:
         return fc_dir
+
 
 class GalaxySqnLimsApi:
     """Manage talking with the Galaxy REST api for sequencing information.

@@ -157,12 +157,15 @@ def analyze_locally(dname, post_config_file, fastq_dir):
     with utils.chdir(analysis_dir):
         if post_config["algorithm"]["num_cores"] == "messaging":
             prog = post_config["analysis"]["distributed_process_program"]
+
         else:
             prog = post_config["analysis"]["process_program"]
+
         cl = [prog, post_config_file, dname]
         run_yaml = os.path.join(dname, "run_info.yaml")
         if os.path.exists(run_yaml):
             cl.append(run_yaml)
+
         subprocess.check_call(cl)
 
 
@@ -186,8 +189,8 @@ def _generate_fastq(fc_dir, config):
     basecall_dir = os.path.split(fastq_dir)[0]
     postprocess_dir = config.get("postprocess_dir", "")
     if postprocess_dir:
-        fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir),
-                                 "fastq")
+        long_fc_name = os.path.basename(fc_dir)
+        fastq_dir = os.path.join(postprocess_dir, long_fc_name, "fastq")
 
     if not fastq_dir == fc_dir:
         with utils.chdir(basecall_dir):
@@ -195,7 +198,8 @@ def _generate_fastq(fc_dir, config):
             lanes = (f.split("_")[1] for f in qseq_files)
             unique_lanes = sorted(set(lanes))
             unique_lanes = filter(lambda l: l == "", unique_lanes)
-            cl = ["solexa_qseq_to_fastq.py", short_fc_name, ",".join(unique_lanes)]
+            lane_list = ",".join(unique_lanes)
+            cl = ["solexa_qseq_to_fastq.py", short_fc_name, lane_list]
 
             if postprocess_dir:
                 cl += ["-o", fastq_dir]
