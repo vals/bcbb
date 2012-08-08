@@ -194,6 +194,7 @@ def _generate_fastq(fc_dir, config):
             qseq_files = glob.glob("*qseq.txt")
             lanes = (f.split("_")[1] for f in qseq_files)
             unique_lanes = sorted(set(lanes))
+            unique_lanes = filter(lambda l: l == "", unique_lanes)
             cl = ["solexa_qseq_to_fastq.py", short_fc_name, ",".join(unique_lanes)]
 
             if postprocess_dir:

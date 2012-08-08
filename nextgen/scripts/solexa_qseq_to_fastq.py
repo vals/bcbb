@@ -67,7 +67,7 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
 
 
 def write_lane(lane_prefix, out_prefix, outdir, fail_dir):
-    qseq_files = glob.glob("%s_*qseq.txt" % lane_prefix)
+    qseq_files = glob.glob("{}_*qseq.txt".format(lane_prefix))
     #_check_filesizes(qseq_files)
     one_files, two_files, bc_files = _split_paired(qseq_files)
     is_paired = len(two_files) > 0
