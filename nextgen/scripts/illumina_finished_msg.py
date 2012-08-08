@@ -198,7 +198,7 @@ def _generate_fastq(fc_dir, config):
             qseq_files = glob.glob("*qseq.txt")
             lanes = (f.split("_")[1] for f in qseq_files)
             unique_lanes = sorted(set(lanes))
-            unique_lanes = filter(lambda l: l == "", unique_lanes)
+            unique_lanes = filter(lambda l: l != "", unique_lanes)
             lane_list = ",".join(unique_lanes)
             cl = ["solexa_qseq_to_fastq.py", short_fc_name, lane_list]
 
@@ -487,7 +487,6 @@ import unittest
 import random
 import string
 import shutil
-import errno
 
 
 class IFMTestCase(unittest.TestCase):
@@ -702,7 +701,6 @@ class Test(IFMTestCase):
     def tearDown(self):
         # shutil.rmtree("111009_SN1_0002_AB0CDDECXX")
         os.remove(self.msg_db)
-        pass
 
 
 if __name__ == "__main__":
