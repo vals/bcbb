@@ -669,13 +669,13 @@ class Test(IFMTestCase):
         self.msg_db = "test_data/transferred.db"
         open(self.msg_db, "w").close()
 
-        qseq_str = "\t" * 8 + "A" * 4
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
         with open(os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt"), "w") as h:
             h.write(qseq_str)
-        qseq_str = "\t" * 8 + "A"
+        qseq_str = "0\t" * 8 + ("A" + "\t") * 2 + "1\t"
         with open(os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt"), "w") as h:
             h.write(qseq_str)
-        qseq_str = "\t" * 8 + "A" * 4
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
         with open(os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt"), "w") as h:
             h.write(qseq_str)
 
