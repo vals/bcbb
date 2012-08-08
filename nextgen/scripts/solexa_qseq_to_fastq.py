@@ -159,10 +159,6 @@ def _split_paired(files):
     two = []
     bcs = []
     ref_size = None
-
-    import ipdb
-    ipdb.set_trace()
-    
     for f in files:
         parts = f.split("_")
         if parts[2] == "1":
