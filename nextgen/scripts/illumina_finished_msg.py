@@ -667,16 +667,20 @@ class Test(IFMTestCase):
                 raise e
 
         self.msg_db = "test_data/transferred.db"
-        with open(self.msg_db, "w") as m:
-            m.write("")
+        open(self.msg_db, "w").close()
 
-        with open(os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt"), "w") as q:
-            q.write("")
+        qseq_str = "\t" * 8 + "A" * 4
+        with open(os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+        qseq_str = "\t" * 8 + "A"
+        with open(os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+        qseq_str = "\t" * 8 + "A" * 4
+        with open(os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
 
         self.make_run_info_xml()
-
-        with open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Basecalling_Netcopy_complete_Read2.txt"), "w") as tfh:
-            tfh.write("")
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Basecalling_Netcopy_complete_Read2.txt"), "w").close()
 
     def test_main(self):
         kwords = {

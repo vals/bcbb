@@ -103,10 +103,11 @@ def convert_qseq_to_fastq(fname, num, bc_file, out_files, fail_files=None):
         # if we have barcodes, add them to the 3' end of the sequence
         if bc_iterator:
             (_, bc_seq, bc_qual, _) = bc_iterator.next()
-            seq = "%s%s" % (seq, bc_seq)
-            qual = "%s%s" % (qual, bc_qual)
-        name = "%s/%s" % (basename, num)
-        out = "@%s\n%s\n+\n%s\n" % (name, seq, qual)
+            seq = "{0}{1}".format(seq, bc_seq)
+            qual = "{0}{1}".format(qual, bc_qual)
+
+        name = "{0}/{1}".format(basename, num)
+        out = "@{0}\n{1}\n+\n{2}\n".format(name, seq, qual)
         if passed:
             out_files[num].write(out)
         elif fail_files:
@@ -140,8 +141,10 @@ def _get_outfiles(out_prefix, outdir, has_paired_files):
                 out_prefix, num))
     else:
         out_files["1"] = os.path.join(outdir, "%s_fastq.txt" % out_prefix)
+
     for index, fname in out_files.items():
         out_files[index] = open(fname, "w")
+
     return out_files
 
 
@@ -156,12 +159,17 @@ def _split_paired(files):
     two = []
     bcs = []
     ref_size = None
+
+    import ipdb
+    ipdb.set_trace()
+    
     for f in files:
         parts = f.split("_")
         if parts[2] == "1":
             one.append(f)
             if ref_size is None:
                 ref_size = _get_qseq_seq_size(f) // 2
+
         elif parts[2] == "2":
             cur_size = _get_qseq_seq_size(f)
             assert ref_size is not None
@@ -169,17 +177,23 @@ def _split_paired(files):
                 bcs.append(f)
             else:
                 two.append(f)
+
         elif parts[2] == "3":
             two.append(f)
+
         else:
             raise ValueError("Unexpected part: %s" % f)
+
     one.sort()
     two.sort()
     bcs.sort()
     if len(two) > 0:
-        assert len(two) == len(one)
+        assert len(two) == len(one), \
+        "one: {0}, two: {1}".format(len(one), len(two))
+
     if len(bcs) > 0:
         assert len(bcs) == len(one)
+
     return one, two, bcs
 
 
@@ -188,9 +202,11 @@ def _get_qseq_seq_size(fname):
         parts = in_handle.readline().split("\t")
         try:
             return len(parts[8])
+
         except IndexError:
             if os.path.getsize(fname) < 1:
                 print "Empty qseq file %s" % fname
+
             else:
                 raise ValueError("Qseq formatting error, check %s contents" % fname)
 
