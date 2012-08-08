@@ -30,6 +30,7 @@ import subprocess
 import time
 from optparse import OptionParser
 from xml.etree.ElementTree import ElementTree
+import errno
 
 import logbook
 
@@ -221,7 +222,13 @@ def _calculate_md5(fastq_dir):
         for fastq_file in fastq_files:
             logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
             cl = ["md5sum", fastq_file]
-            fh.write(subprocess.check_output(cl))
+            try:
+                fh.write(subprocess.check_output(cl))
+            except OSError as e:
+                if e.errno == errno.ENOENT:
+                    log.warn("md5sum not available")
+                else:
+                    raise e
 
 
 def _compress_fastq(fastq_dir, config):
@@ -425,6 +432,9 @@ def _read_reported(msg_db):
 
 
 def _get_directories(dump_directories):
+    if isinstance(dump_directories, basestring):
+        dump_directories = [dump_directories]
+
     for directory in dump_directories:
         globs = []
         # Glob to capture general flowcells
@@ -477,6 +487,28 @@ import unittest
 import random
 import string
 import shutil
+import errno
+
+
+class IFMTestCase(unittest.TestCase):
+    """Class with helper functions for testing illumina_finished_message.
+    """
+    def make_run_info_xml(self):
+        test_xml_file = os.path.join(self.test_dir, "RunInfo.xml")
+
+        test_xml = \
+        """<?xml version="1.0"?>
+            <RunInfo>
+                <Run>
+                    <Reads>
+                        <Read Number="1" />
+                        <Read Number="2" />
+                    </Reads>
+                </Run>
+            </RunInfo>"""
+
+        with open(test_xml_file, "w") as txf:
+            txf.write(test_xml)
 
 
 class FinishedDumpingTest(unittest.TestCase):
@@ -618,6 +650,59 @@ class ReportedTest(unittest.TestCase):
     def tearDown(self):
         for temp_file in self.temp_files:
             os.remove(temp_file)
+
+
+class Test(IFMTestCase):
+    """
+    """
+    def setUp(self):
+        self.test_dir = "test_data"
+        self.bc_dir = "test_data/111009_SN1_0002_AB0CDDECXX/Data/Intensities/BaseCalls/"
+        try:
+            os.makedirs(self.bc_dir)
+
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                raise e
+
+        self.msg_db = "test_data/transferred.db"
+        with open(self.msg_db, "w") as m:
+            m.write("")
+
+        with open(os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt"), "w") as q:
+            q.write("")
+
+        self.make_run_info_xml()
+
+        with open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Basecalling_Netcopy_complete_Read2.txt"), "w") as tfh:
+            tfh.write("")
+
+    def test_main(self):
+        kwords = {
+            "config": {
+                "msg_db": self.msg_db,
+                "dump_directories": "test_data"
+                },
+            "config_file": None,
+            "post_config_file": None,
+            "fetch_msg": False,
+            "process_msg": False,
+            "store_msg": False,
+            "backup_msg": False,
+            "qseq": False,
+            "fastq": True,
+            "remove_qseq": True,
+            "compress_fastq": False
+            }
+
+        search_for_new(**kwords)
+
+    def tearDown(self):
+        # shutil.rmtree("111009_SN1_0002_AB0CDDECXX")
+        os.remove(self.msg_db)
+        pass
 
 
 if __name__ == "__main__":
