@@ -528,7 +528,7 @@ class FinishedDumpingTest(unittest.TestCase):
         self.test_dir = "".join(random.choice(string.ascii_uppercase) for i in xrange(9))
         os.mkdir(self.test_dir)
 
-    def test__is_finsihed_dumping(self):
+    def test__is_finished_dumping(self):
         """Test determining if a sequencer is finished dumping.
         """
         assert _is_finished_dumping(self.test_dir) == False, \
