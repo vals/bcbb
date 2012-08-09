@@ -3,7 +3,6 @@
 import os
 import copy
 import subprocess
-import glob
 
 from collections import defaultdict
 
@@ -36,7 +35,7 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     for info in multiplex:
         if demultiplexed:
             out_tuple = [info["barcode_id"]]
-            out_tuple.extend([fastq1,fastq2])
+            out_tuple.extend([fastq1, fastq2])
             out_files.append(tuple(out_tuple))
             continue
 
@@ -101,34 +100,36 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
         bc_metrics = _parse_demultiplex_stats_htm(casava_stats)
 
     _write_demultiplex_metrics(multiplex, bc_metrics, metrics_file)
-    
+
     return out
 
+
 def _find_demultiplex_stats_htm(base_name, config):
-    
     try:
         fc_name, _ = get_flowcell_info(base_name)
-        basecall_stats_dir = os.path.join(config["analysis"]["base_dir"],"Basecall_Stats_%s" % fc_name) 
+        basecall_stats_dir = os.path.join(config["analysis"]["base_dir"], "Basecall_Stats_{}".format(fc_name))
         # If directory doesn't exist, try stripping first character from name (which may corrspond to flowcell position)
         if not os.path.exists(basecall_stats_dir):
-            basecall_stats_dir = os.path.join(config["analysis"]["base_dir"],"Basecall_Stats_%s" % fc_name[1:])
-        
+            basecall_stats_dir = os.path.join(config["analysis"]["base_dir"], "Basecall_Stats_{}".format(fc_name[1:]))
+
         casava_stats = os.path.join(basecall_stats_dir, "Demultiplex_Stats.htm")
-        assert os.path.exists(casava_stats)
+        assert os.path.exists(casava_stats), \
+        "No CASAVA stats"
+
         return casava_stats
+
     except:
         return None
-    
-        
+
+
 def _write_demultiplex_metrics(multiplex, bc_metrics, metrics_file):
-    
     # Add an entry for undetermined indexes
     lanes = {}
     for plex in multiplex:
         lanes[plex["lane"]] = "Undetermined"
     for lane, sequence in lanes.items():
         multiplex.append({"lane": lane, "sequence": sequence, "barcode_id": "unmatched"})
-        
+
     with open(metrics_file, "w") as out_handle:
         writer = csv.writer(out_handle, dialect="excel-tab")
         for plex in multiplex:
@@ -141,8 +142,8 @@ def _write_demultiplex_metrics(multiplex, bc_metrics, metrics_file):
                 read_count = 0
                 name = "Sample with barcode %s not present in demultiplexed output" % sequence
             writer.writerow([plex["barcode_id"], read_count, sequence, name])
-                
-    
+
+
 def _parse_demultiplex_stats_htm(htm_file):
     """Parse the Unaligned/Basecall_Stats_*/Demultiplex_Stats.htm file
     generated from CASAVA demultiplexing and returns barcode metrics.
