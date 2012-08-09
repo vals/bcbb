@@ -839,7 +839,8 @@ class MainTest(IFMTestCase):
         "Qseq file 3 was removed"
 
     def tearDown(self):
-        shutil.rmtree("test_data")
+        # shutil.rmtree("test_data")
+        pass
 
 if __name__ == "__main__":
     parser = OptionParser()
