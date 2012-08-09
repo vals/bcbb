@@ -651,8 +651,8 @@ class ReportedTest(unittest.TestCase):
             os.remove(temp_file)
 
 
-class Test(IFMTestCase):
-    """
+class MainTest(IFMTestCase):
+    """Tests for the main functionality of the script.
     """
     def setUp(self):
         self.test_dir = "test_data"
@@ -703,6 +703,10 @@ class Test(IFMTestCase):
         assert os.path.exists(resulting_fastq), \
         "Single read fastq was not created"
 
+        given_qseq = os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 1 was removed"
+
     def test_search_for_new_fastq_paired(self):
         self.kwords["fastq"] = True
 
@@ -725,6 +729,54 @@ class Test(IFMTestCase):
         resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_2_fastq.txt")
         assert os.path.exists(resulting_fastq), \
         "Fastq file 2 not created"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 1 was removed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 2 was removed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 3 was removed"
+
+    def test_search_for_new_fastq_paired_clean_qseq(self):
+        self.kwords["fastq"] = True
+        self.kwords["remove_qseq"] = True
+
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+        qseq_str = "0\t" * 8 + ("A" + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+
+        search_for_new(**self.kwords)
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_1_fastq.txt")
+        assert os.path.exists(resulting_fastq), \
+        "Fastq file 1 not created"
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_2_fastq.txt")
+        assert os.path.exists(resulting_fastq), \
+        "Fastq file 2 not created"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt")
+        assert not os.path.exists(given_qseq), \
+        "Qseq file 1 was not removed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt")
+        assert not os.path.exists(given_qseq), \
+        "Qseq file 2 was not removed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt")
+        assert not os.path.exists(given_qseq), \
+        "Qseq file 3 was not removed"
 
     def tearDown(self):
         shutil.rmtree("test_data")
