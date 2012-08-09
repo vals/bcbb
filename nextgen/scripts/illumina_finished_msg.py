@@ -669,6 +669,43 @@ class Test(IFMTestCase):
         self.msg_db = "test_data/transferred.db"
         open(self.msg_db, "w").close()
 
+        self.make_run_info_xml()
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Basecalling_Netcopy_complete_Read2.txt"), "w").close()
+
+        self.kwords = {
+            "config": {
+                "msg_db": self.msg_db,
+                "dump_directories": "test_data"
+                },
+            "config_file": None,
+            "post_config_file": None,
+
+            "fetch_msg": False,
+            "process_msg": False,
+            "store_msg": False,
+            "backup_msg": False,
+
+            "qseq": False,
+            "fastq": False,
+            "remove_qseq": False,
+            "compress_fastq": False
+            }
+
+    def test_search_for_new_fastq_single(self):
+        self.kwords["fastq"] = True
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+
+        search_for_new(**self.kwords)
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_fastq.txt")
+        assert os.path.exists(resulting_fastq), \
+        "Single read fastq was not created"
+
+    def test_search_for_new_fastq_paired(self):
+        self.kwords["fastq"] = True
+
         qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
         with open(os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt"), "w") as h:
             h.write(qseq_str)
@@ -679,32 +716,18 @@ class Test(IFMTestCase):
         with open(os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt"), "w") as h:
             h.write(qseq_str)
 
-        self.make_run_info_xml()
-        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Basecalling_Netcopy_complete_Read2.txt"), "w").close()
+        search_for_new(**self.kwords)
 
-    def test_main(self):
-        kwords = {
-            "config": {
-                "msg_db": self.msg_db,
-                "dump_directories": "test_data"
-                },
-            "config_file": None,
-            "post_config_file": None,
-            "fetch_msg": False,
-            "process_msg": False,
-            "store_msg": False,
-            "backup_msg": False,
-            "qseq": False,
-            "fastq": True,
-            "remove_qseq": True,
-            "compress_fastq": False
-            }
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_1_fastq.txt")
+        assert os.path.exists(resulting_fastq), \
+        "Fastq file 1 not created"
 
-        search_for_new(**kwords)
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_2_fastq.txt")
+        assert os.path.exists(resulting_fastq), \
+        "Fastq file 2 not created"
 
     def tearDown(self):
-        # shutil.rmtree("111009_SN1_0002_AB0CDDECXX")
-        os.remove(self.msg_db)
+        shutil.rmtree("test_data")
 
 
 if __name__ == "__main__":
