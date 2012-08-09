@@ -238,19 +238,24 @@ def _compress_fastq(fastq_dir, config):
     fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
     num_cores = config["algorithm"].get("num_cores", 1)
     active_procs = []
+    sleeptime = 60
+    # For testing without waiting too long.
+    if hasattr(_compress_fastq, "sleeptime"):
+        sleeptime = _compress_fastq.sleeptime
+
     for fastq_file in fastq_files:
         # Sleep for one minute while waiting for an open slot
         while len(active_procs) >= num_cores:
-            time.sleep(60)
+            time.sleep(sleeptime)
             active_procs, _ = _process_status(active_procs)
 
-        logger2.debug("Compressing %s using gzip" % fastq_file)
+        logger2.debug("Compressing {} using gzip".format(fastq_file))
         cl = ["gzip", fastq_file]
         active_procs.append(subprocess.Popen(cl))
 
     # Wait for the last processes to finish
     while len(active_procs) > 0:
-        time.sleep(60)
+        time.sleep(sleeptime)
         active_procs, _ = _process_status(active_procs)
 
 
@@ -675,7 +680,8 @@ class MainTest(IFMTestCase):
         self.kwords = {
             "config": {
                 "msg_db": self.msg_db,
-                "dump_directories": "test_data"
+                "dump_directories": "test_data",
+                "algorithm": {}
                 },
             "config_file": None,
             "post_config_file": None,
@@ -778,9 +784,53 @@ class MainTest(IFMTestCase):
         assert not os.path.exists(given_qseq), \
         "Qseq file 3 was not removed"
 
+    def test_search_for_new_fastq_paired_compress(self):
+        self.kwords["fastq"] = True
+        self.kwords["compress_fastq"] = True
+
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+        qseq_str = "0\t" * 8 + ("A" + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+        qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
+        with open(os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt"), "w") as h:
+            h.write(qseq_str)
+
+        _compress_fastq.sleeptime = 1
+        search_for_new(**self.kwords)
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_1_fastq.txt")
+        assert not os.path.exists(resulting_fastq), \
+        "Fastq file 1 was not removed during compression"
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_2_fastq.txt")
+        assert not os.path.exists(resulting_fastq), \
+        "Fastq file 2 was not removed during compression"
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_1_fastq.txt.gz")
+        assert os.path.exists(resulting_fastq), \
+        "Fastq file 1 was not compressed"
+
+        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_2_fastq.txt.gz")
+        assert os.path.exists(resulting_fastq), \
+        "Fastq file 2 was not compressed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_1_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 1 was removed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_2_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 2 was removed"
+
+        given_qseq = os.path.join(self.bc_dir, "s_3_3_1108_qseq.txt")
+        assert os.path.exists(given_qseq), \
+        "Qseq file 3 was removed"
+
     def tearDown(self):
         shutil.rmtree("test_data")
-
 
 if __name__ == "__main__":
     parser = OptionParser()
