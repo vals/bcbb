@@ -5,6 +5,7 @@ import unittest
 import shutil
 import contextlib
 import subprocess
+import couchdb
 
 @contextlib.contextmanager
 def make_workdir(link=True):
@@ -44,3 +45,42 @@ class StatusDBTest(unittest.TestCase):
                   os.path.join(self.data_dir, "run_info.yaml")]
             subprocess.check_call(cl)
 
+    def test_2_object_equality(self):
+        def _couchdoc_to_dict(obj):
+            d = {}
+            for i in obj.iterkeys():
+                d[i] = obj[i]
+            return d
+        self.setUp()
+        from bcbio.qc import FlowcellQCMetrics
+        from bcbio.log import logger, setup_logging, version
+        from bcbio.pipeline.config_loader import load_config
+        config_file = os.path.join(self.data_dir, "post_process-statusdb.yaml")
+        config = load_config(config_file)
+        setup_logging(config)
+        fc_date = "110106"
+        fc_name = "FC70BUKAAXX"
+        run_info_yaml = os.path.join(self.data_dir, "run_info.yaml")
+        workdir = os.path.join(os.path.dirname(__file__), "110106_FC70BUKAAXX")
+        fc_dir = os.path.join(self.data_dir, os.pardir, "110106_FC70BUKAAXX")
+        qc_obj = FlowcellQCMetrics(fc_date, fc_name, run_info_yaml, workdir, fc_dir)
+        couch = couchdb.Server(url="http://%s" % statusdb_url)
+        db=couch['qc']
+        dbobj = db.get(qc_obj.get_db_id())
+        qc_obj["creation_time"] = dbobj["creation_time"]
+        qc_obj["modification_time"] = dbobj["modification_time"]
+        if dbobj == qc_obj:
+            print "Identical document and dict"
+        else:
+            print "Different document and dict"
+        dbobj_dict = _couchdoc_to_dict(dbobj)
+        print dbobj_dict
+        print dbobj_dict["creation_time"]
+        print qc_obj
+        if dbobj_dict == qc_obj:
+            print "Identical dbobj_dict"
+        else:
+            print "Different dbdict and dict"
+
+        #print qc_obj.__class__
+        #print dir(dbobj)
