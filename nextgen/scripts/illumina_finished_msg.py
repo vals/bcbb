@@ -198,7 +198,6 @@ def _generate_fastq(fc_dir, config):
             qseq_files = glob.glob("*qseq.txt")
             lanes = (f.split("_")[1] for f in qseq_files)
             unique_lanes = sorted(set(lanes))
-            unique_lanes = filter(lambda l: l != "", unique_lanes)
             lane_list = ",".join(unique_lanes)
             cl = ["solexa_qseq_to_fastq.py", short_fc_name, lane_list]
 
@@ -206,6 +205,8 @@ def _generate_fastq(fc_dir, config):
                 cl += ["-o", fastq_dir]
 
             logger2.debug("Converting qseq to fastq on all lanes.")
+
+            cl = filter(lambda l: l != "", cl)
             subprocess.check_call(cl)
 
     return fastq_dir
@@ -839,8 +840,7 @@ class MainTest(IFMTestCase):
         "Qseq file 3 was removed"
 
     def tearDown(self):
-        # shutil.rmtree("test_data")
-        pass
+        shutil.rmtree("test_data")
 
 if __name__ == "__main__":
     parser = OptionParser()
