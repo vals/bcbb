@@ -215,10 +215,15 @@ def _generate_fastq(fc_dir, config):
 def _calculate_md5(fastq_dir):
     """Calculate the md5sum for the fastq files
     """
+    if not os.path.exists(fastq_dir):
+        log.warn("There are no fastq files to hash")
+        return
+
     glob_str = "*_fastq.txt"
     fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
 
     md5sum_file = os.path.join(fastq_dir, "md5sums.txt")
+
     with open(md5sum_file, 'w') as fh:
         for fastq_file in fastq_files:
             logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
