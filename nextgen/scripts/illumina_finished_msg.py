@@ -697,6 +697,15 @@ class MainTest(IFMTestCase):
             "compress_fastq": False
             }
 
+    def test_search_for_new_fastq_empty(self):
+        self.kwords["fastq"] = True
+
+        search_for_new(**self.kwords)
+
+        faulty_resulting_fastq = os.path.join(self.bc_dir, "fastq/_111009_AB0CDDECXX_fastq.txt")
+        assert not os.path.exists(faulty_resulting_fastq), \
+        "Unexpected fastq was created"
+
     def test_search_for_new_fastq_single(self):
         self.kwords["fastq"] = True
         qseq_str = "0\t" * 8 + ("A" * 4 + "\t") * 2 + "1\t"
