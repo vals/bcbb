@@ -14,7 +14,7 @@ from bcbio.distributed.transaction import file_transaction
 
 
 def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="_fastq.txt",
-                    config=None):
+                    config=None, unpack=True):
     """Retrieve fastq files for the given lane, ready to process.
     """
     if "files" in item and bc_name is None:
@@ -42,11 +42,13 @@ def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="
                     (directory, lane, fc_name, files))
     ready_files = []
     for fname in files:
-        if fname.endswith(".gz"):
+        if fname.endswith(".gz") and unpack:
             # TODO: Parallelize using pgzip
-            cl = ["gunzip", fname]
-            subprocess.check_call(cl)
-            ready_files.append(os.path.splitext(fname)[0])
+            ready_name = os.path.splitext(fname)[0]
+            ready_files.append(ready_name)
+            if not os.path.exists(ready_name):
+                cl = ["gunzip", fname]
+                subprocess.check_call(cl)
         elif fname.endswith(".bam"):
             ready_files = convert_bam_to_fastq(fname, work_dir, config)
         else:

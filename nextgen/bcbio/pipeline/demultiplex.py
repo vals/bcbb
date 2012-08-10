@@ -19,6 +19,7 @@ from bcbio.solexa.flowcell import get_flowcell_info
 from bs4 import BeautifulSoup
 
 import csv
+import gzip
 
 
 def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
@@ -36,7 +37,10 @@ def split_by_barcode(fastq1, fastq2, multiplex, base_name, dirs, config):
     for info in multiplex:
         if demultiplexed:
             out_tuple = [info["barcode_id"]]
-            out_tuple.extend([fastq1,fastq2])
+            # If the data is already demultiplexed, the sequence files must have been specified in the config
+            out_tuple.extend(get_fastq_files(dirs["fastq"], dirs["work"],
+                                               info, "", config=config))
+            #out_tuple.extend([fastq1,fastq2])
             out_files.append(tuple(out_tuple))
             continue
 
@@ -304,9 +308,12 @@ def add_multiplex_across_lanes(run_items, fastq_dir, fc_name):
 def _get_fastq_size(item, fastq_dir, fc_name):
     """Retrieve the size of reads from the first flowcell sequence.
     """
-    (fastq1, _) = get_fastq_files(fastq_dir, None, item, fc_name)
+    (fastq1, _) = get_fastq_files(fastq_dir, None, item, fc_name, unpack=False)
     with open(fastq1) as in_handle:
         try:
+            if fastq1.endswith(".gz"):
+                in_handle = gzip.GzipFile(fileobj=in_handle)
+                
             rec = SeqIO.parse(in_handle, "fastq").next()
             size = len(rec.seq)
         except StopIteration:
