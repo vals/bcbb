@@ -175,14 +175,17 @@ def read_galaxy_amqp_config(galaxy_config, base_dir):
     amqp_config = {}
     for option in config.options("galaxy_amqp"):
         amqp_config[option] = config.get("galaxy_amqp", option)
+
     return amqp_config
 
 
 def add_full_path(dirname, basedir=None):
     if basedir is None:
         basedir = os.getcwd()
+
     if not dirname.startswith("/"):
         dirname = os.path.join(basedir, dirname)
+
     return dirname
 
 
@@ -194,16 +197,20 @@ def merge_config_files(fnames):
     def _load_yaml(fname):
         with open(fname) as in_handle:
             config = yaml.load(in_handle)
+
         return config
+
     out = _load_yaml(fnames[0])
     for fname in fnames[1:]:
         cur = _load_yaml(fname)
         for k, v in cur.iteritems():
-            if out.has_key(k) and isinstance(out[k], dict):
+            if k in out and isinstance(out[k], dict):
                 out[k].update(v)
             else:
                 out[k] = v
+
     return out
+
 
 # UTF-8 methods for csv module (does not support it in python >2.7)
 # http://docs.python.org/library/csv.html#examples
