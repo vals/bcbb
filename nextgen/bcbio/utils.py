@@ -161,9 +161,11 @@ def save_diskspace(fname, reason, config):
     This keeps files as a sanity check on processes working, but saves
     disk by replacing them with a short message.
     """
-    if config["algorithm"].get("save_diskspace", False):
-        with open(fname, "w") as out_handle:
-            out_handle.write("File removed to save disk space: {}".format(reason))
+    if not config["algorithm"].get("save_diskspace", False):
+        return
+
+    with open(fname, "w") as out_handle:
+        out_handle.write("File removed to save disk space: {}".format(reason))
 
 
 def read_galaxy_amqp_config(galaxy_config, base_dir):
