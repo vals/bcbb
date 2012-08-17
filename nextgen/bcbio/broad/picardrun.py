@@ -125,6 +125,7 @@ def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file, is_paired=False):
                         ("PAIRED_RUN", ("true" if is_paired else "false")),
                         ]
                 picard.run("MergeBamAlignment", opts)
+
     return out_bam
 
 
@@ -138,6 +139,7 @@ def picard_formatconverter(picard, align_sam):
                 opts = [("INPUT", align_sam),
                         ("OUTPUT", tx_out_bam)]
                 picard.run("SamFormatConverter", opts)
+
     return out_bam
 
 
@@ -171,4 +173,34 @@ def picard_fixmate(picard, align_bam):
                         ("TMP_DIR", tmp_dir),
                         ("SORT_ORDER", "coordinate")]
                 picard.run("FixMateInformation", opts)
+
     return out_file
+
+# TESTS
+
+import unittest
+
+
+class PicardrunTests(unittest.TestCase):
+    """General tests for this module.
+    """
+    def test_picard_mark_duplicates(self):
+        """Test picard_mark_duplicates()
+        """
+        test_bam = "test.bam"
+        with open(test_bam, "w") as h:
+            h.write("TEST " * 10)
+
+        with open("test-dup.bam", "w") as h:
+            h.write("TEST " * 10)
+
+        dup_bam, dup_metrics = picard_mark_duplicates("", test_bam)
+
+        assert dup_bam == "test-dup.bam", \
+        "Did not return correct bam-dup file name"
+
+        assert dup_metrics == "test-dup.dup_metrics", \
+        "Did not return correct dup-bam-metrics file name"
+
+        os.remove("test.bam")
+        os.remove("test-dup.bam")
