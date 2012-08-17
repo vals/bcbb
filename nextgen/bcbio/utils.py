@@ -89,6 +89,7 @@ def safe_makedir(dname):
                 raise
     return dname
 
+
 @contextlib.contextmanager
 def curdir_tmpdir(remove=True):
     """Context manager to create and remove a temporary directory.
@@ -98,12 +99,13 @@ def curdir_tmpdir(remove=True):
     tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
     safe_makedir(tmp_dir)
     # Explicitly change the permissions on the temp directory to make it writable by group
-    os.chmod(tmp_dir,stat.S_IRWXU | stat.S_IRWXG)
-    try :
+    os.chmod(tmp_dir, stat.S_IRWXU | stat.S_IRWXG)
+    try:
         yield tmp_dir
-    finally :
+    finally:
         if remove:
             shutil.rmtree(tmp_dir)
+
 
 @contextlib.contextmanager
 def chdir(new_dir):
@@ -114,10 +116,11 @@ def chdir(new_dir):
     cur_dir = os.getcwd()
     safe_makedir(new_dir)
     os.chdir(new_dir)
-    try :
+    try:
         yield
-    finally :
+    finally:
         os.chdir(cur_dir)
+
 
 @contextlib.contextmanager
 def tmpfile(*args, **kwargs):
@@ -131,15 +134,18 @@ def tmpfile(*args, **kwargs):
         if os.path.exists(fname):
             os.remove(fname)
 
+
 def file_exists(fname):
     """Check if a file exists and is non-empty.
     """
     return os.path.exists(fname) and os.path.getsize(fname) > 0
 
+
 def touch_file(fname):
-    """Create an empty file 
+    """Create an empty file
     """
-    open(fname,"w").close()
+    open(fname, "w").close()
+
 
 def create_dirs(config, names=None):
     if names is None:
@@ -147,6 +153,7 @@ def create_dirs(config, names=None):
     for dname in names:
         d = config["dir"][dname]
         safe_makedir(d)
+
 
 def save_diskspace(fname, reason, config):
     """Overwrite a file in place with a short message to save disk.
@@ -157,6 +164,7 @@ def save_diskspace(fname, reason, config):
     if config["algorithm"].get("save_diskspace", False):
         with open(fname, "w") as out_handle:
             out_handle.write("File removed to save disk space: %s" % reason)
+
 
 def read_galaxy_amqp_config(galaxy_config, base_dir):
     """Read connection information on the RabbitMQ server from Galaxy config.

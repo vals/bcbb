@@ -28,6 +28,7 @@ def merge_sample(data):
     fastq1, fastq2 = combine_fastq_files(data["fastq_files"], data["dirs"]["work"],
                                          config)
     sort_bam = merge_bam_files(data["bam_files"], data["dirs"]["work"], config)
+
     return [[{"name": data["name"],
               "genome_build": genome_build, "sam_ref": sam_ref,
               "work_bam": sort_bam, "fastq1": fastq1, "fastq2": fastq2,
@@ -46,6 +47,7 @@ def recalibrate_sample(data):
         save_diskspace(data["work_bam"], "Recalibrated to %s" % recal_bam,
                        data["config"])
         data["work_bam"] = recal_bam
+
     return [[data]]
 
 
@@ -87,6 +89,7 @@ def process_sample(data):
         generate_align_summary(data["work_bam"], data["fastq2"] is not None,
                                data["sam_ref"], data["name"],
                                data["config"], data["dirs"])
+
     return [[data]]
 
 
@@ -101,5 +104,6 @@ def generate_bigwig(data):
             cl = [data["config"]["analysis"]["towig_script"], bam_file,
                   data["config_file"], "--outfile=%s" % tx_file]
             subprocess.check_call(cl)
+
     data["bigwig_file"] = wig_file
     return [[data]]

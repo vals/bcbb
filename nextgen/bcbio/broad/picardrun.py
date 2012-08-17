@@ -133,7 +133,7 @@ def picard_formatconverter(picard, align_sam):
     """
     out_bam = "%s.bam" % os.path.splitext(align_sam)[0]
     if not file_exists(out_bam):
-        with curdir_tmpdir() as tmp_dir:
+        with curdir_tmpdir():
             with file_transaction(out_bam) as tx_out_bam:
                 opts = [("INPUT", align_sam),
                         ("OUTPUT", tx_out_bam)]
@@ -154,6 +154,7 @@ def picard_mark_duplicates(picard, align_bam):
                         ("TMP_DIR", tmp_dir),
                         ("METRICS_FILE", tx_dup_metrics)]
                 picard.run("MarkDuplicates", opts)
+
     return dup_bam, dup_metrics
 
 
