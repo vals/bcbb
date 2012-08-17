@@ -21,6 +21,8 @@ def get_flowcell_info(fc_dir):
         # MiSeq flowcell ids
         elif p.startswith("AMS"):
             name = p
+        elif len(p) == 6 and p[0] == "A":
+            name = p
         elif len(p) == 6:
             try:
                 int(p)
