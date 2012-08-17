@@ -148,14 +148,16 @@ def picard_mark_duplicates(picard, align_bam):
     base = base.replace(".", "-")
     dup_bam = "{0}-dup{1}".format(base, ext)
     dup_metrics = "{}-dup.dup_metrics".format(base)
-    if not file_exists(dup_bam):
-        with curdir_tmpdir() as tmp_dir:
-            with file_transaction(dup_bam, dup_metrics) as (tx_dup_bam, tx_dup_metrics):
-                opts = [("INPUT", align_bam),
-                        ("OUTPUT", tx_dup_bam),
-                        ("TMP_DIR", tmp_dir),
-                        ("METRICS_FILE", tx_dup_metrics)]
-                picard.run("MarkDuplicates", opts)
+    if file_exists(dup_bam):
+        return dup_bam, dup_metrics
+
+    with curdir_tmpdir() as tmp_dir:
+        with file_transaction(dup_bam, dup_metrics) as (tx_dup_bam, tx_dup_metrics):
+            opts = [("INPUT", align_bam),
+                    ("OUTPUT", tx_dup_bam),
+                    ("TMP_DIR", tmp_dir),
+                    ("METRICS_FILE", tx_dup_metrics)]
+            picard.run("MarkDuplicates", opts)
 
     return dup_bam, dup_metrics
 
