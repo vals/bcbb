@@ -94,7 +94,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
-# ## Utility functions
+# Utility functions
 
 def _record_sw_versions(config, sw_version_file):
     """Get the versions of software used in the pipeline and output to

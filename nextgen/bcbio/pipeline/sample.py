@@ -39,12 +39,13 @@ def merge_sample(data):
 def recalibrate_sample(data):
     """Recalibrate quality values from aligned sample BAM file.
     """
-    logger.info("Recalibrating %s with GATK" % str(data["name"]))
+    logger.info("Recalibrating {} with GATK".format(str(data["name"])))
     if data["config"]["algorithm"]["recalibrate"]:
         recal_bam = recalibrate_quality(data["work_bam"], data["fastq1"],
                                         data["fastq2"], data["sam_ref"],
                                         data["dirs"], data["config"])
-        save_diskspace(data["work_bam"], "Recalibrated to %s" % recal_bam,
+        save_diskspace(data["work_bam"], \
+                       "Recalibrated to {}".format(recal_bam), \
                        data["config"])
         data["work_bam"] = recal_bam
 
@@ -62,7 +63,7 @@ def screen_sample_contaminants(data):
                                  data["config"])
 
 
-# ## General processing
+# General processing
 
 def process_sample(data):
     """Finalize processing for a sample, potentially multiplexed.
@@ -80,6 +81,7 @@ def process_sample(data):
         if ann_vrn_file:
             data["vrn_file"] = ann_vrn_file
             data["effects_file"] = effects_file
+
     if data["config"]["algorithm"].get("transcript_assemble", False):
         data["tx_file"] = assemble_transcripts(data["work_bam"],
                                                data["sam_ref"],

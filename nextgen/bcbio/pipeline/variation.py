@@ -12,6 +12,7 @@ from bcbio.variation import freebayes, phasing
 from bcbio.pipeline.shared import (configured_vrn_files, configured_ref_file)
 from bcbio.structural import hydra
 
+
 # ## Recalibration
 
 def recalibrate_quality(sort_bam_file, fastq1, fastq2, sam_ref,
@@ -24,6 +25,7 @@ def recalibrate_quality(sort_bam_file, fastq1, fastq2, sam_ref,
         _analyze_recalibration(recal_file, fastq1, fastq2, dirs, config)
     return recal_file
 
+
 def _analyze_recalibration(recal_file, fastq1, fastq2, dirs, config):
     """Provide a pdf report of GATK recalibration of scores.
     """
@@ -35,6 +37,7 @@ def _analyze_recalibration(recal_file, fastq1, fastq2, dirs, config):
     cl.append("--workdir=%s" % dirs["work"])
     cl.append("--input_format=%s" % qual_opts[qual_format])
     subprocess.check_call(cl)
+
 
 # ## Genotyping
 
@@ -49,6 +52,7 @@ def finalize_genotyper(call_file, bam_file, ref_file, config):
     phase_snp = phasing.read_backed_phasing(filter_snp, bam_file, ref_file, config)
     _eval_genotyper(phase_snp, ref_file, vrn_files.dbsnp, config)
     return phase_snp
+
 
 def _eval_genotyper(vrn_file, ref_file, dbsnp_file, config):
     """Evaluate variant genotyping, producing a JSON metrics file with values.
@@ -71,6 +75,7 @@ def variation_effects(vrn_file, genome_file, genome_build, config):
     annotated_vcf = annotate_effects(vrn_file, snpeff_vcf, genome_file, config) \
                     if snpeff_vcf else None
     return annotated_vcf, snpeff_txt
+
 
 # ## Structural variation
 

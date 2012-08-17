@@ -163,7 +163,7 @@ def save_diskspace(fname, reason, config):
     """
     if config["algorithm"].get("save_diskspace", False):
         with open(fname, "w") as out_handle:
-            out_handle.write("File removed to save disk space: %s" % reason)
+            out_handle.write("File removed to save disk space: {}".format(reason))
 
 
 def read_galaxy_amqp_config(galaxy_config, base_dir):
@@ -232,7 +232,6 @@ class UnicodeReader:
     """A CSV reader which will iterate over lines in the CSV file "f",
        which is encoded in the given encoding.
     """
-    
     def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
         f = UTF8Recoder(f, encoding)
         self.reader = csv.reader(f, dialect=dialect, **kwds)
@@ -243,6 +242,7 @@ class UnicodeReader:
 
     def __iter__(self):
         return self
+
 
 class UnicodeWriter:
     """A CSV writer which will write rows to CSV file "f",
