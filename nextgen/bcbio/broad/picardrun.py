@@ -193,7 +193,8 @@ class PicardrunTests(unittest.TestCase):
         with open(test_bam, "w") as h:
             h.write("TEST " * 10)
 
-        with open("test-dup.bam", "w") as h:
+        test_bam_dup = "test-dup.bam"
+        with open(test_bam_dup, "w") as h:
             h.write("TEST " * 10)
 
         try:
@@ -201,11 +202,19 @@ class PicardrunTests(unittest.TestCase):
         except AttributeError:
             assert False, "Incorrectly moved past file existance check"
 
-        assert dup_bam == "test-dup.bam", \
+        assert dup_bam == test_bam_dup, \
         "Did not return correct bam-dup file name"
 
         assert dup_metrics == "test-dup.dup_metrics", \
         "Did not return correct dup-bam-metrics file name"
+
+        try:
+            dup_bam, dup_metrics = picard_mark_duplicates("", test_bam_dup)
+        except AttributeError:
+            assert False, "Incorrectly moved past file existance check"
+
+        assert dup_bam == test_bam_dup, \
+        "bam-dup file name was not conserved when given as an argument"
 
         os.remove("test.bam")
         os.remove("test-dup.bam")
