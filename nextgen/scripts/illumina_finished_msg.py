@@ -657,6 +657,10 @@ class ReportedTest(unittest.TestCase):
         assert reported[0].startswith("Line"), \
         "Unmatching lines: Expected '{}*', got '{}'".format(exp_line, line)
 
+        reported = reported[0].split("\t")
+        assert len(reported) == 4, \
+        "Unexpected number of reported dates: Expected 3, got {}".format(len(reported) - 1)
+
     def tearDown(self):
         for temp_file in self.temp_files:
             os.remove(temp_file)
