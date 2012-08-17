@@ -146,6 +146,9 @@ def picard_formatconverter(picard, align_sam):
 def picard_mark_duplicates(picard, align_bam):
     base, ext = os.path.splitext(align_bam)
     base = base.replace(".", "-")
+    if base.endswith("-dup"):
+        return align_bam, "{}.dup_metrics".format(base)
+
     dup_bam = "{0}-dup{1}".format(base, ext)
     dup_metrics = "{}-dup.dup_metrics".format(base)
     if file_exists(dup_bam):
