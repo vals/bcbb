@@ -27,12 +27,15 @@ class PicardMetricsParser:
         """
         with open(align_metrics) as in_handle:
             align_vals = self._parse_align_metrics(in_handle)
+
         with open(dup_metrics) as in_handle:
             dup_vals = self._parse_dup_metrics(in_handle)
+
         (insert_vals, hybrid_vals) = (None, None)
         if insert_metrics and os.path.exists(insert_metrics):
             with open(insert_metrics) as in_handle:
                 insert_vals = self._parse_insert_metrics(in_handle)
+
         if hybrid_metrics and os.path.exists(hybrid_metrics):
             with open(hybrid_metrics) as in_handle:
                 hybrid_vals = self._parse_hybrid_metrics(in_handle)
@@ -62,6 +65,7 @@ class PicardMetricsParser:
                         if not key.startswith(prefix):
                             key = "%s_%s" % (prefix, key)
                         all_metrics[key] = val
+
         return all_metrics
 
     def _tabularize_metrics(self, align_vals, dup_vals, insert_vals,

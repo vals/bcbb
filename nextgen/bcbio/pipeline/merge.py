@@ -48,10 +48,12 @@ def organize_samples(items, dirs, config_file):
         """Index a sample by lane and barcode.
         """
         return (x["info"]["lane"], x["info"]["barcode_id"])
+
     items_by_name = collections.defaultdict(list)
     for item in items:
         name = (item["info"].get("name", ""), item["info"]["description"])
         items_by_name[name].append(item)
+
     out = []
     for name, item_group in items_by_name.iteritems():
         fastq_files = [x["fastq"] for x in item_group]
@@ -62,8 +64,10 @@ def organize_samples(items, dirs, config_file):
                     "fastq_files": fastq_files, "bam_files": bam_files,
                     "dirs": dirs, "config": item_group[0]["config"],
                     "config_file": config_file})
+
     out.sort(key=_sort_by_lane_barcode)
     out = [[x] for x in out]
+
     return out
 
 
