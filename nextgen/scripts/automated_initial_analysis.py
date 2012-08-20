@@ -40,19 +40,24 @@ from bcbio.pipeline.config_loader import load_config
 from bcbio.google.sequencing_report import create_report_on_gdocs
 from bcbio.qc.qcreport import report_to_statusdb
 
+
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
     work_dir = os.getcwd()
     if config.get("log_dir", None) is None:
         config["log_dir"] = os.path.join(work_dir, "log")
+
     setup_logging(config)
     run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
-    
-    _record_sw_versions(config, os.path.join(work_dir,"bcbb_software_versions.txt"))
-    
+
+    _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
+
+    import ipdb
+    ipdb.set_trace()
+
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -67,15 +72,15 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
-    
+
     # upload the sequencing report to Google Docs
-    gdocs_indicator = os.path.join(work_dir,"gdocs_report_complete.txt")
+    gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
     if not os.path.exists(gdocs_indicator) and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         utils.touch_file(gdocs_indicator)
 
     # Remove spiked in controls, contaminants etc.
-    lane_items = run_parallel("remove_contaminants",lane_items)
-    
+    lane_items = run_parallel("remove_contaminants", lane_items)
+
     align_items = run_parallel("process_alignment", lane_items)
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
@@ -103,8 +108,8 @@ def _record_sw_versions(config, sw_version_file):
     sw_versions['bcbb'] = version._get_git_commit()
 
     logger.info("bcbb pipeline is running with software versions: %s" % sw_versions)
-    
-    with open(sw_version_file,'w') as fh:
+
+    with open(sw_version_file, 'w') as fh:
         fh.write("%s\n" % datetime.datetime.now().isoformat())
         for sw, ver in sw_versions.items():
             fh.write("%s\t%s\n" % (sw,ver))
