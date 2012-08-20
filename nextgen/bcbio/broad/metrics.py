@@ -6,7 +6,7 @@ import json
 import contextlib
 import pprint
 
-from bcbio.utils import tmpfile, file_exists
+from bcbio.utils import tmpfile, file_exists, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 
 import pysam
@@ -269,6 +269,12 @@ class PicardMetrics:
 
         if insert_graph and os.path.exists(insert_graph):
             graphs.append((insert_graph, "Distribution of paired end insert sizes"))
+
+        # Attempt to clean up potential waste of space
+        if dup_bam != align_bam:
+            config = self._picard._config
+            reason = "Duplication file only needed for metrics"
+            save_diskspace(dup_bam, reason, config)
 
         return summary_info, graphs
 

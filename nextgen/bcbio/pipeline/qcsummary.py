@@ -90,9 +90,11 @@ def _update_summary_table(summary_table, ref_file, fastqc_stats):
             "%sbp %s" % (fastqc_stats.get("Sequence length", "0"), summary_table[0][-1]))
     for stat in stats_want:
         summary_table.insert(0, (stat, fastqc_stats.get(stat, ""), ""))
+
     ref_org = os.path.splitext(os.path.split(ref_file)[-1])[0]
     summary_table.insert(0, ("Reference organism",
         ref_org.replace("_", " "), ""))
+
     return summary_table
 
 
@@ -129,8 +131,10 @@ def write_project_summary(samples):
             val = info.get(col, ["", ""])[i]
             if prep_fn and val:
                 val = prep_fn(val)
+
             cur.append(val)
         rows.append(cur)
+
     with open(out_file, "w") as out_handle:
         writer = csv.writer(out_handle)
         for row in rows:
@@ -151,12 +155,14 @@ def _get_sample_summaries(samples):
                 n = xs[0]
                 if n is not None:
                     sample_info[n] = xs[1:]
+
             sample_name = ";".join([x for x in sample["name"] if x])
             out.append((sample_name, sample_info))
+
     return out
 
 
-# ## Run and parse read information from FastQC
+# Run and parse read information from FastQC
 
 def fastqc_report(bam_file, config):
     """Calculate statistics about a read using FastQC.
@@ -166,6 +172,7 @@ def fastqc_report(bam_file, config):
     graphs = parser.get_fastqc_graphs()
     stats, overrep = parser.get_fastqc_summary()
     return graphs, stats, overrep
+
 
 class FastQCParser:
     def __init__(self, base_dir):
@@ -233,8 +240,10 @@ def _run_fastqc(bam_file, config):
         cl = [config.get("program", {}).get("fastqc", "fastqc"),
               "-o", out_base, "-f", "bam", bam_file]
         subprocess.check_call(cl)
+
     if os.path.exists("%s.zip" % fastqc_out):
         os.remove("%s.zip" % fastqc_out)
+
     return fastqc_out
 
 
