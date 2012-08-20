@@ -45,8 +45,7 @@ def recalibrate_sample(data):
                                         data["fastq2"], data["sam_ref"],
                                         data["dirs"], data["config"])
         save_diskspace(data["work_bam"], \
-                       "Recalibrated to {}".format(recal_bam), \
-                       data["config"])
+                       "Recalibrated to {}".format(recal_bam), data["config"])
         data["work_bam"] = recal_bam
 
     return [[data]]
@@ -68,7 +67,6 @@ def screen_sample_contaminants(data):
 def process_sample(data):
     """Finalize processing for a sample, potentially multiplexed.
     """
-
     if data["config"]["algorithm"]["snpcall"]:
         logger.info("Finalizing variant calls: %s" % str(data["name"]))
         data["vrn_file"] = finalize_genotyper(data["vrn_file"], data["work_bam"],

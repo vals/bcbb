@@ -150,6 +150,7 @@ def touch_file(fname):
 def create_dirs(config, names=None):
     if names is None:
         names = config["dir"].keys()
+
     for dname in names:
         d = config["dir"][dname]
         safe_makedir(d)

@@ -5,13 +5,14 @@ import os
 from bcbio.utils import curdir_tmpdir, file_exists
 from bcbio.distributed.transaction import file_transaction
 
-def picard_sort(picard, align_bam, sort_order="coordinate",
-                out_file=None):
+
+def picard_sort(picard, align_bam, sort_order="coordinate", out_file=None):
     """Sort a BAM file by coordinates.
     """
     base, ext = os.path.splitext(align_bam)
     if out_file is None:
         out_file = "%s-sort%s" % (base, ext)
+
     if not file_exists(out_file):
         with curdir_tmpdir() as tmp_dir:
             with file_transaction(out_file) as tx_out_file:
@@ -20,6 +21,7 @@ def picard_sort(picard, align_bam, sort_order="coordinate",
                         ("TMP_DIR", tmp_dir),
                         ("SORT_ORDER", sort_order)]
                 picard.run("SortSam", opts)
+
     return out_file
 
 
@@ -61,6 +63,7 @@ def picard_index_ref(picard, ref_file):
             picard.run("CreateSequenceDictionary", opts)
     return dict_file
 
+
 def picard_fastq_to_bam(picard, fastq_one, fastq_two, out_dir,
                         platform, sample_name="", rg_name="", pu_name="",
                         qual_format=None):
@@ -89,6 +92,7 @@ def picard_fastq_to_bam(picard, fastq_one, fastq_two, out_dir,
                     opts.append(("FASTQ2", fastq_two))
                 picard.run("FastqToSam", opts)
     return out_bam
+
 
 def picard_bam_to_fastq(picard, in_bam, fastq_one, fastq_two=None):
     """Convert BAM file to fastq.

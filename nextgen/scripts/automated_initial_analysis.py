@@ -76,8 +76,8 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     # Remove spiked in controls, contaminants etc.
     lane_items = run_parallel("remove_contaminants", lane_items)
-
     align_items = run_parallel("process_alignment", lane_items)
+
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
