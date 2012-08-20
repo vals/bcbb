@@ -28,6 +28,7 @@ def merge_sample(data):
     fastq1, fastq2 = combine_fastq_files(data["fastq_files"], data["dirs"]["work"],
                                          config)
     sort_bam = merge_bam_files(data["bam_files"], data["dirs"]["work"], config)
+
     return [[{"name": data["name"],
               "genome_build": genome_build, "sam_ref": sam_ref,
               "work_bam": sort_bam, "fastq1": fastq1, "fastq2": fastq2,
@@ -38,14 +39,15 @@ def merge_sample(data):
 def recalibrate_sample(data):
     """Recalibrate quality values from aligned sample BAM file.
     """
-    logger.info("Recalibrating %s with GATK" % str(data["name"]))
+    logger.info("Recalibrating {} with GATK".format(str(data["name"])))
     if data["config"]["algorithm"]["recalibrate"]:
         recal_bam = recalibrate_quality(data["work_bam"], data["fastq1"],
                                         data["fastq2"], data["sam_ref"],
                                         data["dirs"], data["config"])
-        save_diskspace(data["work_bam"], "Recalibrated to %s" % recal_bam,
-                       data["config"])
+        save_diskspace(data["work_bam"], \
+                       "Recalibrated to {}".format(recal_bam), data["config"])
         data["work_bam"] = recal_bam
+
     return [[data]]
 
 
@@ -60,12 +62,11 @@ def screen_sample_contaminants(data):
                                  data["config"])
 
 
-# ## General processing
+# General processing
 
 def process_sample(data):
     """Finalize processing for a sample, potentially multiplexed.
     """
-
     if data["config"]["algorithm"]["snpcall"]:
         logger.info("Finalizing variant calls: %s" % str(data["name"]))
         data["vrn_file"] = finalize_genotyper(data["vrn_file"], data["work_bam"],
@@ -78,6 +79,7 @@ def process_sample(data):
         if ann_vrn_file:
             data["vrn_file"] = ann_vrn_file
             data["effects_file"] = effects_file
+
     if data["config"]["algorithm"].get("transcript_assemble", False):
         data["tx_file"] = assemble_transcripts(data["work_bam"],
                                                data["sam_ref"],
@@ -87,6 +89,7 @@ def process_sample(data):
         generate_align_summary(data["work_bam"], data["fastq2"] is not None,
                                data["sam_ref"], data["name"],
                                data["config"], data["dirs"])
+
     return [[data]]
 
 
@@ -101,5 +104,6 @@ def generate_bigwig(data):
             cl = [data["config"]["analysis"]["towig_script"], bam_file,
                   data["config_file"], "--outfile=%s" % tx_file]
             subprocess.check_call(cl)
+
     data["bigwig_file"] = wig_file
     return [[data]]

@@ -52,12 +52,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
-
     _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
-
-    import ipdb
-    ipdb.set_trace()
-
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -75,13 +70,14 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     # upload the sequencing report to Google Docs
     gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
-    if not os.path.exists(gdocs_indicator) and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
+    if not os.path.exists(gdocs_indicator) \
+    and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         utils.touch_file(gdocs_indicator)
 
     # Remove spiked in controls, contaminants etc.
     lane_items = run_parallel("remove_contaminants", lane_items)
-
     align_items = run_parallel("process_alignment", lane_items)
+
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
@@ -98,7 +94,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
-# ## Utility functions
+# Utility functions
 
 def _record_sw_versions(config, sw_version_file):
     """Get the versions of software used in the pipeline and output to
@@ -112,7 +108,8 @@ def _record_sw_versions(config, sw_version_file):
     with open(sw_version_file, 'w') as fh:
         fh.write("%s\n" % datetime.datetime.now().isoformat())
         for sw, ver in sw_versions.items():
-            fh.write("%s\t%s\n" % (sw,ver))
+            fh.write("%s\t%s\n" % (sw, ver))
+
 
 def _get_full_paths(fastq_dir, config, config_file):
     """Retrieve full paths for directories in the case of relative locations.
