@@ -33,6 +33,7 @@ Requires:
     Biopython -- http://biopython.org
 """
 from __future__ import with_statement
+import gzip
 import sys
 import os
 import itertools
@@ -246,12 +247,17 @@ def read_barcodes(fname):
 def read_fastq(fname):
     """Provide read info from fastq file, potentially not existing.
     """
-    if fname:
-        with open(fname) as in_handle:
-            for info in FastqGeneralIterator(in_handle):
-                yield info
-    else:
+    if not fname:
         for info in itertools.repeat(("", None, None)):
+            yield info
+
+    if os.path.splitext(fname)[1] == ".gz":
+        open_file = gzip.open
+    else:
+        open_file = open
+
+    with open_file(fname) as in_handle:
+        for info in FastqGeneralIterator(in_handle):
             yield info
 
 
