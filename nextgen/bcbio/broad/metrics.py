@@ -273,8 +273,8 @@ class PicardMetrics:
         # Attempt to clean up potential waste of space
         if dup_bam != align_bam:
             config = self._picard._config
-            reason = "Picard MarkDuplicates file {} only needed for metrics " \
-            "and has been removed to save space.".format(dup_bam)
+            reason = "Picard MarkDuplicates file {} only needed for metrics " \
+            "and has been removed to save space".format(dup_bam)
             save_diskspace(dup_bam, reason, config)
 
         return summary_info, graphs
