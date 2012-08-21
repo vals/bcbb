@@ -27,6 +27,9 @@ for all barcodes present in the fastq multiplex.
     --r-- Location of the read number (1 or 2)
   This can be used to specify any output location:
     /your/output/dir/out_--b--_--r--.txt
+  If the format ends with ".gz", for example
+    1_100721_FC626DUAAX_--b--_--r--_fastq.txt.gz
+  then the outpul files will be gzip compressed.
 
 Requires:
     Python -- versions 2.6 or 2.7
@@ -202,7 +205,12 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
     try:
         out_handle = out_handles[fname]
     except KeyError:
-        out_handle = open(fname, "w")
+        if os.path.splitext(fname)[1] == ".gz":
+            open_file = gzip.open
+        else:
+            open_file = open
+
+        out_handle = open_file(fname, "w")
         out_handles[fname] = out_handle
 
     out_handle.write("@{0}\n{1}\n+\n{2}\n".format(name, seq, qual))
