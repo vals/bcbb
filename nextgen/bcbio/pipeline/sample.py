@@ -7,6 +7,8 @@ import os
 import subprocess
 
 
+from bcbio import broad
+from bcbio.broad.picardrun import picard_mark_duplicates
 from bcbio.utils import file_exists, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 from bcbio.pipeline.lane import _update_config_w_custom
@@ -47,6 +49,23 @@ def recalibrate_sample(data):
         save_diskspace(data["work_bam"], \
                        "Recalibrated to {}".format(recal_bam), data["config"])
         data["work_bam"] = recal_bam
+
+    return [[data]]
+
+
+def mark_duplicates_sample(data):
+    """Mark duplicate molecules in sample BAM file.
+    """
+    if not data["config"]["algorithm"].get("mark_duplicates", False):
+        return [[data]]
+
+    logger.info("Marking duplicates in {} with Picard".format(str(data["name"])))
+    picard = broad.runner_from_config(data["config"])
+    dup_bam, _ = picard_mark_duplicates(picard, data["work_bam"])
+    reason = "Marked duplicates of {0} in {1}, so {0} is no longer needed" \
+             "".format(data["work_bam"], dup_bam)
+    save_diskspace(data["work_bam"], reason, data["config"])
+    data["work_bam"] = dup_bam
 
     return [[data]]
 

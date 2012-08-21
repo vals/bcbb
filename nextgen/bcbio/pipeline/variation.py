@@ -13,7 +13,7 @@ from bcbio.pipeline.shared import (configured_vrn_files, configured_ref_file)
 from bcbio.structural import hydra
 
 
-# ## Recalibration
+# Recalibration
 
 def recalibrate_quality(sort_bam_file, fastq1, fastq2, sam_ref,
                         dirs, config):
@@ -23,6 +23,7 @@ def recalibrate_quality(sort_bam_file, fastq1, fastq2, sam_ref,
     recal_file = gatk_recalibrate(sort_bam_file, sam_ref, config, dbsnp_file)
     if config["algorithm"].get("recalibration_plots", False):
         _analyze_recalibration(recal_file, fastq1, fastq2, dirs, config)
+
     return recal_file
 
 
@@ -34,12 +35,13 @@ def _analyze_recalibration(recal_file, fastq1, fastq2, dirs, config):
     cl = ["analyze_quality_recal.py", recal_file, fastq1]
     if fastq2:
         cl.append(fastq2)
+
     cl.append("--workdir=%s" % dirs["work"])
     cl.append("--input_format=%s" % qual_opts[qual_format])
     subprocess.check_call(cl)
 
 
-# ## Genotyping
+# Genotyping
 
 def finalize_genotyper(call_file, bam_file, ref_file, config):
     """Perform SNP genotyping and analysis.
@@ -48,9 +50,11 @@ def finalize_genotyper(call_file, bam_file, ref_file, config):
     variantcaller = config["algorithm"].get("variantcaller", "gatk")
     if variantcaller == "freebayes":
         call_file = freebayes.postcall_annotate(call_file, ref_file, vrn_files, config)
+
     filter_snp = variant_filtration(call_file, ref_file, vrn_files, config)
     phase_snp = phasing.read_backed_phasing(filter_snp, bam_file, ref_file, config)
     _eval_genotyper(phase_snp, ref_file, vrn_files.dbsnp, config)
+
     return phase_snp
 
 
@@ -63,10 +67,11 @@ def _eval_genotyper(vrn_file, ref_file, dbsnp_file, config):
         stats = gatk_evaluate_variants(vrn_file, ref_file, config, dbsnp_file, target)
         with open(metrics_file, "w") as out_handle:
             json.dump(stats, out_handle)
+
     return metrics_file
 
 
-# ## Calculate variation effects
+# Calculate variation effects
 
 def variation_effects(vrn_file, genome_file, genome_build, config):
     """Calculate effects of variations, associating them with transcripts.

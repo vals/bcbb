@@ -37,7 +37,10 @@ class BroadRunner:
                 break
             except AttributeError:
                 pass
-        assert fn is not None, "Could not find function %s in %s" % (name, to_check)
+
+        assert fn is not None, \
+        "Could not find function %s in %s" % (name, to_check)
+
         return fn(self, *args, **kwds)
 
     def run(self, command, options):
@@ -46,7 +49,7 @@ class BroadRunner:
         options = ["%s=%s" % (x, y) for x, y in options]
         options.append("VALIDATION_STRINGENCY=SILENT")
         dist_file = self._get_jar(command)
-        cl = ["java"] + self._memory_args +["-jar", dist_file] + options
+        cl = ["java"] + self._memory_args + ["-jar", dist_file] + options
         subprocess.check_call(cl)
 
     def run_gatk(self, params, tmp_dir=None):
@@ -60,10 +63,13 @@ class BroadRunner:
             for check in support_parallel:
                 if check in params:
                     do_parallel = True
+
             if do_parallel:
                 params.extend(["-nt", str(cores)])
+
         if tmp_dir:
             local_args.append("-Djava.io.tmpdir=%s" % tmp_dir)
+
         cl = ["java"] + self._memory_args + local_args + \
                 ["-jar", gatk_jar] + [str(x) for x in params]
         subprocess.check_call(cl)
@@ -79,11 +85,14 @@ class BroadRunner:
                          os.path.join(bdir, "GATK"),
                          os.path.join(bdir, "GATK", "dist"),
                          os.path.join(bdir, "Picard-private", "dist")])
+
         for dir_check in dirs:
             check_file = os.path.join(dir_check, "%s.jar" % command)
             if os.path.exists(check_file):
                 return check_file
+
         raise ValueError("Could not find jar %s in %s" % (command, self._picard_dir))
+
 
 def runner_from_config(config):
     return BroadRunner(config["program"]["picard"],
