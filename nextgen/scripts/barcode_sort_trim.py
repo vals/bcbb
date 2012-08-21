@@ -204,7 +204,8 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
     except KeyError:
         out_handle = open(fname, "w")
         out_handles[fname] = out_handle
-    out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
+
+    out_handle.write("@{0}\n{1}\n+\n{2}\n".format(name, seq, qual))
 
 
 def output_to_fastq(output_base):
