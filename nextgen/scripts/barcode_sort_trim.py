@@ -215,6 +215,7 @@ def output_to_fastq(output_base):
             os.makedirs(work_dir)
         except OSError:
             assert os.path.isdir(work_dir)
+
     out_handles = dict()
 
     def write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2,
@@ -224,9 +225,11 @@ def output_to_fastq(output_base):
         if seq2:
             read2name = output_base.replace("--r--", "2").replace("--b--", barcode)
             _write_to_handles(name2, seq2, qual2, read2name, out_handles)
+
         if seq3:
             read3name = output_base.replace("--r--", "3").replace("--b--", barcode)
             _write_to_handles(name3, seq3, qual3, read3name, out_handles)
+
     return write_reads
 
 
@@ -236,6 +239,7 @@ def read_barcodes(fname):
         for line in (l for l in in_handle if not l.startswith("#")):
             name, seq = line.rstrip("\r\n").split()
             barcodes[seq] = name
+
     return barcodes
 
 
