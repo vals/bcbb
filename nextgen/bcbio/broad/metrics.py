@@ -6,7 +6,7 @@ import json
 import contextlib
 import pprint
 
-from bcbio.utils import tmpfile, file_exists
+from bcbio.utils import tmpfile, file_exists, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 
 import pysam
@@ -27,12 +27,15 @@ class PicardMetricsParser:
         """
         with open(align_metrics) as in_handle:
             align_vals = self._parse_align_metrics(in_handle)
+
         with open(dup_metrics) as in_handle:
             dup_vals = self._parse_dup_metrics(in_handle)
+
         (insert_vals, hybrid_vals) = (None, None)
         if insert_metrics and os.path.exists(insert_metrics):
             with open(insert_metrics) as in_handle:
                 insert_vals = self._parse_insert_metrics(in_handle)
+
         if hybrid_metrics and os.path.exists(hybrid_metrics):
             with open(hybrid_metrics) as in_handle:
                 hybrid_vals = self._parse_hybrid_metrics(in_handle)
@@ -62,6 +65,7 @@ class PicardMetricsParser:
                         if not key.startswith(prefix):
                             key = "%s_%s" % (prefix, key)
                         all_metrics[key] = val
+
         return all_metrics
 
     def _tabularize_metrics(self, align_vals, dup_vals, insert_vals,
@@ -249,9 +253,11 @@ class PicardMetrics:
         insert_graph, insert_metrics, hybrid_metrics = (None, None, None)
         if is_paired:
             insert_graph, insert_metrics = self._insert_sizes(dup_bam)
+
         if bait_file and target_file:
             hybrid_metrics = self._hybrid_select_metrics(
                     dup_bam, bait_file, target_file)
+
         vrn_vals = self._variant_eval_metrics(dup_bam)
         summary_info = self._parser.get_summary_metrics(align_metrics,
                 dup_metrics, insert_metrics, hybrid_metrics,
@@ -260,8 +266,17 @@ class PicardMetrics:
         graphs = []
         if gc_graph and os.path.exists(gc_graph):
             graphs.append((gc_graph, "Distribution of GC content across reads"))
+
         if insert_graph and os.path.exists(insert_graph):
             graphs.append((insert_graph, "Distribution of paired end insert sizes"))
+
+        # Attempt to clean up potential waste of space
+        if dup_bam != align_bam:
+            config = self._picard._config
+            reason = "Picard MarkDuplicates file {} only needed for metrics " \
+            "and has been removed to save space".format(dup_bam)
+            save_diskspace(dup_bam, reason, config)
+
         return summary_info, graphs
 
     def _get_current_dup_metrics(self, align_bam):
@@ -271,8 +286,11 @@ class PicardMetrics:
         if dup_fname_pos > 0:
             base_name = align_bam[:dup_fname_pos]
             metrics = glob.glob("{0}*.dup_metrics".format(base_name))
-            assert len(metrics) > 0, "Appear to have deduplication but did not find metrics file"
+            assert len(metrics) > 0, \
+            "Appear to have deduplication but did not find metrics file"
+
             return align_bam, metrics[0]
+
         else:
             return self._picard.run_fn("picard_mark_duplicates", align_bam)
 
@@ -285,11 +303,13 @@ class PicardMetrics:
             can_glob = False
         except ValueError:
             can_glob = True
+
         check_fname = "{base}{maybe_glob}.{ext}".format(
             base=base, maybe_glob="*" if can_glob else "", ext=metrics_ext)
         glob_fnames = glob.glob(check_fname)
         if len(glob_fnames) > 0:
             return glob_fnames[0]
+
         else:
             return "{base}.{ext}".format(base=base, ext=metrics_ext)
 
@@ -306,6 +326,7 @@ class PicardMetrics:
                                 ("INPUT", dup_bam),
                                 ("OUTPUT", tx_metrics)]
                         self._picard.run("CalculateHsMetrics", opts)
+
         return metrics
 
     def _variant_eval_metrics(self, dup_bam):
