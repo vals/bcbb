@@ -7,6 +7,11 @@ from celery.task import task
 from bcbio.pipeline import sample, lane, toplevel, storage, shared, variation
 from bcbio.variation import realign, genotype
 
+# TODO: Make things work without this temporary fix.
+# See issue #191 on GitHub: https://github.com/SciLifeLab/bcbb/issues/191
+import sys
+sys.path.insert(0, "")
+
 # Global configuration for tasks in the main celeryconfig module
 import celeryconfig
 
