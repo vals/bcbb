@@ -14,15 +14,15 @@ from bcbio.distributed.transaction import file_transaction
 from bcbio.variation.realign import has_aligned_reads
 
 
-def gatk_recalibrate(align_bam, ref_file, config, snp_file=None):
-    """Perform a GATK recalibration of the sorted aligned BAM, producing recalibrated BAM.
+def gatk_recalibrate(dup_align_bam, ref_file, config, snp_file=None):
+    """Perform a GATK recalibration of the sorted aligned BAM,
+    producing recalibrated BAM.
     """
     broad_runner = broad.runner_from_config(config)
     platform = config["algorithm"]["platform"]
     broad_runner.run_fn("picard_index_ref", ref_file)
-    (dup_align_bam, _) = broad_runner.run_fn("picard_mark_duplicates", align_bam)
-    recal_file = _gatk_count_covariates(broad_runner, dup_align_bam, ref_file, platform,
-            snp_file)
+    recal_file = _gatk_count_covariates(broad_runner, dup_align_bam, \
+                                        ref_file, platform, snp_file)
     recal_bam = _gatk_table_recalibrate(broad_runner, dup_align_bam, ref_file, \
                                         recal_file, platform)
     broad_runner.run_fn("picard_index", recal_bam)
