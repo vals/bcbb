@@ -9,9 +9,9 @@ Usage:
     automated_initial_analysis.py <YAML config file> <flow cell dir>
                                   [<YAML run information>]
 
-The optional <YAML run information> file specifies details about the
-flowcell lanes, instead of retrieving it from Galaxy. An example
-configuration file is located in 'config/run_info.yaml'
+The optional <YAML run information> file specifies details about the flowcell
+lanes, instead of retrieving it from Galaxy. An example configuration file is
+located in 'config/run_info.yaml'
 
 Workflow:
     - Retrieve details on a run.
@@ -118,6 +118,7 @@ def _get_full_paths(fastq_dir, config, config_file):
     fastq_dir = utils.add_full_path(fastq_dir)
     config_dir = utils.add_full_path(os.path.dirname(config_file))
     galaxy_config_file = utils.add_full_path(config["galaxy_config"], config_dir)
+
     return fastq_dir, os.path.dirname(galaxy_config_file), config_dir
 
 
@@ -128,10 +129,13 @@ def _get_run_info(fc_name, fc_date, config, run_info_yaml):
         logger.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
         with open(run_info_yaml) as in_handle:
             run_details = yaml.load(in_handle)
+
         return dict(details=run_details, run_id="")
+
     else:
         logger.info("Fetching run details from Galaxy instance")
         galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
+
         return galaxy_api.run_details(fc_name, fc_date)
 
 if __name__ == "__main__":
@@ -141,5 +145,6 @@ if __name__ == "__main__":
         print "Incorrect arguments"
         print __doc__
         sys.exit()
+
     kwargs = dict()
     main(*args, **kwargs)

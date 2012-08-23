@@ -34,24 +34,26 @@ def _gatk_table_recalibrate(broad_runner, dup_align_bam, ref_file, recal_file, p
     """Step 2 of GATK recalibration -- use covariates to re-write output file.
     """
     out_file = "%s-gatkrecal.bam" % os.path.splitext(dup_align_bam)[0]
-    if not file_exists(out_file):
-        if _recal_available(recal_file):
-            with curdir_tmpdir() as tmp_dir:
-                with file_transaction(out_file) as tx_out_file:
-                    params = ["-T", "TableRecalibration",
-                              "-recalFile", recal_file,
-                              "-R", ref_file,
-                              "-I", dup_align_bam,
-                              "--out", tx_out_file,
-                              "-baq",  "RECALCULATE",
-                              "-l", "INFO",
-                              "-U",
-                              "-OQ",
-                              "--default_platform", platform,
-                              ]
-                    broad_runner.run_gatk(params, tmp_dir)
-        else:
-            shutil.copy(dup_align_bam, out_file)
+    if file_exists(out_file):
+        return out_file
+
+    if _recal_available(recal_file):
+        with curdir_tmpdir() as tmp_dir:
+            with file_transaction(out_file) as tx_out_file:
+                params = ["-T", "TableRecalibration",
+                          "-recalFile", recal_file,
+                          "-R", ref_file,
+                          "-I", dup_align_bam,
+                          "--out", tx_out_file,
+                          "-baq",  "RECALCULATE",
+                          "-l", "INFO",
+                          "-U",
+                          "-OQ",
+                          "--default_platform", platform,
+                          ]
+                broad_runner.run_gatk(params, tmp_dir)
+    else:
+        shutil.copy(dup_align_bam, out_file)
 
     return out_file
 
