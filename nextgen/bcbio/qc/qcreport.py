@@ -3,7 +3,7 @@ Create statusdb report
 """
 import sys
 import logbook
-import time
+from datetime import datetime
 import yaml
 import couchdb
 
@@ -14,8 +14,8 @@ from bcbio.qc import FlowcellQCMetrics
 def _save_obj(db, obj, url):
     dbobj = db.get(obj.get_db_id())
     if dbobj is None:
-        obj["creation_time"] = time.strftime("%x %X")
-        obj["modification_time"] = time.strftime("%x %X")
+        obj["creation_time"] = datetime.now().isoformat()
+        obj["modification_time"] = datetime.now().isoformat()
         log.info("Creating entity type %s with id %s in url %s" % (obj["entity_type"], obj.get_db_id(), url))
         db.save(obj)
     else:
@@ -23,7 +23,7 @@ def _save_obj(db, obj, url):
         obj["creation_time"] = dbobj["creation_time"]
         ## FIXME: always ne: probably some date field gets updated somewhere
         if obj != dbobj:
-            obj["modification_time"] = time.strftime("%x %X")
+            obj["modification_time"] = datetime.now().isoformat()
             log.info("Updating %s object with id %s in url %s" % (obj["entity_type"], obj.get_db_id(), url))
             db.save(obj)
         else:
@@ -61,7 +61,7 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
 
         with log_handler.applicationbound():
             with logbook.Processor(lambda record: record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))):
-                log.info("Started creating QC Metrics report on statusdb for %s_%s on %s" % (fc_date, fc_name, time.strftime("%x @ %X")))
+                log.info("Started creating QC Metrics report on statusdb for %s_%s on %s" % (fc_date, fc_name, datetime.now().isoformat()))
 
                 # Create object and parse all available metrics; no checking
                 # is currently done for missing files
@@ -94,10 +94,10 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
                     success = False
             if success:
                 log.info("QC Metrics report successfully written to statusdb for %s_%s on %s" \
-                         % (fc_date, fc_name, time.strftime("%x @ %X")))
+                         % (fc_date, fc_name, datetime.now().isoformat()))
             else:
                 log.warn("Encountered exception when writing to statusdb for %s_%s on %s" \
-                         % (fc_date, fc_name, time.strftime("%x @ %X")))
+                         % (fc_date, fc_name, datetime.now().isoformat()))
 
     except Exception as e:
         success = False
