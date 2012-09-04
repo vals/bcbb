@@ -25,7 +25,9 @@ def parallel_runner(module, dirs, config, config_file):
         if str(parallel).lower() == "messaging":
             task_module = "{base}.tasks".format(base=module)
             runner_fn = runner(task_module, dirs, config, config_file)
+
             return runner_fn(fn_name, items)
+
         else:
             out = []
             fn = getattr(__import__("{base}.multitasks".format(base=module),
@@ -36,7 +38,9 @@ def parallel_runner(module, dirs, config, config_file):
                 for data in cpmap(fn, filter(lambda x: x is not None, items)):
                     if data:
                         out.extend(data)
+
             return out
+
     return run_parallel
 
 
@@ -68,10 +72,13 @@ def runner(task_module, dirs, config, config_file, wait=True):
                         time.sleep(5)
                         if result.failed():
                             raise ValueError("Failed distributed task; cleaning up")
+
                     for x in result.join():
                         if x:
                             out.extend(x)
+
             return out
+
         return _run
 
 

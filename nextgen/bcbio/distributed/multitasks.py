@@ -21,6 +21,11 @@ def process_alignment(*args):
 
 
 @utils.map_wrap
+def mark_duplicates_sample(*args):
+    return sample.mark_duplicates_sample(*args)
+
+
+@utils.map_wrap
 def merge_sample(*args):
     return sample.merge_sample(*args)
 
