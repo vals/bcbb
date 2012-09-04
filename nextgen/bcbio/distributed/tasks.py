@@ -7,6 +7,11 @@ from celery.task import task
 from bcbio.pipeline import sample, lane, toplevel, storage, shared, variation
 from bcbio.variation import realign, genotype
 
+# TODO: Make things work without this temporary fix.
+# See issue #191 on GitHub: https://github.com/SciLifeLab/bcbb/issues/191
+import sys
+sys.path.insert(0, "")
+
 # Global configuration for tasks in the main celeryconfig module
 import celeryconfig
 
@@ -22,23 +27,26 @@ def analyze_and_upload(*args):
     remote_info = args[0]
     toplevel.analyze_and_upload(remote_info, config_file)
 
+
 @task(ignore_results=True, queue="toplevel")
 def fetch_data(*args):
     """Transfer sequencing data from a remote machine. Could be e.g. a sequencer
-       or a pre-processing machine. 
+    or a pre-processing machine.
     """
     config_file = celeryconfig.BCBIO_CONFIG_FILE
     remote_info = args[0]
     toplevel.fetch_data(remote_info, config_file)
 
+
 @task(ignore_results=True, queue="toplevel")
 def backup_data(*args):
     """Backup sequencing data from a remote machine. Could be e.g. a sequencer
-       or a pre-processing machine. 
+    or a pre-processing machine.
     """
     config_file = celeryconfig.BCBIO_CONFIG_FILE
     remote_info = args[0]
     toplevel.backup_data(remote_info, config_file)
+
 
 @task(ignore_results=True, queue="storage")
 def long_term_storage(*args):
@@ -60,6 +68,11 @@ def remove_contaminants(*args):
 @task
 def process_alignment(*args):
     return lane.process_alignment(*args)
+
+
+@task
+def mark_duplicates_sample(*args):
+    return sample.mark_duplicates_sample(*args)
 
 
 @task

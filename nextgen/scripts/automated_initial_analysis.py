@@ -9,9 +9,9 @@ Usage:
     automated_initial_analysis.py <YAML config file> <flow cell dir>
                                   [<YAML run information>]
 
-The optional <YAML run information> file specifies details about the
-flowcell lanes, instead of retrieving it from Galaxy. An example
-configuration file is located in 'config/run_info.yaml'
+The optional <YAML run information> file specifies details about the flowcell
+lanes, instead of retrieving it from Galaxy. An example configuration file is
+located in 'config/run_info.yaml'
 
 Workflow:
     - Retrieve details on a run.
@@ -40,19 +40,19 @@ from bcbio.pipeline.config_loader import load_config
 from bcbio.google.sequencing_report import create_report_on_gdocs
 from bcbio.qc.qcreport import report_to_statusdb
 
+
 def main(config_file, fc_dir, run_info_yaml=None):
     config = load_config(config_file)
     work_dir = os.getcwd()
     if config.get("log_dir", None) is None:
         config["log_dir"] = os.path.join(work_dir, "log")
+
     setup_logging(config)
     run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
-    
-    _record_sw_versions(config, os.path.join(work_dir,"bcbb_software_versions.txt"))
-    
+    _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -67,19 +67,21 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
-    
+
     # upload the sequencing report to Google Docs
-    gdocs_indicator = os.path.join(work_dir,"gdocs_report_complete.txt")
-    if not os.path.exists(gdocs_indicator) and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
+    gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
+    if not os.path.exists(gdocs_indicator) \
+    and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
         utils.touch_file(gdocs_indicator)
 
     # Remove spiked in controls, contaminants etc.
-    lane_items = run_parallel("remove_contaminants",lane_items)
-    
+    lane_items = run_parallel("remove_contaminants", lane_items)
     align_items = run_parallel("process_alignment", lane_items)
+
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
+    samples = run_parallel("mark_duplicates_sample", samples)
     run_parallel("screen_sample_contaminants", samples)
     samples = run_parallel("recalibrate_sample", samples)
     samples = parallel_realign_sample(samples, run_parallel)
@@ -93,7 +95,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
-# ## Utility functions
+# Utility functions
 
 def _record_sw_versions(config, sw_version_file):
     """Get the versions of software used in the pipeline and output to
@@ -103,11 +105,12 @@ def _record_sw_versions(config, sw_version_file):
     sw_versions['bcbb'] = version._get_git_commit()
 
     logger.info("bcbb pipeline is running with software versions: %s" % sw_versions)
-    
-    with open(sw_version_file,'w') as fh:
+
+    with open(sw_version_file, 'w') as fh:
         fh.write("%s\n" % datetime.datetime.now().isoformat())
         for sw, ver in sw_versions.items():
-            fh.write("%s\t%s\n" % (sw,ver))
+            fh.write("%s\t%s\n" % (sw, ver))
+
 
 def _get_full_paths(fastq_dir, config, config_file):
     """Retrieve full paths for directories in the case of relative locations.
@@ -115,6 +118,7 @@ def _get_full_paths(fastq_dir, config, config_file):
     fastq_dir = utils.add_full_path(fastq_dir)
     config_dir = utils.add_full_path(os.path.dirname(config_file))
     galaxy_config_file = utils.add_full_path(config["galaxy_config"], config_dir)
+
     return fastq_dir, os.path.dirname(galaxy_config_file), config_dir
 
 
@@ -125,10 +129,13 @@ def _get_run_info(fc_name, fc_date, config, run_info_yaml):
         logger.info("Found YAML samplesheet, using %s instead of Galaxy API" % run_info_yaml)
         with open(run_info_yaml) as in_handle:
             run_details = yaml.load(in_handle)
+
         return dict(details=run_details, run_id="")
+
     else:
         logger.info("Fetching run details from Galaxy instance")
         galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
+
         return galaxy_api.run_details(fc_name, fc_date)
 
 if __name__ == "__main__":
@@ -138,5 +145,6 @@ if __name__ == "__main__":
         print "Incorrect arguments"
         print __doc__
         sys.exit()
+
     kwargs = dict()
     main(*args, **kwargs)

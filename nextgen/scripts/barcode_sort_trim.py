@@ -27,12 +27,16 @@ for all barcodes present in the fastq multiplex.
     --r-- Location of the read number (1 or 2)
   This can be used to specify any output location:
     /your/output/dir/out_--b--_--r--.txt
+  If the format ends with ".gz", for example
+    1_100721_FC626DUAAX_--b--_--r--_fastq.txt.gz
+  then the outpul files will be gzip compressed.
 
 Requires:
     Python -- versions 2.6 or 2.7
     Biopython -- http://biopython.org
 """
 from __future__ import with_statement
+import gzip
 import sys
 import os
 import itertools
@@ -201,9 +205,15 @@ def _write_to_handles(name, seq, qual, fname, out_handles):
     try:
         out_handle = out_handles[fname]
     except KeyError:
-        out_handle = open(fname, "w")
+        if os.path.splitext(fname)[1] == ".gz":
+            open_file = gzip.open
+        else:
+            open_file = open
+
+        out_handle = open_file(fname, "w")
         out_handles[fname] = out_handle
-    out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
+
+    out_handle.write("@{0}\n{1}\n+\n{2}\n".format(name, seq, qual))
 
 
 def output_to_fastq(output_base):
@@ -215,6 +225,7 @@ def output_to_fastq(output_base):
             os.makedirs(work_dir)
         except OSError:
             assert os.path.isdir(work_dir)
+
     out_handles = dict()
 
     def write_reads(barcode, name1, seq1, qual1, name2, seq2, qual2,
@@ -224,9 +235,11 @@ def output_to_fastq(output_base):
         if seq2:
             read2name = output_base.replace("--r--", "2").replace("--b--", barcode)
             _write_to_handles(name2, seq2, qual2, read2name, out_handles)
+
         if seq3:
             read3name = output_base.replace("--r--", "3").replace("--b--", barcode)
             _write_to_handles(name3, seq3, qual3, read3name, out_handles)
+
     return write_reads
 
 
@@ -236,18 +249,24 @@ def read_barcodes(fname):
         for line in (l for l in in_handle if not l.startswith("#")):
             name, seq = line.rstrip("\r\n").split()
             barcodes[seq] = name
+
     return barcodes
 
 
 def read_fastq(fname):
     """Provide read info from fastq file, potentially not existing.
     """
-    if fname:
-        with open(fname) as in_handle:
-            for info in FastqGeneralIterator(in_handle):
-                yield info
-    else:
+    if not fname:
         for info in itertools.repeat(("", None, None)):
+            yield info
+
+    if os.path.splitext(fname)[1] == ".gz":
+        open_file = gzip.open
+    else:
+        open_file = open
+
+    with open_file(fname) as in_handle:
+        for info in FastqGeneralIterator(in_handle):
             yield info
 
 
