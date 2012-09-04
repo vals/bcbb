@@ -7,6 +7,7 @@ import urllib2
 import cookielib
 import json
 
+
 def get_flowcell_info(fc_dir):
     """Parse the flow cell ID and date from a flow cell directory.
     """
@@ -21,15 +22,20 @@ def get_flowcell_info(fc_dir):
         # MiSeq flowcell ids
         elif p.startswith("AMS"):
             name = p
+        elif len(p) == 6 and p[0] == "A":
+            name = p
         elif len(p) == 6:
             try:
                 int(p)
                 date = p
             except ValueError:
                 pass
+
     if name is None or date is None:
         raise ValueError("Did not find flowcell name: %s" % fc_dir)
+
     return name, date
+
 
 def get_qseq_dir(fc_dir):
     """Retrieve the qseq directory within Solexa flowcell output.
@@ -41,6 +47,7 @@ def get_qseq_dir(fc_dir):
     # XXX What other cases can we end up with here?
     else:
         return fc_dir
+
 
 def get_fastq_dir(fc_dir):
     """Retrieve the fastq directory within Solexa flowcell output.
@@ -58,6 +65,7 @@ def get_fastq_dir(fc_dir):
     # XXX What other cases can we end up with here?
     else:
         return fc_dir
+
 
 class GalaxySqnLimsApi:
     """Manage talking with the Galaxy REST api for sequencing information.
@@ -81,7 +89,7 @@ class GalaxySqnLimsApi:
                 urllib.urlencode(run_data))
         response = urllib2.urlopen(req)
         info = json.loads(response.read())
-        if info.has_key('error'):
+        if "error" in info:
             raise ValueError("Problem retrieving info: %s" % info["error"])
         else:
             return info["details"]

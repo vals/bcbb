@@ -9,6 +9,7 @@ from bcbio.distributed.transaction import file_transaction
 
 galaxy_location_file = "bwa_index.loc"
 
+
 def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
           rg_name=None):
     """Perform a BWA alignment, generating a SAM file.
@@ -37,12 +38,14 @@ def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
                 subprocess.check_call(sam_cl, stdout=out_handle)
     return sam_file
 
+
 def _bwa_args_from_config(config):
     cores = config.get("resources", {}).get("bwa", {}).get("cores", None)
     core_flags = ["-t", str(cores)] if cores else []
     qual_format = config["algorithm"].get("quality_format", "").lower()
     qual_flags = ["-I"] if qual_format == "illumina" else []
     return core_flags + qual_flags
+
 
 def _run_bwa_align(fastq_file, ref_file, out_file, config):
     aln_cl = [config["program"]["bwa"], "aln",
@@ -53,4 +56,3 @@ def _run_bwa_align(fastq_file, ref_file, out_file, config):
     with open(out_file, "w") as out_handle:
         logger.info(" ".join(aln_cl))
         subprocess.check_call(aln_cl, stdout=out_handle)
-

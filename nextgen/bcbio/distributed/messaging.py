@@ -47,10 +47,10 @@ def parallel_runner(module, dirs, config, config_file):
 def runner(task_module, dirs, config, config_file, wait=True):
     """Run a set of tasks using Celery, waiting for results or asynchronously.
 
-    Initialize with the configuration and directory information,
-    used to prepare a Celery configuration file and imports. It
-    returns a function which acts like standard map; provide the function
-    name instead of the function itself when calling.
+    Initialize with the configuration and directory information, used to
+    prepare a Celery configuration file and imports. It returns a function
+    which acts like standard map; provide the function name instead of the
+    function itself when calling.
 
     After name lookup, Celery runs the function in parallel; Celery servers
     can be remote or local but must have access to a shared filesystem. The

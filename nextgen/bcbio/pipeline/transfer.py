@@ -45,7 +45,8 @@ def remote_copy(remote_info, base_dir, protocol):
             # if a directory is given, or a single file if a single file is
             # given.
 
-        cl = ["rsync", "--checksum", "--archive", "--partial", "--progress", \
+        cl = ["rsync", "--checksum", "--archive", \
+                "--partial", "--progress", \
                 "--prune-empty-dirs", "--verbose", "--include='*/'", \
                 " ".join(include), "--exclude='*'", \
                 "%s@%s:%s" % (remote_info["user"], remote_info["hostname"], \
@@ -72,4 +73,3 @@ def remote_copy(remote_info, base_dir, protocol):
 
     fc_dir = os.path.join(fc_dir, os.path.basename(remote_info['directory']))
     return fc_dir
-

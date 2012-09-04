@@ -18,6 +18,7 @@ except ImportError:
 
 import yaml
 
+
 @contextlib.contextmanager
 def cpmap(cores=1):
     """Configurable parallel map context manager.
@@ -31,6 +32,7 @@ def cpmap(cores=1):
     else:
         if multiprocessing is None:
             raise ImportError("multiprocessing not available")
+
         # Fix to allow keyboard interrupts in multiprocessing: https://gist.github.com/626518
         def wrapper(func):
             def wrap(self, timeout=None):
@@ -42,8 +44,10 @@ def cpmap(cores=1):
             pool = multiprocessing.Pool(int(cores), maxtasksperchild=1)
         except TypeError:
             pool = multiprocessing.Pool(int(cores))
+
         yield pool.imap_unordered
         pool.terminate()
+
 
 def map_wrap(f):
     """Wrap standard function to easily pass into 'map' processing.
@@ -52,6 +56,7 @@ def map_wrap(f):
     def wrapper(*args, **kwargs):
         return apply(f, *args, **kwargs)
     return wrapper
+
 
 def memoize_outfile(ext):
     """Creates outfile from input file and ext, running if outfile not present.

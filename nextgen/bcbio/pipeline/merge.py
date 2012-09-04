@@ -30,7 +30,7 @@ def combine_fastq_files(in_files, work_dir, config):
                     with open(cur2) as in_handle:
                         shutil.copyfileobj(in_handle, out_handle)
 
-        if not config["algorithm"].get("upload_fastq", False):
+        if config["algorithm"].get("upload_fastq", False):
             return out1, out2
 
         for f1, f2 in in_files:
