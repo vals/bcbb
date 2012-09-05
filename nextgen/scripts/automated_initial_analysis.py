@@ -38,8 +38,8 @@ from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
-from bcbio.google.sequencing_report import queue_report
-from bcbio.qc.qcreport import report_to_statusdb
+#from bcbio.google.sequencing_report import queue_report
+#from bcbio.qc.qcreport import report_to_statusdb
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
@@ -55,6 +55,9 @@ def main(config_file, fc_dir, run_info_yaml=None):
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
+    prog = utils.RecordProgress(work_dir)
+    prog.progress("analysis_start")
+    
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -70,32 +73,47 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
+    prog.progress("process_lane")
 
     # upload the sequencing report to Google Docs
-    gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
-    if not os.path.exists(gdocs_indicator) \
-    and queue_report(fc_date, fc_name, os.path.abspath(run_info_yaml), dirs, config, config_file):
-        utils.touch_file(gdocs_indicator)
+    # will skip this for now and rely on external mechanism for uploading this data 
+    #gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
+    #if not os.path.exists(gdocs_indicator) \
+    #and queue_report(fc_date, fc_name, os.path.abspath(run_info_yaml), dirs, config, config_file):
+    #    utils.touch_file(gdocs_indicator)
 
     # Remove spiked in controls, contaminants etc.
     lane_items = run_parallel("remove_contaminants", lane_items)
+    prog.progress("remove_contaminants")
     align_items = run_parallel("process_alignment", lane_items)
+    prog.progress("process_alignment")
 
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
+    prog.progress("merge_sample")
     samples = run_parallel("mark_duplicates_sample", samples)
+    prog.progress("mark_duplicates_sample")
     run_parallel("screen_sample_contaminants", samples)
+    prog.progress("screen_sample_contaminants")
     samples = run_parallel("recalibrate_sample", samples)
+    prog.progress("recalibrate_sample")
     samples = parallel_realign_sample(samples, run_parallel)
+    prog.progress("realign_sample")
     samples = parallel_variantcall(samples, run_parallel)
+    prog.progress("variantcall")
     samples = run_parallel("detect_sv", samples)
+    prog.progress("detect_sv")
     samples = run_parallel("process_sample", samples)
+    prog.progress("process_sample")
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
+    prog.progress("generate_bigwig")
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
+    prog.progress("write_metrics")
     # Write statusdb metrics
-    report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
+    # will skip this for now and rely on external mechanism for uploading this data
+    #report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
 
 # Utility functions

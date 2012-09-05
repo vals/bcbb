@@ -6,6 +6,7 @@ identify items to combine within a group.
 import os
 import shutil
 import collections
+import random
 
 from bcbio import utils, broad
 
@@ -52,6 +53,11 @@ def organize_samples(items, dirs, config_file):
     items_by_name = collections.defaultdict(list)
     for item in items:
         name = (item["info"].get("name", ""), item["info"]["description"])
+        # If the configuration specifies not to merge samples, add lane and barcode sequence to ensure uniqueness
+        if not item["config"]["algorithm"].get("merge_samples",True):
+            name = name + (item["info"].get("lane",str(random.randint(100000,999999))), 
+                           item["info"].get("sequence",str(random.randint(100000,999999))))
+            
         items_by_name[name].append(item)
 
     out = []
