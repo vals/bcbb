@@ -57,8 +57,7 @@ def mark_duplicates_sample(data):
     """Mark duplicate molecules in sample BAM file.
     """
     mark_duplicates = data["config"]["algorithm"].get("mark_duplicates", False)
-    recalibrate = data["config"]["algorithm"].get("recalibrate", False)
-    if not any([mark_duplicates, recalibrate]):
+    if not mark_duplicates:
         return [[data]]
 
     logger.info("Marking duplicates in {} with Picard".format(str(data["name"])))

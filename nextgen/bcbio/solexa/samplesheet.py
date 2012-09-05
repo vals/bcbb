@@ -38,13 +38,9 @@ def _organize_lanes(info_iter, barcode_ids):
                               sequence=bc_seq,
                               name=sample_id,
                               sample_prj=sample_proj,
-                              genome_build=sample_ref.lower())#,
-                              #genomes_filter_out="phix")
-                if descr != info[0][5]:
-                    # In order to avoid unintentional merging of samples based on descriptions, don't write it for samples.
-                    # The SampleProject field fulfills the function intended with sample-level description.
-                    pass
-                    #bc_dict["description"] = descr
+                              description="{}_{}".format(sample_proj,sample_id),
+                              genome_build=sample_ref.lower(),
+                              genomes_filter_out="phix")
                 multiplex.append(bc_dict)
             cur_lane["multiplex"] = multiplex
 
