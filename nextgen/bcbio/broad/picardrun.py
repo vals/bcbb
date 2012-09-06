@@ -5,13 +5,14 @@ import os
 from bcbio.utils import curdir_tmpdir, file_exists
 from bcbio.distributed.transaction import file_transaction
 
-def picard_sort(picard, align_bam, sort_order="coordinate",
-                out_file=None):
+
+def picard_sort(picard, align_bam, sort_order="coordinate", out_file=None):
     """Sort a BAM file by coordinates.
     """
     base, ext = os.path.splitext(align_bam)
     if out_file is None:
         out_file = "%s-sort%s" % (base, ext)
+
     if not file_exists(out_file):
         with curdir_tmpdir() as tmp_dir:
             with file_transaction(out_file) as tx_out_file:
@@ -20,6 +21,7 @@ def picard_sort(picard, align_bam, sort_order="coordinate",
                         ("TMP_DIR", tmp_dir),
                         ("SORT_ORDER", sort_order)]
                 picard.run("SortSam", opts)
+
     return out_file
 
 
@@ -61,6 +63,7 @@ def picard_index_ref(picard, ref_file):
             picard.run("CreateSequenceDictionary", opts)
     return dict_file
 
+
 def picard_fastq_to_bam(picard, fastq_one, fastq_two, out_dir,
                         platform, sample_name="", rg_name="", pu_name="",
                         qual_format=None):
@@ -89,6 +92,7 @@ def picard_fastq_to_bam(picard, fastq_one, fastq_two, out_dir,
                     opts.append(("FASTQ2", fastq_two))
                 picard.run("FastqToSam", opts)
     return out_bam
+
 
 def picard_bam_to_fastq(picard, in_bam, fastq_one, fastq_two=None):
     """Convert BAM file to fastq.
@@ -125,6 +129,7 @@ def picard_sam_to_bam(picard, align_sam, fastq_bam, ref_file, is_paired=False):
                         ("PAIRED_RUN", ("true" if is_paired else "false")),
                         ]
                 picard.run("MergeBamAlignment", opts)
+
     return out_bam
 
 
@@ -133,27 +138,34 @@ def picard_formatconverter(picard, align_sam):
     """
     out_bam = "%s.bam" % os.path.splitext(align_sam)[0]
     if not file_exists(out_bam):
-        with curdir_tmpdir() as tmp_dir:
+        with curdir_tmpdir():
             with file_transaction(out_bam) as tx_out_bam:
                 opts = [("INPUT", align_sam),
                         ("OUTPUT", tx_out_bam)]
                 picard.run("SamFormatConverter", opts)
+
     return out_bam
 
 
 def picard_mark_duplicates(picard, align_bam):
-    base, ext = os.path.splitext(align_bam)
+    align_dir = os.path.dirname(align_bam)
+    base, ext = os.path.splitext(os.path.basename(align_bam))
     base = base.replace(".", "-")
-    dup_bam = "%s-dup%s" % (base, ext)
-    dup_metrics = "%s-dup.dup_metrics" % base
-    if not file_exists(dup_bam):
-        with curdir_tmpdir() as tmp_dir:
-            with file_transaction(dup_bam, dup_metrics) as (tx_dup_bam, tx_dup_metrics):
-                opts = [("INPUT", align_bam),
-                        ("OUTPUT", tx_dup_bam),
-                        ("TMP_DIR", tmp_dir),
-                        ("METRICS_FILE", tx_dup_metrics)]
-                picard.run("MarkDuplicates", opts)
+    if base.endswith("-dup"):
+        return align_bam, "{}.dup_metrics".format(base)
+
+    dup_bam = "{0}-dup{1}".format(base, ext)
+    dup_metrics = "{}-dup.dup_metrics".format(base)
+    if file_exists(dup_bam):
+        return dup_bam, dup_metrics
+
+    with curdir_tmpdir() as tmp_dir:
+        with file_transaction(dup_bam, dup_metrics) as (tx_dup_bam, tx_dup_metrics):
+            opts = [("INPUT", align_bam),
+                    ("OUTPUT", tx_dup_bam),
+                    ("TMP_DIR", tmp_dir),
+                    ("METRICS_FILE", tx_dup_metrics)]
+            picard.run("MarkDuplicates", opts)
     return dup_bam, dup_metrics
 
 
@@ -170,4 +182,46 @@ def picard_fixmate(picard, align_bam):
                         ("TMP_DIR", tmp_dir),
                         ("SORT_ORDER", "coordinate")]
                 picard.run("FixMateInformation", opts)
+
     return out_file
+
+# TESTS
+
+import unittest
+
+
+class PicardrunTests(unittest.TestCase):
+    """General tests for this module.
+    """
+    def test_picard_mark_duplicates(self):
+        """Test picard_mark_duplicates()
+        """
+        test_bam = "test.bam"
+        with open(test_bam, "w") as h:
+            h.write("TEST " * 10)
+
+        test_bam_dup = "test-dup.bam"
+        with open(test_bam_dup, "w") as h:
+            h.write("TEST " * 10)
+
+        try:
+            dup_bam, dup_metrics = picard_mark_duplicates("", test_bam)
+        except AttributeError:
+            assert False, "Incorrectly moved past file existance check"
+
+        assert dup_bam == test_bam_dup, \
+        "Did not return correct bam-dup file name"
+
+        assert dup_metrics == "test-dup.dup_metrics", \
+        "Did not return correct dup-bam-metrics file name"
+
+        try:
+            dup_bam, dup_metrics = picard_mark_duplicates("", test_bam_dup)
+        except AttributeError:
+            assert False, "Incorrectly moved past file existance check"
+
+        assert dup_bam == test_bam_dup, \
+        "bam-dup file name was not conserved when given as an argument"
+
+        os.remove("test.bam")
+        os.remove("test-dup.bam")

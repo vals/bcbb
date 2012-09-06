@@ -82,7 +82,7 @@ def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
             if gdocs_dmplx_spreadsheet is not None:
                 # Upload the data
                 success &= bc_metrics.write_run_report_to_gdocs(fc, fc_date, \
-                    fc_name, gdocs_dmplx_spreadsheet, encoded_credentials, append=False)
+                    fc_name, gdocs_dmplx_spreadsheet, encoded_credentials, append=True)
             else:
                 log.warn("Could not find Google Docs demultiplex results file \
                     title in configuration. No demultiplex counts were \

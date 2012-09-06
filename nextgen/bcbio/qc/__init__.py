@@ -557,7 +557,7 @@ class FlowcellQCMetrics(QCMetrics):
             fp.close()
             self.sample[s]["metrics"]["fastq_scr"] = data
 
-    def parse_bc_metrics(self, re_str="*.bc_metrics"):
+    def parse_bc_metrics(self, re_str="*[._]bc[._]metrics"):
         log.info("parse_bc_metrics")
         for l in self["lane"].keys():
             glob_str = os.path.join(os.path.abspath(self.flowcell_dir), "%s_%s_*barcode" % (l, self.get_run_name()), re_str)

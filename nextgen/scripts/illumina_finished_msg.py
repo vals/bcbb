@@ -48,7 +48,7 @@ log = logbook.Logger(LOG_NAME)
 def main(local_config, post_config_file=None,
          fetch_msg=True, process_msg=True, store_msg=True,
          backup_msg=False, qseq=True, fastq=True, remove_qseq=False,
-         compress_fastq=False):
+         compress_fastq=False, casava=False):
     """Main function.
     """
     config = load_config(local_config)
@@ -57,12 +57,12 @@ def main(local_config, post_config_file=None,
     with log_handler.applicationbound():
         search_for_new(config, local_config, post_config_file,
                        fetch_msg, process_msg, store_msg, backup_msg,
-                       qseq, fastq, remove_qseq, compress_fastq)
+                       qseq, fastq, remove_qseq, compress_fastq, casava)
 
 
 def search_for_new(config, config_file, post_config_file,
                    fetch_msg, process_msg, store_msg, backup_msg, qseq, fastq,
-                   remove_qseq, compress_fastq):
+                   remove_qseq, compress_fastq, casava):
     """Search for any new unreported directories.
     """
     reported = _read_reported(config["msg_db"])
@@ -72,15 +72,18 @@ def search_for_new(config, config_file, post_config_file,
         if not os.path.isdir(dir_name) or dir_name_is_reported:
             continue  # Try the next dir_name
 
-        if not _is_finished_dumping(dir_name):
-            continue
-
         # Injects run_name on logging calls.
         # Convenient for run_name on "Subject" for email notifications
         def inject_run_name(record):
-            return record.extra.__setitem__('run', os.path.basename(dir_name))
+            record.extra["run"] = os.path.basename(dir_name))
 
         with logbook.Processor(inject_run_name):
+            if casava and _is_finished_dumping_read_1(dir_name):
+                pass  # TODO
+
+            if not _is_finished_dumping(dir_name):
+                continue
+
             logger2.info("The instrument has finished dumping on directory {}" + \
                          "".format(dir_name))
             _update_reported(config["msg_db"], dir_name)
@@ -99,6 +102,10 @@ def search_for_new(config, config_file, post_config_file,
 
                 if compress_fastq:
                     _compress_fastq(fastq_dir, config)
+
+            if casava:
+                logger2.info("Generating fastq.gz files for %s" % dname)
+                _generate_fastq_with_casava(dname, config)
 
             post_process_arguments = { \
                 "dname": dir_name, \
@@ -179,6 +186,50 @@ def _process_samplesheets(dname, config):
         logger2.info("CSV Samplesheet {0} found, converting to {1}" + \
         "".format(ss_file, out_file))
         samplesheet.csv2yaml(ss_file, out_file)
+
+
+def _generate_fastq_with_casava(fc_dir, config, r1=False):
+    """Perform demultiplexing and generate fastq.gz files for the current
+    flowecell using CASAVA (>1.8).
+    """
+    basecall_dir = os.path.join(fc_dir, "Data", "Intensities", "BaseCalls")
+    casava_dir = config["program"].get("casava")
+    unaligned_dir = os.path.join(fc_dir, "Unaligned")
+    samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
+    num_mismatches = config["algorithm"].get("mismatches", 1)
+    num_cores = config["algorithm"].get("num_cores", 1)
+
+    cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
+    cl.extend(["--input-dir", basecall_dir])
+    cl.extend(["--output-dir", unaligned_dir])
+    cl.extend(["--sample-sheet", samplesheet_file])
+    cl.extend(["--mismatches", str(num_mismatches)])
+
+    options = ["--fastq-cluster-count", "0", \
+               "--ignore-missing-stats", \
+               "--ignore-missing-bcl", \
+               "--ignore-missing-control"]
+
+    cl.extend(options)
+
+    if r1:
+        # Run configuration script
+        logger2.info("Configuring BCL to Fastq conversion")
+        logger2.debug(cl)
+        subprocess.check_call(cl)
+
+    # Go to <Unaligned> folder
+    with utils.chdir(unaligned_dir):
+        # Perform make
+        cl = ["nohup", "make", "-j", str(num_cores)]
+        if r1:
+            cl.append("r1")
+
+        logger2.info("Demultiplexing and converting bcl to fastq.gz")
+        logger2.debug(cl)
+        subprocess.check_call(cl)
+
+    logger2.debug("Done")
 
 
 def _generate_fastq(fc_dir, config):
@@ -327,10 +378,7 @@ def _generate_qseq(bc_dir, config):
             cl += ["-i", bc_dir, "-p", os.path.split(bc_dir)[0]]
         subprocess.check_call(cl)
         with utils.chdir(bc_dir):
-            try:
-                processors = config["algorithm"]["num_cores"]
-            except KeyError:
-                processors = 8
+            processors = config["algorithm"].get("num_cores", 8)
             cl = config["program"].get("olb_make", "make").split() + ["-j", str(processors)]
             subprocess.check_call(cl)
 
@@ -359,6 +407,26 @@ def _is_finished_dumping(directory):
     miseq_analysis_checkpoint = not is_queued_for_analysis or job_is_completed
 
     return dump_done and miseq_analysis_checkpoint
+
+
+
+def _is_finished_dumping_read_1(directory):
+    """Determine if the sequencing directory has all files from read 1, as
+    well as the indexed read (read 2).
+
+    This lets CASAVA 1.8  and above start demultiplexing and converting to
+    fastq.gz while the last read is still being processed.
+    """
+    indexed_read_checkpoint = os.path.join(directory, "Basecalling_Netcopy_complete_Read2.txt")
+    read_1_finished_checkpoint = os.path.join(directory, "Demultiplexing_done_Read1.txt")
+
+    if os.path.exists(indexed_read_checkpoint) \
+    and not os.path.exists(read_1_finished_checkpoint):
+        open(read_1_finished_checkpoint, 'w').close()
+        return True
+
+    else:
+        return False
 
 
 def _expected_reads(run_info_file):
@@ -402,27 +470,42 @@ def _files_to_copy(directory):
                                   [glob.glob("*.params"),
                                    glob.glob("Images/L*/C*"),
                                    ["RunInfo.xml", "runParameters.xml"]])
+
         qseqs = reduce(operator.add,
-                     [glob.glob("Data/Intensities/*.xml"),
-                      glob.glob("Data/Intensities/BaseCalls/*qseq.txt"),
-                      ])
+                    [glob.glob("Data/Intensities/*.xml"),
+                     glob.glob("Data/Intensities/BaseCalls/*qseq.txt")
+                    ])
+
         reports = reduce(operator.add,
-                     [glob.glob("*.xml"),
-                      glob.glob("Data/Intensities/BaseCalls/*.xml"),
-                      glob.glob("Data/Intensities/BaseCalls/*.xsl"),
-                      glob.glob("Data/Intensities/BaseCalls/*.htm"),
-                      ["Data/Intensities/BaseCalls/Plots", "Data/reports",
-                       "Data/Status.htm", "Data/Status_Files", "InterOp"]])
+                        [glob.glob("*.xml"),
+                         glob.glob("Data/Intensities/BaseCalls/*.xml"),
+                         glob.glob("Data/Intensities/BaseCalls/*.xsl"),
+                         glob.glob("Data/Intensities/BaseCalls/*.htm"),
+                         glob.glob("Unaligned/Basecall_Stats_*/*"),
+                         glob.glob("Unalgiend/Basecall_Stats_*/**/*"),
+                         ["Data/Intensities/BaseCalls/Plots", "Data/reports",
+                          "Data/Status.htm", "Data/Status_Files", "InterOp"]
+                        ])
+
         run_info = reduce(operator.add,
                         [glob.glob("run_info.yaml"),
                          glob.glob("*.csv"),
+                         glob.glob("Unaligned/Project_*/**/*.csv"),
+                         glob.glob("Unaligned/Undetermined_indices/**/*.csv"),
                          glob.glob("*.txt")
                         ])
+
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
+
         fastq = reduce(operator.add,
-                       [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
-                        ["Data/Intensities/BaseCalls/fastq"]])
+                        [glob.glob("Data/Intensities/BaseCalls/*fastq.gz"),
+                         glob.glob("Unaligned/Project_*/**/*.fastq.gz"),
+                         glob.glob("Unaligned/Undetermined_indices/**/*.fastq.gz"),
+                         ["Data/Intensities/BaseCalls/fastq"]
+                        ])
+
         analysis = reduce(operator.add, [glob.glob("Data/Intensities/BaseCalls/Alignment")])
+
     return (sorted(image_redo_files + logs + reports + run_info + qseqs),
             sorted(reports + fastq + run_info + analysis),
             ["*"])
@@ -704,7 +787,8 @@ class MainTest(IFMTestCase):
             "qseq": False,
             "fastq": False,
             "remove_qseq": False,
-            "compress_fastq": False
+            "compress_fastq": False,
+            "casava": False
             }
 
     def test_search_for_new_fastq_empty(self):
@@ -851,6 +935,43 @@ class MainTest(IFMTestCase):
     def tearDown(self):
         shutil.rmtree("test_data")
 
+
+class CasavaTest(IFMTestCase):
+    """Tests for using Casava 1.8 to make fastq files
+    """
+    def setUp(self):
+        self.test_dir = "tst_" + "".join(random.choice(string.ascii_uppercase) for i in xrange(3))
+        self.bc_dir = os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Data/Intensities/BaseCalls/")
+        os.makedirs(self.bc_dir)
+
+        self.msg_db = os.path.join(self.test_dir, "transferred.db")
+        open(self.msg_db, "w").close()
+
+        self.kwords = {
+            "config": {
+                "msg_db": self.msg_db,
+                "dump_directories": "test_data",
+                "algorithm": {}
+                },
+            "config_file": None,
+            "post_config_file": None,
+
+            "fetch_msg": False,
+            "process_msg": False,
+            "store_msg": False,
+            "backup_msg": False,
+
+            "qseq": False,
+            "fastq": False,
+            "remove_qseq": False,
+            "compress_fastq": False,
+            "casava": True
+            }
+
+    def test_search_for_new_read_1(self):
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX", "Demultiplexing_done_Read1.txt"), "w").close()
+        search_for_new(**self.kwords)
+
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-b", "--backup", dest="backup_msg",
@@ -863,10 +984,12 @@ if __name__ == "__main__":
             action="store_false", default=True)
     parser.add_option("-f", "--nofastq", dest="fastq",
             action="store_false", default=True)
-    parser.add_option("-c", "--compress-fastq", dest="compress_fastq",
+    parser.add_option("-z", "--compress-fastq", dest="compress_fastq",
             action="store_true", default=False)
     parser.add_option("-q", "--noqseq", dest="qseq",
             action="store_false", default=True)
+    parser.add_option("-c", "--casava", dest="casava",
+            action="store_true", default=False)
     parser.add_option("-r", "--remove-qseq", dest="remove_qseq",
             action="store_true", default=False)
     parser.add_option("-m", "--miseq", dest="miseq",
@@ -882,9 +1005,11 @@ if __name__ == "__main__":
         options.backup_msg = True
         options.fastq = False
         options.qseq = False
+        options.casava = False
 
     kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg,
                   store_msg=options.store_msg, backup_msg=options.backup_msg,
                   fastq=options.fastq, qseq=options.qseq, remove_qseq=options.remove_qseq,
-                  compress_fastq=options.compress_fastq)
+                  compress_fastq=options.compress_fastq, casava=options.casava)
+
     main(*args, **kwargs)

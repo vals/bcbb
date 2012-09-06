@@ -23,7 +23,8 @@ def get_flowcell_info(fc_dir):
         # MiSeq flowcell ids
         elif p.startswith("AMS"):
             name = p
-
+        elif len(p) == 6 and p[0] == "A":
+            name = p
         elif len(p) == 6:
             try:
                 int(p)
@@ -33,7 +34,7 @@ def get_flowcell_info(fc_dir):
                 pass
 
     if name is None or date is None:
-        raise ValueError("Did not find flowcell name: %s".format(fc_dir))
+        raise ValueError("Did not find flowcell name: {}".format(fc_dir))
 
     return name, date
 
@@ -93,7 +94,7 @@ class GalaxySqnLimsApi:
                 urllib.urlencode(run_data))
         response = urllib2.urlopen(req)
         info = json.loads(response.read())
-        if info.has_key('error'):
+        if "error" in info:
             raise ValueError("Problem retrieving info: %s" % info["error"])
         else:
             return info["details"]
