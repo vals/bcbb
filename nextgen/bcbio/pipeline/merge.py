@@ -6,13 +6,15 @@ identify items to combine within a group.
 import os
 import shutil
 import collections
+import random
 
 from bcbio import utils, broad
-from bcbio.pipeline.fastq import get_fastq_files
+
 
 def combine_fastq_files(in_files, work_dir, config):
     if len(in_files) == 1:
         return in_files[0]
+
     else:
         cur1, cur2 = in_files[0]
         out1 = os.path.join(work_dir, os.path.basename(cur1))
@@ -22,17 +24,21 @@ def combine_fastq_files(in_files, work_dir, config):
                 for (cur1, _) in in_files:
                     with open(cur1) as in_handle:
                         shutil.copyfileobj(in_handle, out_handle)
+
         if out2 and not os.path.exists(out2):
             with open(out2, "a") as out_handle:
                 for (_, cur2) in in_files:
                     with open(cur2) as in_handle:
                         shutil.copyfileobj(in_handle, out_handle)
-        if not config["algorithm"].get("upload_fastq", False):
+
+        if config["algorithm"].get("upload_fastq", False):
             return out1, out2
+
         for f1, f2 in in_files:
             utils.save_diskspace(f1, "fastq merged to %s" % out1, config)
             if f2:
                 utils.save_diskspace(f2, "fastq merged to %s" % out2, config)
+
         return out1, out2
 
 
@@ -43,10 +49,17 @@ def organize_samples(items, dirs, config_file):
         """Index a sample by lane and barcode.
         """
         return (x["info"]["lane"], x["info"]["barcode_id"])
+
     items_by_name = collections.defaultdict(list)
     for item in items:
         name = (item["info"].get("name", ""), item["info"]["description"])
+        # If the configuration specifies not to merge samples, add lane and barcode sequence to ensure uniqueness
+        if not item["config"]["algorithm"].get("merge_samples",True):
+            name = name + (item["info"].get("lane",str(random.randint(100000,999999))), 
+                           item["info"].get("sequence",str(random.randint(100000,999999))))
+            
         items_by_name[name].append(item)
+
     out = []
     for name, item_group in items_by_name.iteritems():
         fastq_files = [x["fastq"] for x in item_group]
@@ -57,8 +70,10 @@ def organize_samples(items, dirs, config_file):
                     "fastq_files": fastq_files, "bam_files": bam_files,
                     "dirs": dirs, "config": item_group[0]["config"],
                     "config_file": config_file})
+
     out.sort(key=_sort_by_lane_barcode)
     out = [[x] for x in out]
+
     return out
 
 
@@ -71,4 +86,5 @@ def merge_bam_files(bam_files, work_dir, config):
     picard.run_fn("picard_merge", bam_files, out_file)
     for b in bam_files:
         utils.save_diskspace(b, "BAM merged to %s" % out_file, config)
+
     return out_file

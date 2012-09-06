@@ -107,24 +107,23 @@ def _write_project_report_to_gdocs(client, ssheet, flowcell):
     column_headers = [col_header[0] for col_header in SEQUENCING_RESULT_HEADER[:6]]
 
     success = True
-    rows = []
-    run_name = "{}_{}".format(flowcell.fc_date, flowcell.fc_name)
-    wsheet_title = run_name
     for sample in samples.values():
-        rows.append((sample.get_name(), \
+        run_name = "{}_{}".format(flowcell.fc_date, flowcell.fc_name)
+        wsheet_title = run_name
+        row = (sample.get_name(), \
                run_name, \
                sample.get_lane(), \
                sample.get_read_count(), \
                sample.get_rounded_read_count(), \
-               sample.barcode_sequence))
-        
-    success = _write_to_worksheet(client, \
-                                   ssheet, \
-                                   wsheet_title, \
-                                   rows, \
-                                   column_headers, \
-                                   append=False,
-                                   keys=[head[0] for head in SEQUENCING_RESULT_HEADER if head[1] in ["sample_name", "lane", "barcode_sequence"]])
+               sample.barcode_sequence)
+
+        success &= _write_to_worksheet(client, \
+                                       ssheet, \
+                                       wsheet_title, \
+                                       [row], \
+                                       column_headers, \
+                                       append=True,
+                                       keys=[head[0] for head in SEQUENCING_RESULT_HEADER if head[1] in ["sample_name", "lane", "barcode_sequence"]])
 
     return success
 
@@ -160,7 +159,6 @@ def write_project_report_summary_to_gdocs(client, ssheet):
         # Map the column names to the correct index using the header
         sample_col, run_col, lane_col, count_col, bc_col = [_header_index(SEQUENCING_RESULT_HEADER,col_name,wsheet_header) for col_name in ('sample_name', 'run', 'lane', 'read_count', 'barcode_sequence')]
         
-
         # Add the results from the worksheet to the summarized data.
         for row in wsheet_data:
 

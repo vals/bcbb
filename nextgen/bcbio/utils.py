@@ -9,6 +9,7 @@ import itertools
 import functools
 import ConfigParser
 import csv, codecs, cStringIO
+import datetime
 
 try:
     import multiprocessing
@@ -17,6 +18,7 @@ except ImportError:
     multiprocessing = None
 
 import yaml
+
 
 @contextlib.contextmanager
 def cpmap(cores=1):
@@ -31,6 +33,7 @@ def cpmap(cores=1):
     else:
         if multiprocessing is None:
             raise ImportError("multiprocessing not available")
+
         # Fix to allow keyboard interrupts in multiprocessing: https://gist.github.com/626518
         def wrapper(func):
             def wrap(self, timeout=None):
@@ -42,8 +45,10 @@ def cpmap(cores=1):
             pool = multiprocessing.Pool(int(cores), maxtasksperchild=1)
         except TypeError:
             pool = multiprocessing.Pool(int(cores))
+
         yield pool.imap_unordered
         pool.terminate()
+
 
 def map_wrap(f):
     """Wrap standard function to easily pass into 'map' processing.
@@ -52,6 +57,7 @@ def map_wrap(f):
     def wrapper(*args, **kwargs):
         return apply(f, *args, **kwargs)
     return wrapper
+
 
 def memoize_outfile(ext):
     """Creates outfile from input file and ext, running if outfile not present.
@@ -89,6 +95,7 @@ def safe_makedir(dname):
                 raise
     return dname
 
+
 @contextlib.contextmanager
 def curdir_tmpdir(remove=True):
     """Context manager to create and remove a temporary directory.
@@ -98,12 +105,13 @@ def curdir_tmpdir(remove=True):
     tmp_dir = tempfile.mkdtemp(dir=tmp_dir_base)
     safe_makedir(tmp_dir)
     # Explicitly change the permissions on the temp directory to make it writable by group
-    os.chmod(tmp_dir,stat.S_IRWXU | stat.S_IRWXG)
-    try :
+    os.chmod(tmp_dir, stat.S_IRWXU | stat.S_IRWXG)
+    try:
         yield tmp_dir
-    finally :
+    finally:
         if remove:
             shutil.rmtree(tmp_dir)
+
 
 @contextlib.contextmanager
 def chdir(new_dir):
@@ -114,10 +122,11 @@ def chdir(new_dir):
     cur_dir = os.getcwd()
     safe_makedir(new_dir)
     os.chdir(new_dir)
-    try :
+    try:
         yield
-    finally :
+    finally:
         os.chdir(cur_dir)
+
 
 @contextlib.contextmanager
 def tmpfile(*args, **kwargs):
@@ -131,22 +140,26 @@ def tmpfile(*args, **kwargs):
         if os.path.exists(fname):
             os.remove(fname)
 
+
 def file_exists(fname):
     """Check if a file exists and is non-empty.
     """
     return os.path.exists(fname) and os.path.getsize(fname) > 0
 
+
 def touch_file(fname):
-    """Create an empty file 
+    """Create an empty file
     """
-    open(fname,"w").close()
+    open(fname, "w").close()
 
 def create_dirs(config, names=None):
     if names is None:
         names = config["dir"].keys()
+
     for dname in names:
         d = config["dir"][dname]
         safe_makedir(d)
+
 
 def save_diskspace(fname, reason, config):
     """Overwrite a file in place with a short message to save disk.
@@ -154,9 +167,12 @@ def save_diskspace(fname, reason, config):
     This keeps files as a sanity check on processes working, but saves
     disk by replacing them with a short message.
     """
-    if config["algorithm"].get("save_diskspace", False):
-        with open(fname, "w") as out_handle:
-            out_handle.write("File removed to save disk space: %s" % reason)
+    if not config["algorithm"].get("save_diskspace", False):
+        return
+
+    with open(fname, "w") as out_handle:
+        out_handle.write("File removed to save disk space: {}".format(reason))
+
 
 def read_galaxy_amqp_config(galaxy_config, base_dir):
     """Read connection information on the RabbitMQ server from Galaxy config.
@@ -167,14 +183,17 @@ def read_galaxy_amqp_config(galaxy_config, base_dir):
     amqp_config = {}
     for option in config.options("galaxy_amqp"):
         amqp_config[option] = config.get("galaxy_amqp", option)
+
     return amqp_config
 
 
 def add_full_path(dirname, basedir=None):
     if basedir is None:
         basedir = os.getcwd()
+
     if not dirname.startswith("/"):
         dirname = os.path.join(basedir, dirname)
+
     return dirname
 
 
@@ -186,16 +205,20 @@ def merge_config_files(fnames):
     def _load_yaml(fname):
         with open(fname) as in_handle:
             config = yaml.load(in_handle)
+
         return config
+
     out = _load_yaml(fnames[0])
     for fname in fnames[1:]:
         cur = _load_yaml(fname)
         for k, v in cur.iteritems():
-            if out.has_key(k) and isinstance(out[k], dict):
+            if k in out and isinstance(out[k], dict):
                 out[k].update(v)
             else:
                 out[k] = v
+
     return out
+
 
 # UTF-8 methods for csv module (does not support it in python >2.7)
 # http://docs.python.org/library/csv.html#examples
@@ -217,7 +240,6 @@ class UnicodeReader:
     """A CSV reader which will iterate over lines in the CSV file "f",
        which is encoded in the given encoding.
     """
-    
     def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
         f = UTF8Recoder(f, encoding)
         self.reader = csv.reader(f, dialect=dialect, **kwds)
@@ -228,6 +250,7 @@ class UnicodeReader:
 
     def __iter__(self):
         return self
+
 
 class UnicodeWriter:
     """A CSV writer which will write rows to CSV file "f",
@@ -256,3 +279,33 @@ class UnicodeWriter:
     def writerows(self, rows):
         for row in rows:
             self.writerow(row)
+
+class RecordProgress:
+    """A simple interface for recording progress of the parallell
+       workflow and outputting timestamp files
+    """
+    
+    def __init__(self, work_dir, force_overwrite=False):
+        self.step = 0
+        self.dir = work_dir
+        self.fo = force_overwrite
+        
+    def progress(self, action):
+        self.step += 1
+        self._timestamp_file(action)
+    
+    def _action_fname(self, action):
+        return os.path.join(self.dir, "{s:02d}_{act}.txt".format(s=self.step,act=action))
+    
+    def _timestamp_file(self, action):
+        """Write a timestamp to the specified file, either appending or 
+        overwriting an existing file
+        """
+        fname = self._action_fname(action)
+        mode = "w"
+        if file_exists(fname) and not self.fo:
+            mode = "a"
+        with open(fname, mode) as out_handle:
+            out_handle.write("{}\n".format(datetime.datetime.now().isoformat()))
+         
+        
