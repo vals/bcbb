@@ -75,11 +75,29 @@ def search_for_new(config, config_file, post_config_file,
         # Injects run_name on logging calls.
         # Convenient for run_name on "Subject" for email notifications
         def inject_run_name(record):
-            record.extra["run"] = os.path.basename(dir_name))
+            record.extra["run"] = os.path.basename(dir_name)
 
         with logbook.Processor(inject_run_name):
             if casava and _is_finished_dumping_read_1(dir_name):
-                pass  # TODO
+                logger2.info("Generating fastq.qz files for reads 1 {}".format(dir_name))
+                fastq_dir = None
+                _generate_fastq_with_casava(dir_name, config, r1=True)
+
+                post_process_arguments = { \
+                "dname": dir_name, \
+                "config": config, \
+                "config_file": config_file, \
+                "fastq_dir": fastq_dir, \
+                "post_config_file": post_config_file, \
+                "fetch_msg": True, \
+                "process_msg": False, \
+                "store_msg": store_msg, \
+                "backup_msg": False \
+                }
+
+                _post_process_run(**post_process_arguments)
+
+                continue  # Just move on to the next dir_name
 
             if not _is_finished_dumping(dir_name):
                 continue
@@ -104,8 +122,8 @@ def search_for_new(config, config_file, post_config_file,
                     _compress_fastq(fastq_dir, config)
 
             if casava:
-                logger2.info("Generating fastq.gz files for %s" % dname)
-                _generate_fastq_with_casava(dname, config)
+                logger2.info("Generating fastq.gz files for %s" % dir_name)
+                _generate_fastq_with_casava(dir_name, config)
 
             post_process_arguments = { \
                 "dname": dir_name, \
@@ -193,7 +211,13 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     flowecell using CASAVA (>1.8).
     """
     basecall_dir = os.path.join(fc_dir, "Data", "Intensities", "BaseCalls")
-    casava_dir = config["program"].get("casava")
+
+    try:
+        casava_dir = config["program"]["casava"]
+    except KeyError as e:
+        logger2.error("CASAVA directory not configured")
+        raise e
+
     unaligned_dir = os.path.join(fc_dir, "Unaligned")
     samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
     num_mismatches = config["algorithm"].get("mismatches", 1)
@@ -409,7 +433,6 @@ def _is_finished_dumping(directory):
     return dump_done and miseq_analysis_checkpoint
 
 
-
 def _is_finished_dumping_read_1(directory):
     """Determine if the sequencing directory has all files from read 1, as
     well as the indexed read (read 2).
@@ -570,13 +593,18 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
             directory=directory,
             to_copy=files_to_copy
             )
-    dirs = {"work": os.getcwd(),
-            "config": os.path.dirname(config_file)}
+
+    dirs = {"work": os.getcwd()}
+    try:
+        dirs["config"] = os.path.dirname(config_file)
+    except AttributeError:
+        log.warn("No config file was specified")
+
     runner = messaging.runner(run_module, dirs, config, config_file, wait=False)
     runner(fn_name, [[data]])
 
 
-# --- Testing code: run with 'nosetests -v -s illumina_finished_message.py'
+# Testing code: run with 'nosetests -v -s illumina_finished_message.py'
 import unittest
 import random
 import string
@@ -916,7 +944,8 @@ class MainTest(IFMTestCase):
         assert os.path.exists(resulting_fastq), \
         "Fastq file 1 was not compressed"
 
-        resulting_fastq = os.path.join(self.bc_dir, "fastq/3_111009_AB0CDDECXX_2_fastq.txt.gz")
+        resulting_fastq = os.path.join(self.bc_dir, \
+            "fastq/3_111009_AB0CDDECXX_2_fastq.txt.gz")
         assert os.path.exists(resulting_fastq), \
         "Fastq file 2 was not compressed"
 
@@ -935,13 +964,17 @@ class MainTest(IFMTestCase):
     def tearDown(self):
         shutil.rmtree("test_data")
 
+from mock import MagicMock
+
 
 class CasavaTest(IFMTestCase):
     """Tests for using Casava 1.8 to make fastq files
     """
     def setUp(self):
-        self.test_dir = "tst_" + "".join(random.choice(string.ascii_uppercase) for i in xrange(3))
-        self.bc_dir = os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX/Data/Intensities/BaseCalls/")
+        self.test_dir = "tst_" + "".join( \
+            random.choice(string.ascii_uppercase) for i in xrange(3))
+        self.bc_dir = os.path.join(self.test_dir, \
+            "111009_SN1_0002_AB0CDDECXX/Data/Intensities/BaseCalls/")
         os.makedirs(self.bc_dir)
 
         self.msg_db = os.path.join(self.test_dir, "transferred.db")
@@ -950,8 +983,9 @@ class CasavaTest(IFMTestCase):
         self.kwords = {
             "config": {
                 "msg_db": self.msg_db,
-                "dump_directories": "test_data",
-                "algorithm": {}
+                "dump_directories": self.test_dir,
+                "algorithm": {},
+                "program": {}
                 },
             "config_file": None,
             "post_config_file": None,
@@ -968,9 +1002,35 @@ class CasavaTest(IFMTestCase):
             "casava": True
             }
 
+    def test_search_for_new_read_1_no_casava(self):
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX", \
+            "Basecalling_Netcopy_complete_Read2.txt"), "w").close()
+
+        with self.assertRaises(KeyError) as ke:
+            search_for_new(**self.kwords)
+
+        self.assertEqual(ke.exception.message, "casava")
+
     def test_search_for_new_read_1(self):
-        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX", "Demultiplexing_done_Read1.txt"), "w").close()
+        self.kwords["config"]["program"]["casava"] = "casava_dir"
+
+        subprocess.check_call = MagicMock()
+
         search_for_new(**self.kwords)
+
+        self.assertFalse(subprocess.check_call.called)
+
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX", \
+            "Basecalling_Netcopy_complete_Read2.txt"), "w").close()
+
+        # Make the messaging.runner functional return a mock function
+        runner = MagicMock()
+        messaging.runner = MagicMock(side_effect=lambda *args, **kwargs: runner)
+
+        search_for_new(**self.kwords)
+
+        self.assertEqual(runner.call_args[0][0], "fetch_data")
+
 
 if __name__ == "__main__":
     parser = OptionParser()
