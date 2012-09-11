@@ -408,7 +408,7 @@ class LaneQCMetrics(QCMetrics):
     
     def __init__(self, path, flowcell, date, lane):
         QCMetrics.__init__(self)
-        self["_id"] = hashlib.md5("{}_{}_{}".format(lane, date, flowcell)).digest()
+        self["_id"] = hashlib.md5("{}_{}_{}".format(lane, date, flowcell)).hexdigest()
         self["lane"] = lane
         self["flowcell"] = flowcell
         self["date"] = date
@@ -553,7 +553,7 @@ class FlowcellQCMetrics(QCMetrics):
     def __init__(self, path, fc_date, fc_name, runinfo="RunInfo.xml"):#, parse=True, fullRTA=False):
         self.run_id = "%s_%s" % (fc_date, fc_name)
         QCMetrics.__init__(self)
-        self["_id"] = hashlib.md5("{}_{}".format(fc_date, fc_name)).digest()
+        self["_id"] = hashlib.md5("{}_{}".format(fc_date, fc_name)).hexdigest()
         self.path = path
         self.db=None
         self["metrics"] = dict()
