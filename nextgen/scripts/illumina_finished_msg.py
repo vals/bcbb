@@ -245,6 +245,7 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
         # Perform make
+
         cl = ["nohup", "make", "-j", str(num_cores)]
         if r1:
             cl.append("r1")
@@ -422,7 +423,10 @@ def _is_finished_dumping(directory):
                 "Basecalling_Netcopy_complete_READ2.txt",
                 hi_seq_checkpoint]
 
-    dump_done = any(os.path.exists(os.path.join(directory, f)) for f in to_check)
+    # os.path.exists follows case sensitivity of the file system,
+    # this method is always case sensitive
+    dir_files = os.listdir(directory)
+    dump_done = len(set(to_check) & set(dir_files)) > 0
 
     # Include a check to wait for any ongoing MiSeq analysis
     is_queued_for_analysis = os.path.exists(os.path.join(directory, "QueuedForAnalysis.txt"))
@@ -1030,6 +1034,19 @@ class CasavaTest(IFMTestCase):
         search_for_new(**self.kwords)
 
         self.assertEqual(runner.call_args[0][0], "fetch_data")
+
+    def test_search_for_new_read_2(self):
+        self.kwords["config"]["program"]["casava"] = "casava_dir"
+
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX", \
+            "Basecalling_Netcopy_complete_Read2.txt"), "w").close()
+        open(os.path.join(self.test_dir, "111009_SN1_0002_AB0CDDECXX", \
+            "Demultiplexing_done_Read1.txt"), "w").close()
+
+        subprocess.check_call = MagicMock()
+        search_for_new(**self.kwords)
+        
+        self.assertFalse(subprocess.check_call.called)
 
 
 if __name__ == "__main__":
