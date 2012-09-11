@@ -45,7 +45,7 @@ setup(name="bcbio-nextgen",
           "pycrypto >= 2.1, < 2.4",
           "paramiko >= 1.7.7.1",
           "setuptools",
-          "celery >= 2.2.7",
+          "celery == 2.5",
           "nose >= 1.0.0",
           "gdata >= 2.0.14",
           "BeautifulSoup4"
