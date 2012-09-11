@@ -193,7 +193,7 @@ The test suite exercises the scripts driving the analysis, so
 are a good starting point to ensure correct installation.
 Run tests from the main code directory using [nose][i7]:
 
-      nosetest -v -s
+      nosetests -v -s
 
 `tests/test_automated_analysis.py` exercises the full framework using
 an automatically downloaded test dataset. It runs through barcode
