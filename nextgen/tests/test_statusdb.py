@@ -59,9 +59,11 @@ class StatusDBTest(unittest.TestCase):
         obj.read_picard_metrics()
         obj.parse_fastq_screen()
         obj.read_fastqc_metrics()
+        print obj 
         obj = LaneQCMetrics(**lane_kw)
         obj.parse_filter_metrics()
         obj.parse_bc_metrics()
+        print obj
         obj = FlowcellQCMetrics(**fc_kw)
         print obj
 

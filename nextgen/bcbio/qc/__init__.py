@@ -348,7 +348,7 @@ class QCMetrics(dict):
 
     def __init__(self):
         #super(dict, self).__init__()
-        self["_id"] = self.get_db_id()
+        self["_id"] = hashlib.md5(self.entity_type()).hexdigest()
         self["entity_type"] = self.entity_type()
         self["entity_version"] = self.entity_version()
         self["name"] = self.name()
@@ -367,13 +367,13 @@ class QCMetrics(dict):
     
     # FIXME: should raise error: QCMetrics must be subclassed
     def name(self):
-        return "%s" % (self.get("entity_type", None))
+        return u"{}".format(self.get("entity_type", None))
 
     def get_id(self):
         return self.name()
     
     def get_db_id(self):
-        return hashlib.md5(self.get_id()).hexdigest()
+        return self["_id"]
 
     def to_json(self):
         return json.dumps({'metrics':self["metrics"]})
@@ -394,7 +394,6 @@ class QCMetrics(dict):
 
     def filter_files(self, pattern, filter_fn=None):
         """Take file list and return those files that pass the filter_fn criterium"""
-        print pattern
         def filter_function(f):
             return re.search(pattern, f) != None
         if not filter_fn:
@@ -409,6 +408,7 @@ class LaneQCMetrics(QCMetrics):
     
     def __init__(self, path, flowcell, date, lane):
         QCMetrics.__init__(self)
+        self["_id"] = hashlib.md5("{}_{}_{}".format(lane, date, flowcell)).digest()
         self["lane"] = lane
         self["flowcell"] = flowcell
         self["date"] = date
@@ -455,6 +455,7 @@ class SampleQCMetrics(QCMetrics):
     def __init__(self, path, flowcell, date, lane, barcode_name, barcode_id, sample_prj, sequence=None, barcode_type=None, genomes_filter_out=None, customer_prj=None, customer_sample_name=None):
         QCMetrics.__init__(self)
         self.path = path
+        self["_id"] = hashlib.md5("{}_{}_{}_{}".format(flowcell, date, lane, barcode_name)).hexdigest()
         self["flowcell"] = flowcell
         self["date"] = date
         self["lane"] = lane
@@ -476,19 +477,26 @@ class SampleQCMetrics(QCMetrics):
         log.info("read_picard_metrics for sample {}, lane {} in run {}".format(self["barcode_name"], self["lane"], self["flowcell"]))
         picard_parser = ExtendedPicardMetricsParser()
         pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?_{}-.*.(align|hs|insert|dup)_metrics".format(self["lane"], self["barcode_id"])
-        files = self.filter_files(pattern)
-        metrics = picard_parser.extract_metrics(files)
-        self["metrics"]["picard_metrics"] = metrics
+        try:
+            files = self.filter_files(pattern)
+            metrics = picard_parser.extract_metrics(files)
+            self["metrics"]["picard_metrics"] = metrics
+        except:
+            log.warn("no picard metrics for sample {}".format(self["barcode_name"]))
 
     def parse_fastq_screen(self):
         log.info("parse_fastq_screen for sample {}, lane {} in run {}".format(self["barcode_name"], self["lane"], self["flowcell"]))
         parser = MetricsParser()
         pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?_{}_[12]_fastq_screen.txt".format(self["lane"], self["barcode_id"])
         files = self.filter_files(pattern)
-        fp = open(files[0])
-        data = parser.parse_fastq_screen_metrics(fp)
-        fp.close()
-        self["metrics"]["fastq_scr"] = data
+        try:
+            fp = open(files[0])
+            data = parser.parse_fastq_screen_metrics(fp)
+            fp.close()
+            self["metrics"]["fastq_scr"] = data
+        except:
+            log.warn("no fastq screen metrics for sample {}".format(self["barcode_name"]))
+
                 
     def read_fastqc_metrics(self):
         log.info("read_fastq_metrics for sample {}, lane {} in run {}".format(self["barcode_name"], self["lane"], self["flowcell"]))
@@ -497,10 +505,14 @@ class SampleQCMetrics(QCMetrics):
         self["metrics"]["fastqc"] = {'stats':None}
         pattern = "fastqc/{}_[0-9]+_[0-9A-Za-z]+(_nophix)?_{}-*".format(self["lane"], self["barcode_id"])
         files = self.filter_files(pattern)
-        fastqc_dir = os.path.dirname(files[0])
-        fqparser = ExtendedFastQCParser(fastqc_dir)
-        stats = fqparser.get_fastqc_summary()
-        self["metrics"]["fastqc"] = {'stats':stats}
+        try:
+            fastqc_dir = os.path.dirname(files[0])
+            fqparser = ExtendedFastQCParser(fastqc_dir)
+            stats = fqparser.get_fastqc_summary()
+            self["metrics"]["fastqc"] = {'stats':stats}
+        except:
+            log.warn("no fastq screen metrics for sample {}".format(self["barcode_name"]))
+
 
     def parse_filter_metrics(self):
         """CASAVA: Parse filter metrics at sample level"""
@@ -523,7 +535,8 @@ class SampleQCMetrics(QCMetrics):
             log.warn("No bc_metrics info for lane {}".format(self["lane"]))
 
     def name(self):
-        return "%s_%s_%s_%s" % (self.get("lane", None), self.get("date", None), self.get("flowcell", None), self.get("barcode_id", None))
+        return "{}_{}_{}_{}".format(self.get("flowcell"), self.get("date"), self.get("lane"), self.get("barcode_name"))
+    #return "%s_%s_%s_%s_%s" % (self.get("lane", None), self.get("date", None), self.get("flowcell", None), self.get("barcode_id", None), self.get("barcode_name", None))
 
     def get_name(self, nophix=False):
         if nophix:
@@ -537,9 +550,10 @@ class FlowcellQCMetrics(QCMetrics):
     _metrics = ["RunInfo", "run_info_yaml"]
     _entity_version = 0.2
 
-    def __init__(self, path, fc_date, fc_name, run_info_yaml, runinfo="RunInfo.xml"):#, parse=True, fullRTA=False):
+    def __init__(self, path, fc_date, fc_name, runinfo="RunInfo.xml"):#, parse=True, fullRTA=False):
         self.run_id = "%s_%s" % (fc_date, fc_name)
         QCMetrics.__init__(self)
+        self["_id"] = hashlib.md5("{}_{}".format(fc_date, fc_name)).digest()
         self.path = path
         self.db=None
         self["metrics"] = dict()
@@ -599,7 +613,7 @@ class FlowcellQCMetrics(QCMetrics):
     def parse_illumina_metrics(self, fullRTA):
         log.info("parse_illumina_metrics")
         fn = []
-        for root, dirs, files in os.walk(os.path.abspath(self.archive_dir)):
+        for root, dirs, files in os.walk(os.path.abspath(self.path)):
             for file in files:
                 if file.endswith(".xml"):
                     fn.append(os.path.join(root, file))
