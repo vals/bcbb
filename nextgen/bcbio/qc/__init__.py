@@ -535,8 +535,7 @@ class SampleQCMetrics(QCMetrics):
             log.warn("No bc_metrics info for lane {}".format(self["lane"]))
 
     def name(self):
-        return "{}_{}_{}_{}".format(self.get("flowcell"), self.get("date"), self.get("lane"), self.get("barcode_name"))
-    #return "%s_%s_%s_%s_%s" % (self.get("lane", None), self.get("date", None), self.get("flowcell", None), self.get("barcode_id", None), self.get("barcode_name", None))
+        return "{}_{}_{}_{}".format(self.get("lane"),  self.get("date"), self.get("flowcell"),  self.get("barcode_id"))
 
     def get_name(self, nophix=False):
         if nophix:
