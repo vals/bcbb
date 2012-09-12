@@ -526,11 +526,11 @@ class SampleQCMetrics(QCMetrics):
         files = self.filter_files(pattern)
         try:
             parser = MetricsParser()
-            fp = open(os.path.dirname(files[0]))
+            fp = open(files[0])
             data = parser.parse_bc_metrics(fp)
             fp.close()
-            self["bc_metrics"] = data[self["barcode_id"]]
-            self["bc_count"] = data[self["barcode_id"]]
+            self["metrics"]["bc_metrics"] = data
+            self["bc_count"] = data[str(self["barcode_id"])]
         except:
             log.warn("No bc_metrics info for lane {}".format(self["lane"]))
 
