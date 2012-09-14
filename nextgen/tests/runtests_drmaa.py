@@ -14,13 +14,14 @@ def main():
     jt.remoteCommand = 'nosetests'
     jt.args = ['-v', '-s', '--with-xunit']
 
-    jt.job_name = "nosetests"
-    #jt.nativeSpecification = config[distributed][platform_args]
-    jt.nativeSpecification = "-A a2010002 -p devel -t 00:30:00"
+    jt.jobName = "testing_pipeline"
+    jt.workingDirectory = drmaa.JobTemplate.HOME_DIRECTORY+'opt/bcbb/nextgen/tests'
+    jt.outputPath = ":"+drmaa.JobTemplate.HOME_DIRECTORY+'/job_stdout.out'
+    jt.nativeSpecification = "-A a2010002 -p node -t 03:00:00"
 
     jobid = s.runJob(jt)
     print 'Your job has been submitted with id ' + jobid
-    s.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+    print 'The results are being written in ~/tests.out'
 
     s.deleteJobTemplate(jt)
     s.exit()
