@@ -12,19 +12,23 @@ def main():
 
     jt = s.createJobTemplate()
     jt.remoteCommand = 'nosetests'
-    jt.args = ['-v', '-s', '--with-xunit']
+    #Run the standard tests
+    jt.args = ['-v', '-s', '--with-xunit', '-a', 'standard']
 
-    jt.job_name = "nosetests"
-    #jt.nativeSpecification = config[distributed][platform_args]
+    jt.jobName = "testing_pipeline"
+    jt.workingDirectory = drmaa.JobTemplate.HOME_DIRECTORY+'/opt/bcbb/nextgen/tests'
+    jt.outputPath = ":"+drmaa.JobTemplate.HOME_DIRECTORY+'/opt/bcbb/nextgen/tests/tests_results.out'
     jt.nativeSpecification = "-A a2010002 -p devel -t 00:30:00"
 
     jobid = s.runJob(jt)
     print 'Your job has been submitted with id ' + jobid
-    s.wait(jobid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+    print 'The results are being written in ~/opt/bcbb/nextgen/tests/tests_results.out'
 
+    print 'Cleaning up'
     s.deleteJobTemplate(jt)
     s.exit()
     exit(0)
 
 if __name__ == "__main__":
     main()
+
