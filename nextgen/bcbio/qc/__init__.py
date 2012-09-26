@@ -842,7 +842,7 @@ class FlowcellRunMetrics(RunMetrics):
         fn = []
         for root, dirs, files in os.walk(os.path.abspath(self.path)):
             for file in files:
-                if file.endswith(".xml"):
+                if file.endswith(".xml") and not file.find(".AppleDouble"):
                     fn.append(os.path.join(root, file))
         parser = IlluminaXMLParser()
         metrics = parser.parse(fn, fullRTA)
