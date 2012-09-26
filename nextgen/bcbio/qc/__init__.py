@@ -347,7 +347,6 @@ class QCMetrics(dict):
     reignore = re.compile(ignore)
 
     def __init__(self):
-        #super(dict, self).__init__()
         self["_id"] = hashlib.md5(self.entity_type()).hexdigest()
         self["entity_type"] = self.entity_type()
         self["entity_version"] = self.entity_version()
@@ -513,7 +512,6 @@ class SampleQCMetrics(QCMetrics):
         except:
             log.warn("no fastq screen metrics for sample {}".format(self["barcode_name"]))
 
-
     def parse_filter_metrics(self):
         """CASAVA: Parse filter metrics at sample level"""
         log.info("parse_filter_metrics for lane {} in flowcell {}".format(self["lane"], self["flowcell"]))
@@ -640,7 +638,6 @@ class RunMetrics(dict):
         self["modification_time"] = None
         self.files = []
         self.path=None
-        #self._collect_files()
 
     def entity_type(self):
         return type(self).__name__
@@ -673,56 +670,8 @@ class RunMetrics(dict):
             filter_fn = filter_function
         return [x for x in filter(filter_fn, self.files)]
 
-    
-# class LaneQCMetrics(QCMetrics):
-#     """Lane level class for holding qc data"""
-#     _entity_version = 0.2
-#     _metrics = ["bc_metrics","filter_metrics"]
-    
-#     def __init__(self, path, flowcell, date, lane):
-#         QCMetrics.__init__(self)
-#         self["_id"] = hashlib.md5("{}_{}_{}".format(lane, date, flowcell)).hexdigest()
-#         self["lane"] = lane
-#         self["flowcell"] = flowcell
-#         self["date"] = date
-#         self["bc_metrics"] = {}
-#         self["filter_metrics"] = {}
-#         self.path = path
-#         self._collect_files()
-
-#     def name(self):
-#         return "%s_%s_%s" % (self.get("lane"), self.get("date"), self.get("flowcell"))
-
-#     def parse_filter_metrics(self, re_str="*filter[_.]metrics"):
-#         log.info("parse_filter_metrics for lane {} in flowcell {}".format(self["lane"], self["flowcell"]))
-#         pattern = "nophix/{}_[0-9]+_[0-9A-Za-z]+(_nophix)?.filter_metrics".format(self["lane"])
-#         files = self.filter_files(pattern)
-#         self["filter_metrics"] = {"reads":None, "reads_aligned":None, "reads_fail_align":None}
-#         try:
-#             fp = open(files[0])
-#             parser = MetricsParser()
-#             data = parser.parse_filter_metrics(fp)
-#             fp.close()
-#             self["filter_metrics"] = data
-#         except:
-#             log.warn("No filter nophix metrics for lane {}".format(self["lane"]))
-            
-#     def parse_bc_metrics(self):
-#         log.info("parse_bc_metrics for lane {} in flowcell {}".format(self["lane"], self["flowcell"]))
-#         pattern = "{}*barcode/{}_[0-9]+_[0-9A-Za-z]+(_nophix)?.bc_metrics".format(self["lane"], self["lane"])
-#         files = self.filter_files(pattern)
-#         try:
-#             parser = MetricsParser()
-#             fp = open(files[0])
-#             data = parser.parse_bc_metrics(fp)
-#             fp.close()
-#             self["bc_metrics"] = data
-#         except:
-#             log.warn("No bc_metrics info for lane {}".format(self["lane"]))
-
 class SampleRunMetrics(RunMetrics):
     """Sample-level class for holding run metrics data"""
-    ##_metrics = ["picard_metrics","fastqc","fastq_scr"]
 
     def __init__(self, path, flowcell, date, lane, barcode_name, barcode_id, sample_prj, sequence=None, barcode_type=None, genomes_filter_out=None):
         RunMetrics.__init__(self)
@@ -749,7 +698,7 @@ class SampleRunMetrics(RunMetrics):
         self._collect_files()
 
     def read_picard_metrics(self):
-        log.info("read_picard_metrics for sample {}, lane {} in run {}".format(self["barcode_name"], self["lane"], self["flowcell"]))
+        log.info("read_picard_metrics for sample {}, project {}, lane {} in run {}".format(self["barcode_name"], self["sample_prj"], self["lane"], self["flowcell"]))
         picard_parser = ExtendedPicardMetricsParser()
         pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?_{}-.*.(align|hs|insert|dup)_metrics".format(self["lane"], self["barcode_id"])
         try:
@@ -760,9 +709,10 @@ class SampleRunMetrics(RunMetrics):
             log.warn("no picard metrics for sample {}".format(self["barcode_name"]))
 
     def parse_fastq_screen(self):
-        log.info("parse_fastq_screen for sample {}, lane {} in run {}".format(self["barcode_name"], self["lane"], self["flowcell"]))
+        log.info("parse_fastq_screen for sample {}, project {}, lane {} in run {}".format(self["barcode_name"], self["sample_prj"], self["lane"], self["flowcell"]))
         parser = MetricsParser()
-        pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?_{}_[12]_fastq_screen.txt".format(self["lane"], self["barcode_id"])
+        pattern = "|".join(["{}_[0-9]+_[0-9A-Za-z]+(_nophix)?_{}_[12]_fastq_screen.txt".format(self["lane"], self["barcode_id"]),
+                            "{}_[0-9]+_[0-9A-Za-z]+_{}(_nophix)?_[12]_fastq_screen.txt".format(self["lane"], self["barcode_id"])])
         files = self.filter_files(pattern)
         try:
             fp = open(files[0])
@@ -773,7 +723,7 @@ class SampleRunMetrics(RunMetrics):
             log.warn("no fastq screen metrics for sample {}".format(self["barcode_name"]))
 
     def read_fastqc_metrics(self):
-        log.info("read_fastq_metrics for sample {}, lane {} in run {}".format(self["barcode_name"], self["lane"], self["flowcell"]))
+        log.info("read_fastq_metrics for sample {}, project {}, lane {} in run {}".format(self["barcode_name"], self["sample_prj"], self["lane"], self["flowcell"]))
         if self["barcode_name"] == "unmatched":
             return
         self["fastqc"] = {'stats':None}
@@ -787,22 +737,31 @@ class SampleRunMetrics(RunMetrics):
         except:
             log.warn("no fastq screen metrics for sample {}".format(self["barcode_name"]))
 
-    # def parse_filter_metrics(self):
-    #     """CASAVA: Parse filter metrics at sample level"""
-    #     log.info("parse_filter_metrics for lane {} in flowcell {}".format(self["lane"], self["flowcell"]))
-    #     pattern = "nophix/{}_[0-9]+_[0-9A-Za-z]+_{}(_nophix)?.filter_metrics".format(self["lane"], self["barcode_id"])
+    def parse_filter_metrics(self):
+        """CASAVA: Parse filter metrics at sample level"""
+        log.info("parse_filter_metrics for lane {}, project {} in flowcell {}".format(self["lane"], self["sample_prj"], self["flowcell"]))
+        pattern = "{}_[0-9]+_[0-9A-Za-z]+_{}(_nophix)?.filter_metrics".format(self["lane"], self["barcode_id"])
+        files = self.filter_files(pattern)
+        self["filter_metrics"] = {"reads":None, "reads_aligned":None, "reads_fail_align":None}
+        try:
+            fp = open(files[0])
+            parser = MetricsParser()
+            data = parser.parse_filter_metrics(fp)
+            fp.close()
+            self["filter_metrics"] = data
+        except:
+            log.warn("No filter nophix metrics for lane {}".format(self["lane"]))
 
     def parse_bc_metrics(self):
-        """CASAVA: parse bc metrics at sample level"""
-        log.info("parse_bc_metrics for sample {} in flowcell {}".format(self["barcode_name"], self["flowcell"]))
-        pattern = "{}_[0-9]+_[0-9A-Za-z]+.bc_metrics".format(self["lane"])
+        """Parse bc metrics at sample level"""
+        log.info("parse_bc_metrics for sample {}, project {} in flowcell {}".format(self["barcode_name"], self["sample_prj"], self["flowcell"]))
+        pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?[\._]bc[\._]metrics".format(self["lane"])
         files = self.filter_files(pattern)
         try:
             parser = MetricsParser()
             fp = open(files[0])
             data = parser.parse_bc_metrics(fp)
             fp.close()
-            #self["bc_metrics"] = data
             self["bc_count"] = data[str(self["barcode_id"])]
         except:
             log.warn("No bc_metrics info for lane {}".format(self["lane"]))
@@ -810,8 +769,6 @@ class SampleRunMetrics(RunMetrics):
 
 class FlowcellRunMetrics(RunMetrics):
     """Flowcell level class for holding qc data."""
-    ##_metrics = ["RunInfo", "run_info_yaml"]
-
     def __init__(self, path, fc_date, fc_name, runinfo="RunInfo.xml"):#, parse=True, fullRTA=False):
         RunMetrics.__init__(self)
         self.path = path
@@ -820,7 +777,10 @@ class FlowcellRunMetrics(RunMetrics):
         self["RunInfo"] = {"Id" : self["name"], "Flowcell":fc_name, "Date": fc_date, "Instrument": "NA"}
         self["run_info_yaml"] = {}
         self["run_info_csv"] = {}
+        self._lanes = [1,2,3,4,5,6,7,8]
+        self["lanes"] = {str(k):{"lane":str(k), "filter_metrics":{}, "bc_metrics":{}} for k in self._lanes}
         self._parseRunInfo(runinfo)
+        self._collect_files()
 
     def _parseRunInfo(self, fn="RunInfo.xml"):
         log.info("_parseRunInfo: going to read RunInfo.xml in directory {}".format(self.path))
@@ -876,3 +836,35 @@ class FlowcellRunMetrics(RunMetrics):
         parser = IlluminaXMLParser()
         metrics = parser.parse(fn, fullRTA)
         self["illumina"] = metrics
+
+    def parse_filter_metrics(self):
+        """pre-CASAVA: Parse filter metrics at flowcell level"""
+        log.info("parse_filter_metrics for flowcell {}".format(self["RunInfo"]["Flowcell"]))
+        for lane in self._lanes:
+            pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?.filter_metrics".format(lane)
+            self["lanes"][str(lane)]["filter_metrics"] = {"reads":None, "reads_aligned":None, "reads_fail_align":None}
+            files = self.filter_files(pattern)
+            try:
+                fp = open(files[0])
+                parser = MetricsParser()
+                data = parser.parse_filter_metrics(fp)
+                fp.close()
+                self["lanes"][str(lane)]["filter_metrics"] = data
+            except:
+                log.warn("No filter nophix metrics for lane {}".format(lane))
+
+    def parse_bc_metrics(self):
+        """Parse bc metrics at sample level"""
+        log.info("parse_bc_metrics for flowcell {}".format(self["RunInfo"]["Flowcell"]))
+        for lane in self._lanes:
+            pattern = "{}_[0-9]+_[0-9A-Za-z]+(_nophix)?[\._]bc[\._]metrics".format(lane)
+            self["lanes"][str(lane)]["bc_metrics"] = {"reads":None, "reads_aligned":None, "reads_fail_align":None}
+            files = self.filter_files(pattern)
+            try:
+                parser = MetricsParser()
+                fp = open(files[0])
+                data = parser.parse_bc_metrics(fp)
+                fp.close()
+                self["lanes"][str(lane)]["bc_metrics"] = data
+            except:
+                log.warn("No bc_metrics info for lane {}".format(lane))
