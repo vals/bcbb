@@ -631,7 +631,6 @@ class RunMetrics(dict):
 
     def __init__(self):
         self["_id"] = uuid4().hex
-        self["_rev"] = None
         self["entity_type"] = self.entity_type()
         self["name"] = None
         self["creation_time"] = None
