@@ -697,6 +697,12 @@ class SampleRunMetrics(RunMetrics):
 
         self._collect_files()
 
+    def __repr__(self):
+        return "<sample_run_metrics {}>".format(self["name"])
+
+    def __str__(self):
+        return self
+        
     def read_picard_metrics(self):
         log.info("read_picard_metrics for sample {}, project {}, lane {} in run {}".format(self["barcode_name"], self["sample_prj"], self["lane"], self["flowcell"]))
         picard_parser = ExtendedPicardMetricsParser()
@@ -781,6 +787,12 @@ class FlowcellRunMetrics(RunMetrics):
         self["lanes"] = {str(k):{"lane":str(k), "filter_metrics":{}, "bc_metrics":{}} for k in self._lanes}
         self._parseRunInfo(runinfo)
         self._collect_files()
+
+    def __repr__(self):
+        return "<flowcell_metrics {}>".format(self["name"])
+
+    def __str__(self):
+        return self
 
     def _parseRunInfo(self, fn="RunInfo.xml"):
         log.info("_parseRunInfo: going to read RunInfo.xml in directory {}".format(self.path))
