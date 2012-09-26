@@ -10,6 +10,7 @@ import glob
 import json
 import fnmatch
 import numpy as np
+import csv
 
 from bcbio.log import logger2 as log
 from bcbio.broad.metrics import *
@@ -804,28 +805,27 @@ class FlowcellRunMetrics(RunMetrics):
         except:
             log.warn("No such file %s" % os.path.join(os.path.abspath(self.path), fn))
 
-    def parse_run_info_yaml(self, run_info_yaml):
+    def parse_samplesheet_csv(self):
+        log.info("parse_samplesheet_csv: going to read {}.csv in directory {}".format(self["RunInfo"]["Flowcell"][1:], self.path))
+        infile = os.path.join(os.path.abspath(self.path), "{}.csv".format(self["RunInfo"]["Flowcell"][1:]))
+        try:
+            fp = open(infile)
+            runinfo = json.dumps([x for x in csv.reader(fp)])
+            fp.close()
+            self["run_info_csv"] = runinfo
+        except:
+            log.warn("No such file {}".format(infile))
+            
+    def parse_run_info_yaml(self, run_info_yaml="run_info.yaml"):
         log.info("parse_run_info_yaml: going to read {} in directory {}".format(run_info_yaml, self.path))
-        fp = open(run_info_yaml)
-        runinfo = yaml.load(fp)
-        fp.close()
-        for info in runinfo:
-            if not self["lane"].has_key(info["lane"]):
-                lane = LaneQCMetrics(self.get_full_flowcell(), self.get_date(), info["lane"])
-                self["lane"][info["lane"]] = lane
-                ## Add sample for unmatched data
-                sample = SampleQCMetrics(self.get_full_flowcell(), self.get_date(), info["lane"], "unmatched", "unmatched", "NA", "NA", "NA", "NA")
-                bc_index = "%s_%s" % (info["lane"], "unmatched")
-                self.sample[bc_index] = sample
-            ## Lane could be empty
-            try:
-                for mp in info["multiplex"]:
-                    sample = SampleQCMetrics(self.get_full_flowcell(), self.get_date(), info["lane"], mp["name"], mp["barcode_id"], mp.get("sample_prj", None), mp["sequence"], mp["barcode_type"], mp.get("genomes_filter_out", None))
-                    bc_index = "%s_%s" % (info["lane"], mp["barcode_id"])
-                    self.sample[bc_index] = sample
-            except:
-                log.warn("No multiplexing information for lane %s" % info['lane'])
-        self["run_info_yaml"] = runinfo
+        infile = os.path.join(os.path.abspath(self.path), run_info_yaml)
+        try:
+            fp = open(infile)
+            runinfo = yaml.load(fp)
+            fp.close()
+            self["run_info_yaml"] = runinfo
+        except:
+            log.warn("No such file {}".format(infile))
 
     def get_full_flowcell(self):
         vals = self["RunInfo"]["Id"].split("_")
