@@ -23,6 +23,7 @@ def _freebayes_options_from_config(aconfig):
         opts += ["--variant-input", background]
     return opts
 
+
 def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
                   out_file=None):
     """Detect small polymorphisms with FreeBayes.
@@ -41,6 +42,7 @@ def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
                 cl.extend(["-r", region])
             subprocess.check_call(cl)
     return out_file
+
 
 def postcall_annotate(in_file, ref_file, vrn_files, config):
     """Perform post-call annotation of FreeBayes calls in preparation for filtering.
