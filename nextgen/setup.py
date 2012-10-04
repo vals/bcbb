@@ -47,6 +47,8 @@ setup(name="bcbio-nextgen",
           "celery == 2.5",
           "nose >= 1.0.0",
           "gdata >= 2.0.14",
+          "drmaa >= 0.5",
+          "couchdb >= 0.8",
           "BeautifulSoup4"
       ])
 
