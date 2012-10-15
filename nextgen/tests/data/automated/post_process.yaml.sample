@@ -21,6 +21,7 @@ algorithm:
   bc_read: 1
   bc_position: 3
   java_memory: 1g
+  write_summary: false
   save_diskspace: true
 
 analysis:
