@@ -23,6 +23,7 @@ install:
     - lftp -e 'pget -n 8 http://downloads.sourceforge.net/project/snpeff/databases/v2_0_5/snpEff_v2_0_5_GRCh37.63.zip; quit'
     - sudo unzip snpEff_v2_0_5_GRCh37.63.zip -d /usr/share/snpEff/ && rm snpEff_v2_0_5_GRCh37.63.zip
     - mv nextgen/tests/data/automated/post_process.yaml.sample nextgen/tests/data/automated/post_process.yaml
+    - sudo pip install numpy
     - cd nextgen && sudo python setup.py install
 
 notifications:
