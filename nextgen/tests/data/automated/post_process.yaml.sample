@@ -23,6 +23,7 @@ algorithm:
   java_memory: 1g
   write_summary: false
   save_diskspace: true
+  screen_contaminants: false
 
 analysis:
   towig_script: bam_to_wiggle.py
