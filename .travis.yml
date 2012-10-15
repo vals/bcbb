@@ -31,5 +31,9 @@ notifications:
 
 before_script:
     - cd tests
+    #Export some environment variables
+    - export PICARD_HOME=/usr/share/java/picard
+    - export SNPEFF_HOME=/usr/share/java/snpeff
+    - export GATK_HOME=/usr/share/java/gatk
 
 script: nosetests -s -v --with-xunit -a standard
