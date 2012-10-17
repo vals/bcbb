@@ -119,7 +119,8 @@ The script will take care of installing the pipeline properly depending on the e
 
 ### Notes
 You don't need root access to install the pipeline or to run the tests with this scripts, as it is installed in a python virtual environment. However, to install
-the pipeline locally, we assume that you have installed all the pipeline [Requirements][] in your machine, otherwise you have to install them. 
+the pipeline locally, we assume that you have installed all the pipeline requirements in your machine, otherwise you have to install them. Please refer to 
+the requirements section below. 
 
 
 ### Configuration
@@ -297,7 +298,7 @@ to ease your development needs using the following script:
 [i6]: https://bitbucket.org/afgane/mi-deployment/src
 [i7]: http://somethingaboutorange.com/mrl/projects/nose/
 
-## Requirements ##
+## Requirements
 
 ### Next gen analysis
 
