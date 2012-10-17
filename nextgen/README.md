@@ -82,11 +82,11 @@ Scripts involved in the processing:
 
 ### Auto-installation
 
-[Here](https://github.com/guillermo-carrasco/bcbio-nextgen-deploy) you can find a set of scripts to automatically download and set-up the pipeline.
+[Here](https://github.com/SciLifeLab/bcbio-nextgen-deploy) you can find a set of scripts to automatically download and set-up the pipeline.
 This set of scripts will pull the pipeline code and install on your system the pipeline and all the necessary requirements to have it working. Basically, there
 are three installation options available. First, download the scripts:
 
-        git clone https://github.com/guillermo-carrasco/bcbio-nextgen-deploy.git && cd bcbio-nextgen-deploy
+        git clone https://github.com/SciLifeLab/bcbio-nextgen-deploy.git && cd bcbio-nextgen-deploy
 
 #### Installation in UPPMAX
 
