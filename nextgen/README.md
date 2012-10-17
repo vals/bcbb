@@ -86,7 +86,7 @@ Scripts involved in the processing:
 This set of scripts will pull the pipeline code and install on your system the pipeline and all the necessary requirements to have it working. Basically, there
 are three installation options available. First, download the scripts:
 
-        git clone https://github.com/guillermo-carrasco/bcbio-nextgen-deploy.git && cd bcbio-nextgen-deploy.git
+        git clone https://github.com/guillermo-carrasco/bcbio-nextgen-deploy.git && cd bcbio-nextgen-deploy
 
 #### Installation in UPPMAX
 
@@ -225,6 +225,10 @@ configuration for the tests for your environment:
   can to 'Standard' if SNP calling is not required in your
   environment. This will run a smaller pipeline of alignment and analysis.
 
+To run the basic functionality test suite, which takes less time than the full test suite, use:
+
+        nosetests -v -s -a standard
+
 ### RabbitMQ messaging server
 
 RabbitMQ messaging manages communication between the sequencing
@@ -293,7 +297,7 @@ to ease your development needs using the following script:
 [i6]: https://bitbucket.org/afgane/mi-deployment/src
 [i7]: http://somethingaboutorange.com/mrl/projects/nose/
 
-## Requirements
+## Requirements ##
 
 ### Next gen analysis
 
