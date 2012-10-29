@@ -1,13 +1,13 @@
 """
 Functions for getting version strings from software
 
-The default approach for getting the version string from a program is to execute the 
-program with the parameter '-v' and parse the output for a 'Version: XXXXX' string.
-If this is not the correct approach for a particular piece of software, a custom 
-regular expression that will capture the version string and/or a custom set of parameters 
-that will be passed to the program in order to get it to print out the version string can 
+The default approach for getting the version string from a program is to execute the
+program with the parameter '-v' and parse the output for a 'Version: XXXXX' string
+If this is not the correct approach for a particular piece of software, a custom
+regular expression that will capture the version string and/or a custom set of parameters
+that will be passed to the program in order to get it to print out the version string can
 be specified. If this approach cannot be used, custom routines can be defined and are
-expected to return the version string. In addition, if the program is a script that is 
+expected to return the version string. In addition, if the program is a script that is
 part of the bcbb pipeline, the current commit hash will be read from a file in the user's
 home directory that was written during install.
 """
@@ -23,7 +23,7 @@ from bcbio.log import logger as log
 
 # Regexp's defining how to extract the software version from each program's output
 # The keys in the dictionary should match the keys under the 'program' section in
-# the post-process.yaml configuration file. The regexp should contain one capturing 
+# the post-process.yaml configuration file. The regexp should contain one capturing
 # group that will capture the version string.
 generic_regexp = r'Version:\s*(\S+)'
 regexp = {
