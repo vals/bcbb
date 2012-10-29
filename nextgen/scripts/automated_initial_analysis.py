@@ -57,7 +57,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
     prog = utils.RecordProgress(work_dir)
     prog.progress("analysis_start")
-    
+
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
@@ -76,7 +76,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     prog.progress("process_lane")
 
     # upload the sequencing report to Google Docs
-    # will skip this for now and rely on external mechanism for uploading this data 
+    # will skip this for now and rely on external mechanism for uploading this data
     #gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
     #if not os.path.exists(gdocs_indicator) \
     #and queue_report(fc_date, fc_name, os.path.abspath(run_info_yaml), dirs, config, config_file):
@@ -90,6 +90,10 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
+
+    import ipdb
+    ipdb.set_trace()
+    
     samples = run_parallel("merge_sample", samples)
     prog.progress("merge_sample")
     samples = run_parallel("mark_duplicates_sample", samples)

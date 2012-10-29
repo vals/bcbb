@@ -14,6 +14,7 @@ from bcbio.distributed.split import parallel_split_combine
 from bcbio.pipeline.shared import (split_bam_by_chromosome, configured_ref_file,
                                    write_nochr_reads, subset_bam_by_region)
 
+
 # ## Realignment runners with GATK specific arguments
 
 def gatk_realigner_targets(runner, align_bam, ref_file, dbsnp=None,
@@ -45,6 +46,7 @@ def gatk_realigner_targets(runner, align_bam, ref_file, dbsnp=None,
                            "--maxIntervalSize", "650"]
             runner.run_gatk(params)
     return out_file
+
 
 def gatk_indel_realignment(runner, align_bam, ref_file, intervals,
                            region=None, out_file=None, deep_coverage=False):
@@ -107,6 +109,7 @@ def gatk_realigner(align_bam, ref_file, config, dbsnp=None, region=None,
     else:
         return align_bam
 
+
 def has_aligned_reads(align_bam, region=None):
     """Check if the aligned BAM file has any reads in the region.
     """
@@ -123,6 +126,7 @@ def has_aligned_reads(align_bam, region=None):
                     break
     return has_items
 
+
 # ## High level functionality to run realignments in parallel
 
 def parallel_realign_sample(sample_info, parallel_fn):
@@ -135,6 +139,7 @@ def parallel_realign_sample(sample_info, parallel_fn):
             to_process.append(x)
         else:
             finished.append(x)
+
     if len(to_process) > 0:
         file_key = "work_bam"
         split_fn = split_bam_by_chromosome("-realign.bam", file_key,
@@ -143,7 +148,9 @@ def parallel_realign_sample(sample_info, parallel_fn):
                                            "realign_sample", "combine_bam",
                                            file_key, ["config"])
         finished.extend(processed)
+
     return finished
+
 
 def realign_sample(data, region=None, out_file=None):
     """Realign sample BAM file at indels.
