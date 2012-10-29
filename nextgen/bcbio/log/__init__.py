@@ -33,10 +33,12 @@ def setup_logging(config):
 def create_log_handler(config, batch_records=False):
     log_dir = config.get("log_dir", None)
     email = config.get("email", None)
+    rabbitmq = config.get("rabbitmq_logging", None)
 
     if log_dir:
         utils.safe_makedir(log_dir)
         handler = logbook.FileHandler(os.path.join(log_dir, "%s.log" % LOG_NAME))
+
     else:
         handler = logbook.StreamHandler(sys.stdout)
 
@@ -50,11 +52,16 @@ def create_log_handler(config, batch_records=False):
         handler = logbook.MailHandler(email[0], email, server_addr=smtp_host,
                                       format_string=u'''Subject: [BCBB pipeline] {record.extra[run]} \n\n {record.message}''',
                                       level='INFO', bubble=True)
+    if rabbitmq:
+        from logbook.queues import RabbitMQHandler
+        handler = RabbitMQHandler(rabbitmq["url"], queue=rabbitmq["log_queue"])
+
     if batch_records:
         handler = logbook.handlers.GroupHandler(handler)
 
     if config.get("debug", False):
         handler.level = logbook.DEBUG
+
     else:
         handler.level = logbook.INFO
 

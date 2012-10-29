@@ -5,22 +5,22 @@ The configuration yaml has the structure
 
 galaxy_config:
 program:
-	program1:
-	program2:
+    program1:
+    program2:
 algorithm:
-	setting1:
-	setting2:
+    setting1:
+    setting2:
 log_dir:
 store_dir:
 store_host:
 analysis:
-	config_file:
-	towig_script:
+    config_file:
+    towig_script:
 distributed:
-	rabbitmq_vhost:
+    rabbitmq_vhost:
 custom_algorithms:
-	setting1:
-	setting2:
+    setting1:
+    setting2:
 
 galaxy_config, program and analysis supports
 environment variables.
@@ -44,11 +44,12 @@ def load_config(config_file):
             config[field] = expand_path(setting)
     return config
 
+
 def expand_path(path):
     """ Combines os.path.expandvars with replacing ~ with $HOME.
     """
     try:
-        new_path = os.path.normpath(os.path.expandvars(path.replace("~", "$HOME")))
+        new_path = os.path.expandvars(path.replace("~", "$HOME"))
         return new_path
     except AttributeError:
         return path

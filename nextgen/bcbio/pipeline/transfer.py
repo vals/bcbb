@@ -8,7 +8,7 @@ try:
 except ImportError:
     fabric, fabric_files = (None, None)
 
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 
 
 def remote_copy(remote_info, base_dir, protocol):
@@ -72,4 +72,3 @@ def remote_copy(remote_info, base_dir, protocol):
 
     fc_dir = os.path.join(fc_dir, os.path.basename(remote_info['directory']))
     return fc_dir
-

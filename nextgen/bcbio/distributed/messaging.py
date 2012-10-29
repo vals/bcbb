@@ -9,8 +9,8 @@ import time
 import contextlib
 import multiprocessing
 import subprocess
+
 logger = multiprocessing.log_to_stderr()
-logger.setLevel(multiprocessing.SUBDEBUG)
 
 from mako.template import Template
 
@@ -20,6 +20,9 @@ from bcbio import utils
 def parallel_runner(module, dirs, config, config_file):
     """Process a supplied function: single, multi-processor or distributed.
     """
+    if config.get("debug", False):
+        logger.setLevel(multiprocessing.SUBDEBUG)
+
     def run_parallel(fn_name, items, metadata=None):
         parallel = config["algorithm"]["num_cores"]
         if str(parallel).lower() == "messaging":

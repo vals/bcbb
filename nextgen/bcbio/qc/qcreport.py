@@ -1,15 +1,14 @@
 """
 Create statusdb report
 """
-import sys
 import logbook
 from datetime import datetime
-import yaml
 import couchdb
 
 from bcbio.log import create_log_handler
 from bcbio.log import logger2 as log
 from bcbio.qc import FlowcellQCMetrics
+
 
 def _save_obj(db, obj, url):
     dbobj = db.get(obj.get_db_id())
@@ -48,7 +47,7 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
         if statusdb_config is None:
             log.info("Could not find statusdb section in configuration. No statusdb reporting will be done")
             return False
-        statusdb_url =  statusdb_config.get("url", None)
+        statusdb_url = statusdb_config.get("url", None)
         if statusdb_url is None:
             log.warn("No url field found in statusdb configuration section.")
             return False
