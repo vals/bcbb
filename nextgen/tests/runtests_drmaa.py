@@ -12,7 +12,7 @@ def main():
 
     jt = s.createJobTemplate()
     jt.remoteCommand = 'nosetests'
-    jt.args = ['-v', '-s', '--with-xunit']
+    jt.args = ['-v', '-s', '-a', 'standard']
 
     jt.job_name = "nosetests"
     #jt.nativeSpecification = config[distributed][platform_args]
