@@ -6,6 +6,7 @@ identify items to combine within a group.
 import os
 import shutil
 import collections
+import random
 
 from bcbio import utils, broad
 
@@ -30,7 +31,7 @@ def combine_fastq_files(in_files, work_dir, config):
                     with open(cur2) as in_handle:
                         shutil.copyfileobj(in_handle, out_handle)
 
-        if not config["algorithm"].get("upload_fastq", False):
+        if config["algorithm"].get("upload_fastq", False):
             return out1, out2
 
         for f1, f2 in in_files:
@@ -52,6 +53,11 @@ def organize_samples(items, dirs, config_file):
     items_by_name = collections.defaultdict(list)
     for item in items:
         name = (item["info"].get("name", ""), item["info"]["description"])
+        # If the configuration specifies not to merge samples, add lane and barcode sequence to ensure uniqueness
+        if not item["config"]["algorithm"].get("merge_samples",True):
+            name = name + (item["info"].get("lane",str(random.randint(100000,999999))), 
+                           item["info"].get("sequence",str(random.randint(100000,999999))))
+            
         items_by_name[name].append(item)
 
     out = []

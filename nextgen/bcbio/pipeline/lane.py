@@ -23,14 +23,20 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     # Filter phiX
     custom_config = _update_config_w_custom(config, lane_items[0])
     if custom_config["algorithm"].get("filter_phix", False):
-        logger.info("Filtering phiX from %s" % lane_name)
-        info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
-        processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, custom_config)
-        (full_fastq1, full_fastq2, _, lane_name) = processed[0][0:4]
+        # If we are starting from demultiplexed material, we will skip a lane-wise screening
+        # Screening will be performed on a sample basis
+        if custom_config["algorithm"].get("demultiplexed",False):
+            logger.warn("Will not filter phix lane-wise on already demultiplexed files. You will have to specify genomes_filter_out option for each sample")
+        else:
+            logger.info("Filtering phiX from %s" % lane_name)
+            info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
+            processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, custom_config)
+            (full_fastq1, full_fastq2, _, lane_name) = processed[0][0:4]
 
     logger.info("Demultiplexing %s" % lane_name)
     bc_files = split_by_barcode(full_fastq1, full_fastq2, lane_items,
                                 lane_name, dirs, config)
+
     out = []
     for item in lane_items:
         config = _update_config_w_custom(config, item)
@@ -52,24 +58,34 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
                     fastq2 = trim_info[1]
             out.append((fastq1, fastq2, item, cur_lane_name, cur_lane_desc,
                         dirs, config))
+
     return out
 
 
 def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
-                      dirs, config):
-    """Remove reads mapping to the specified contaminating reference
+                        dirs, config):
+    """Remove reads mapping to the specified contaminating reference.
     """
-    
+
     base_name = None
-    genome_build = info.get("genomes_filter_out",None)
+    genome_build = info.get("genomes_filter_out", None)
     # Skip filtering of phix in case we have already done that for the lane
-    if genome_build is not None and not (genome_build == "phix" and config["algorithm"].get("filter_phix",False)) and os.path.exists(fastq1):
-        if genome_build == "spiked_phix": genome_build = "phix"
-        program = config["algorithm"].get("remove_contaminants","bowtie")
-        logger.info("Removing %s contaminants on %s, using %s" % (genome_build,info["description"],program))
-        fastq1, fastq2, base_name = rc(fastq1,fastq2,genome_build,program,lane_name,dirs,config)
-            
+    # FIXME: This logic is way too complicated..
+    #   - If filter_phix is true, phix has been filtered lane-wise and need not be run again
+    #   - If demultiplexed is true, lane-wise filtering has been skipped and we need to do it here
+    if genome_build is not None and os.path.exists(fastq1) and \
+    (genome_build != "phix" or not config["algorithm"].get("filter_phix",False) \
+     or config["algorithm"].get("demultiplexed",False)):
+        if genome_build == "spiked_phix":
+            genome_build = "phix"
+
+        program = config["algorithm"].get("remove_contaminants", "bowtie")
+        logger.info("Removing %s contaminants on %s, using %s" \
+            % (genome_build, info["description"], program))
+        fastq1, fastq2, base_name = rc(fastq1, fastq2, genome_build, program, lane_name, dirs, config)
+
     return [[fastq1, fastq2, info, (base_name or lane_name), lane_desc, dirs, config]]
+
 
 def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
                       dirs, config):
@@ -81,6 +97,7 @@ def process_alignment(fastq1, fastq2, info, lane_name, lane_desc,
         logger.info("Aligning lane %s with %s aligner" % (lane_name, aligner))
         out_bam = align_to_sort_bam(fastq1, fastq2, info["genome_build"], \
                                 aligner, lane_name, lane_desc, dirs, config)
+
     return [{"fastq": [fastq1, fastq2], "out_bam": out_bam, "info": info,
              "config": config}]
 
@@ -97,6 +114,7 @@ def _update_config_w_custom(config, lane_info):
     # apply any algorithm details specified with the lane
     for key, val in lane_info.get("algorithm", {}).iteritems():
         config["algorithm"][key] = val
+
     return config
 
 

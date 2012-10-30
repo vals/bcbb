@@ -2,6 +2,7 @@
 """
 import os
 import sys
+import datetime
 
 import logging
 import logbook
@@ -68,3 +69,33 @@ def create_log_handler(config, batch_records=False):
         handler.level = logbook.INFO
 
     return handler
+
+
+class RecordProgress:
+    """A simple interface for recording progress of the parallell
+       workflow and outputting timestamp files
+    """
+
+    def __init__(self, work_dir, force_overwrite=False):
+        self.step = 0
+        self.dir = work_dir
+        self.fo = force_overwrite
+
+    def progress(self, action):
+        self.step += 1
+        self._timestamp_file(action)
+        logger2.critical(action)
+
+    def _action_fname(self, action):
+        return os.path.join(self.dir, "{s:02d}_{act}.txt".format(s=self.step, act=action))
+
+    def _timestamp_file(self, action):
+        """Write a timestamp to the specified file, either appending or
+        overwriting an existing file
+        """
+        fname = self._action_fname(action)
+        mode = "w"
+        if utils.file_exists(fname) and not self.fo:
+            mode = "a"
+        with open(fname, mode) as out_handle:
+            out_handle.write("{}\n".format(datetime.datetime.now().isoformat()))

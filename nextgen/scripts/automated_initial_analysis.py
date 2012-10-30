@@ -30,6 +30,7 @@ from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
 from bcbio.log import logger2 as logger, setup_logging, version, create_log_handler
+from bcbio.log import RecordProgress
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
@@ -38,8 +39,6 @@ from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
-from bcbio.google.sequencing_report import create_report_on_gdocs
-from bcbio.qc.qcreport import report_to_statusdb
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
@@ -56,47 +55,55 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
+    prog = RecordProgress(work_dir)
+    prog.progress("analysis_start")
+
     align_dir = os.path.join(work_dir, "alignments")
     run_module = "bcbio.distributed"
     fc_name, fc_date, run_info = get_run_info(fc_dir, config, run_info_yaml)
     fastq_dir, galaxy_dir, config_dir = _get_full_paths(get_fastq_dir(fc_dir),
                                                         config, config_file)
+
     config_file = os.path.join(config_dir, os.path.basename(config_file))
     dirs = {"fastq": fastq_dir, "galaxy": galaxy_dir, "align": align_dir,
             "work": work_dir, "flowcell": fc_dir, "config": config_dir}
-    run_parallel = parallel_runner(run_module, dirs, config, config_file)
 
+    run_parallel = parallel_runner(run_module, dirs, config, config_file)
     run_items = add_multiplex_across_lanes(run_info["details"], dirs["fastq"], fc_name)
 
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
-
-    # upload the sequencing report to Google Docs
-    gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
-    if not os.path.exists(gdocs_indicator) \
-    and create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
-        utils.touch_file(gdocs_indicator)
+    prog.progress("process_lane")
 
     # Remove spiked in controls, contaminants etc.
     lane_items = run_parallel("remove_contaminants", lane_items)
+    prog.progress("remove_contaminants")
     align_items = run_parallel("process_alignment", lane_items)
+    prog.progress("process_alignment")
 
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
     samples = run_parallel("merge_sample", samples)
+    prog.progress("merge_sample")
     samples = run_parallel("mark_duplicates_sample", samples)
+    prog.progress("mark_duplicates_sample")
     run_parallel("screen_sample_contaminants", samples)
+    prog.progress("screen_sample_contaminants")
     samples = run_parallel("recalibrate_sample", samples)
+    prog.progress("recalibrate_sample")
     samples = parallel_realign_sample(samples, run_parallel)
+    prog.progress("realign_sample")
     samples = parallel_variantcall(samples, run_parallel)
+    prog.progress("variantcall")
     samples = run_parallel("detect_sv", samples)
+    prog.progress("detect_sv")
     samples = run_parallel("process_sample", samples)
+    prog.progress("process_sample")
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
+    prog.progress("generate_bigwig")
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
-
-    # Write statusdb metrics
-    report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
+    prog.progress("write_metrics")
 
 
 # Utility functions
@@ -146,8 +153,8 @@ if __name__ == "__main__":
     parser = OptionParser()
     (options, args) = parser.parse_args()
     if len(args) < 2:
-        logger.warning("Incorrect arguments")
-        logger.warning(__doc__)
+        print "Incorrect arguments"
+        print __doc__
         sys.exit()
 
     kwargs = dict()
