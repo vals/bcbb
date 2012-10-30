@@ -12,7 +12,7 @@ from bcbio.broad.picardrun import picard_mark_duplicates
 from bcbio.utils import file_exists, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 from bcbio.pipeline.lane import _update_config_w_custom
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.pipeline.merge import (combine_fastq_files, merge_bam_files)
 from bcbio.pipeline.qcsummary import generate_align_summary, screen_for_contamination
 from bcbio.pipeline.variation import (recalibrate_quality, finalize_genotyper,

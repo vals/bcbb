@@ -9,6 +9,9 @@ import collections
 
 import pysam
 
+from bcbio.log import logger2 as log
+
+
 class NormalizedBam:
     """Prepare and query an alignment BAM file for normalized read counts.
     """
@@ -20,7 +23,7 @@ class NormalizedBam:
             self._total = 1e6
         else:
             self._total = sum(1 for r in self._bam.fetch() if not r.is_unmapped)
-            print name, self._total
+            log.info("{}{}".format(name, self._total))
 
     def all_regions(self):
         """Get a tuple of all chromosome, start and end regions.
@@ -28,6 +31,7 @@ class NormalizedBam:
         regions = []
         for sq in self._bam.header["SQ"]:
             regions.append((sq["SN"], 1, int(sq["LN"])))
+
         return regions
 
     def read_count(self, space, start, end):
@@ -36,6 +40,7 @@ class NormalizedBam:
         read_counts = 0
         for read in self._bam.fetch(space, start, end):
             read_counts += 1
+
         return self._normalize(read_counts, self._total)
 
     def coverage_pileup(self, space, start, end):
@@ -49,6 +54,7 @@ class NormalizedBam:
         """
         return float(count) / float(total) * 1e6
 
+
 def random_regions(base, n, size):
     """Generate n random regions of 'size' in the provided base spread.
     """
@@ -57,10 +63,11 @@ def random_regions(base, n, size):
     for space, start, end in base:
         base_info[space].append(start + spread)
         base_info[space].append(end - spread)
+
     regions = []
     for _ in range(n):
         space = random.choice(base_info.keys())
         pos = random.randint(min(base_info[space]), max(base_info[space]))
-        regions.append([space, pos-spread, pos+spread])
-    return regions
+        regions.append([space, pos - spread, pos + spread])
 
+    return regions

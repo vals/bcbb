@@ -12,7 +12,7 @@ import collections
 
 import yaml
 
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_flowcell_info
 
@@ -29,6 +29,7 @@ def get_run_info(fc_dir, config, run_info_yaml):
         galaxy_api = GalaxyApiAccess(config['galaxy_url'], config['galaxy_api_key'])
         run_info = galaxy_api.run_details(fc_name, fc_date)
     return fc_name, fc_date, _organize_runs_by_lane(run_info)
+
 
 def _organize_runs_by_lane(run_info):
     """Organize run information collapsing multiplexed items by lane.
@@ -51,12 +52,13 @@ def _organize_runs_by_lane(run_info):
     run_info["details"] = out
     return run_info
 
+
 def _normalize_barcodes(items):
     """Normalize barcode specification methods into individual items.
     """
     split_items = []
     for item in items:
-        if item.has_key("multiplex"):
+        if "multiplex" in item:
             for multi in item["multiplex"]:
                 base = copy.deepcopy(item)
                 base["description"] += ": {0}".format(multi["name"])
@@ -64,14 +66,17 @@ def _normalize_barcodes(items):
                 del base["multiplex"]
                 base.update(multi)
                 split_items.append(base)
-        elif item.has_key("barcode"):
+
+        elif "barcode" in item:
             item.update(item["barcode"])
             del item["barcode"]
             split_items.append(item)
+
         else:
             item["barcode_id"] = None
             split_items.append(item)
     return split_items
+
 
 def _run_info_from_yaml(fc_dir, run_info_yaml):
     """Read run information from a passed YAML file.
@@ -85,7 +90,7 @@ def _run_info_from_yaml(fc_dir, run_info_yaml):
         pass
     global_config = {}
     if isinstance(loaded, dict):
-        if loaded.has_key("fc_name") and loaded.has_key("fc_date"):
+        if "fc_name" in loaded and "fc_date" in loaded:
             fc_name = loaded["fc_name"].replace(" ", "_")
             fc_date = str(loaded["fc_date"]).replace(" ", "_")
             global_config = copy.deepcopy(loaded)

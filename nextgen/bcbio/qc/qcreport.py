@@ -47,6 +47,7 @@ def report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config):
         if statusdb_config is None:
             log.info("Could not find statusdb section in configuration. No statusdb reporting will be done")
             return False
+
         statusdb_url = statusdb_config.get("url", None)
         if statusdb_url is None:
             log.warn("No url field found in statusdb configuration section.")

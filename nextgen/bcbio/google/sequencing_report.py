@@ -19,27 +19,34 @@ from bcbio.log import logger2 as log
 from bcbio.distributed import messaging
 import os
 
+
 def queue_report(fc_date, fc_name, run_info_yaml, dirs, config, config_file):
     if "gdocs_upload" not in config:
         return False
-    
-    runner = messaging.runner("bcbio.distributed.google_tasks", {"work": os.getcwd(),"config": os.path.dirname(config_file)}, config, config_file, wait=False)
-    runner("create_report_on_gdocs",[[fc_date,fc_name,run_info_yaml,dirs,config]])
+
+    runner = messaging.runner("bcbio.distributed.google_tasks", \
+        {"work": os.getcwd(), \
+         "config": os.path.dirname(config_file)}, \
+        config, \
+        config_file, \
+        wait=False)
+
+    runner("create_report_on_gdocs", [[fc_date, fc_name, run_info_yaml, dirs, config]])
+
     return True
-    
+
+
 def create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config):
     """Create reports on gdocs containing both demultiplexed read counts and QC data.
     """
     success = True
     try:
-
         # Inject the fc_date and fc_name in the email subject
         def record_processor(record):
             return record.extra.__setitem__('run', "%s_%s" % (fc_date, fc_name))
 
         # Parse the run_info.yaml file
-        log.debug("This is the run_info being loaded:")
-        log.debug(run_info_yaml)
+        log.debug("Loading this run_info: {}".format(run_info_yaml))
         with open(run_info_yaml, "r") as fh:
             run_info = yaml.load(fh)
 
@@ -139,7 +146,7 @@ def create_project_report_on_gdocs(fc, qc, encoded_credentials, gdocs_folder):
     if not parent_folder:
         parent_folder = g_document.add_folder(doc_client, gdocs_folder)
         log.info("Folder {!r} created".format(gdocs_folder))
-            
+
     parent_folder_title = _from_unicode(parent_folder.title.text)
 
     # Loop over the projects

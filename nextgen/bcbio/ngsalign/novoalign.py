@@ -3,9 +3,10 @@
 import os
 import subprocess
 
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.utils import (memoize_outfile, file_exists)
 from bcbio.distributed.transaction import file_transaction
+
 
 @memoize_outfile(".ndx")
 def refindex(ref_file, kmer_size=None, step_size=None, out_file=None):
@@ -16,6 +17,7 @@ def refindex(ref_file, kmer_size=None, step_size=None, out_file=None):
         cl += ["-s", str(step_size)]
     cl += [out_file, ref_file]
     subprocess.check_call(cl)
+
 
 def _novoalign_args_from_config(config):
     """Select novoalign options based on configuration parameters.
@@ -32,6 +34,7 @@ def _novoalign_args_from_config(config):
     multi_flags = ["-r"] + multi_flag.split()
     extra_args = config["algorithm"].get("extra_align_args", [])
     return qual_flags + multi_flags + extra_args
+
 
 # Tweaks to add
 # -k -t 200 -K quality calibration metrics
@@ -57,6 +60,7 @@ def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
                 logger.info(" ".join([str(x) for x in cl]))
                 subprocess.check_call([str(x) for x in cl], stdout=out_handle)
     return out_file
+
 
 def remap_index_fn(ref_file):
     """Map bowtie references to equivalent novoalign indexes.

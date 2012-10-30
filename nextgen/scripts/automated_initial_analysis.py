@@ -26,6 +26,7 @@ from optparse import OptionParser
 import datetime
 import yaml
 
+from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
 from bcbio.log import logger2 as logger, setup_logging, version, create_log_handler
@@ -93,6 +94,7 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
+
     # Write statusdb metrics
     report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
@@ -144,8 +146,8 @@ if __name__ == "__main__":
     parser = OptionParser()
     (options, args) = parser.parse_args()
     if len(args) < 2:
-        print "Incorrect arguments"
-        print __doc__
+        logger.warning("Incorrect arguments")
+        logger.warning(__doc__)
         sys.exit()
 
     kwargs = dict()

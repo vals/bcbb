@@ -9,6 +9,7 @@ import subprocess
 
 from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
+from bcbio.log import logger2 as log
 
 # ## snpEff variant effects
 
@@ -55,14 +56,17 @@ def _run_snpeff(snp_in, genome, se_interval, out_format, config):
         cl = ["java"]
         if java_memory:
             cl += ["-Xmx%s" % java_memory]
+
         cl += ["-jar", snpeff_jar, "-1", "-i", "vcf", "-c", snpeff_config,
                "-o", out_format, genome, snp_in]
         if se_interval:
             cl.extend(["-filterInterval", se_interval])
-        print " ".join(cl)
+
+        log.info(" ".join(cl))
         with file_transaction(out_file) as tx_out_file:
             with open(tx_out_file, "w") as out_handle:
                 subprocess.check_call(cl, stdout=out_handle)
+
     return out_file
 
 

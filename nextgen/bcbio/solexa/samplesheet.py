@@ -16,6 +16,7 @@ import yaml
 
 from bcbio.solexa.flowcell import (get_flowcell_info)
 from bcbio import utils
+from bcbio.log import logger2 as log
 
 
 def _organize_lanes(info_iter, barcode_ids):
@@ -40,13 +41,12 @@ def _organize_lanes(info_iter, barcode_ids):
                               sequence=bc_seq,
                               name=sample_id,
                               sample_prj=sample_proj,
-                              genome_build=sample_ref.lower())#,
-                              #genomes_filter_out="phix")
+                              genome_build=sample_ref.lower())
                 if descr != info[0][5]:
                     # In order to avoid unintentional merging of samples based on descriptions, don't write it for samples.
                     # The SampleProject field fulfills the function intended with sample-level description.
                     pass
-                    #bc_dict["description"] = descr
+
                 multiplex.append(bc_dict)
             cur_lane["multiplex"] = multiplex
 
@@ -62,7 +62,6 @@ def _has_barcode(sample):
         pass
 
 
-
 def _generate_barcode_ids(info_iter):
     """Create unique barcode IDs assigned to sequences
     """
@@ -72,7 +71,7 @@ def _generate_barcode_ids(info_iter):
     barcode_ids = {}
     for i, bc in enumerate(barcodes):
         barcode_ids[bc] = (bc_type, i + 1)
-    
+
     return barcode_ids
 
 
@@ -88,20 +87,20 @@ def _read_input_csv(in_file):
             in_handle.seek(0)
 
             reader = csv.DictReader(in_handle, dialect=dialect)
-            #reader.next()  # No need to skip header with csv.sniffer
+            # No need to skip header with csv.sniffer
             for line in reader:
                 if line:  # skip empty lines
                     # convert '__' to '.'
                     for key, val in line.items():
                         if val is not None and type(val) is str:
-                            line[key] = val.replace('__','.')
-                            
+                            line[key] = val.replace('__', '.')
+
                     yield line['FCID'], line['Lane'], line['SampleID'], \
                           line['SampleRef'], line['Index'], line['Description'], \
                           line.get('Recipe', None), line.get('Operator', None), \
                           line.get('SampleProject', line['Description'])
     except ValueError:
-        print "Corrupt samplesheet %s, please fix it" % in_file
+        log.warning("Corrupt samplesheet %s, please fix it" % in_file)
         pass
 
 

@@ -12,6 +12,7 @@ LOG_NAME = "nextgen_pipeline"
 
 logger = logging.getLogger(LOG_NAME)
 logger2 = logbook.Logger(LOG_NAME)
+logger2.level = logbook.INFO
 
 
 def setup_logging(config):
@@ -61,6 +62,7 @@ def create_log_handler(config, batch_records=False):
 
     if config.get("debug", False):
         handler.level = logbook.DEBUG
+        logger2.level = logbook.DEBUG
 
     else:
         handler.level = logbook.INFO
