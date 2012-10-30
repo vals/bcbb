@@ -12,15 +12,17 @@ from bcbio import broad
 from bcbio.utils import file_exists, safe_makedir
 from bcbio.distributed.transaction import file_transaction
 
+
 def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="_fastq.txt",
-                    config=None):
+                    config=None, unpack=True):
     """Retrieve fastq files for the given lane, ready to process.
     """
-    if item.has_key("files") and bc_name is None:
+    if "files" in item and bc_name is None:
         names = item["files"]
         if isinstance(names, basestring):
             names = [names]
         files = [x if os.path.isabs(x) else os.path.join(directory, x) for x in names]
+
     else:
         assert fc_name is not None
         lane = item["lane"]
@@ -29,17 +31,24 @@ def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="
         else:
             glob_str = "%s_*%s*%s" % (lane, fc_name, glob_ext)
         files = glob.glob(os.path.join(directory, glob_str))
+        
+        # Include gzipped files
+        glob_str = "%s.gz" % glob_str
+        files.extend(glob.glob(os.path.join(directory, glob_str)))
+        
         files.sort()
         if len(files) > 2 or len(files) == 0:
             raise ValueError("Did not find correct files for %s %s %s %s" %
                     (directory, lane, fc_name, files))
     ready_files = []
     for fname in files:
-        if fname.endswith(".gz"):
+        if fname.endswith(".gz") and unpack:
             # TODO: Parallelize using pgzip
-            cl = ["gunzip", fname]
-            subprocess.check_call(cl)
-            ready_files.append(os.path.splitext(fname)[0])
+            ready_name = os.path.splitext(fname)[0]
+            ready_files.append(ready_name)
+            if not os.path.exists(ready_name):
+                cl = ["gunzip", fname]
+                subprocess.check_call(cl)
         elif fname.endswith(".bam"):
             ready_files = convert_bam_to_fastq(fname, work_dir, config)
         else:
@@ -47,6 +56,7 @@ def get_fastq_files(directory, work_dir, item, fc_name, bc_name=None, glob_ext="
             ready_files.append(fname)
     ready_files = [x for x in ready_files if x is not None]
     return ready_files[0], (ready_files[1] if len(ready_files) > 1 else None)
+
 
 def convert_bam_to_fastq(in_file, work_dir, config):
     """Convert BAM input file into FASTQ files.

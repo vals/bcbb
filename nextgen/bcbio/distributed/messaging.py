@@ -25,7 +25,9 @@ def parallel_runner(module, dirs, config, config_file):
         if str(parallel).lower() == "messaging":
             task_module = "{base}.tasks".format(base=module)
             runner_fn = runner(task_module, dirs, config, config_file)
+
             return runner_fn(fn_name, items)
+
         else:
             out = []
             fn = getattr(__import__("{base}.multitasks".format(base=module),
@@ -36,17 +38,19 @@ def parallel_runner(module, dirs, config, config_file):
                 for data in cpmap(fn, filter(lambda x: x is not None, items)):
                     if data:
                         out.extend(data)
+
             return out
+
     return run_parallel
 
 
 def runner(task_module, dirs, config, config_file, wait=True):
     """Run a set of tasks using Celery, waiting for results or asynchronously.
 
-    Initialize with the configuration and directory information,
-    used to prepare a Celery configuration file and imports. It
-    returns a function which acts like standard map; provide the function
-    name instead of the function itself when calling.
+    Initialize with the configuration and directory information, used to
+    prepare a Celery configuration file and imports. It returns a function
+    which acts like standard map; provide the function name instead of the
+    function itself when calling.
 
     After name lookup, Celery runs the function in parallel; Celery servers
     can be remote or local but must have access to a shared filesystem. The
@@ -68,10 +72,13 @@ def runner(task_module, dirs, config, config_file, wait=True):
                         time.sleep(5)
                         if result.failed():
                             raise ValueError("Failed distributed task; cleaning up")
+
                     for x in result.join():
                         if x:
                             out.extend(x)
+
             return out
+
         return _run
 
 

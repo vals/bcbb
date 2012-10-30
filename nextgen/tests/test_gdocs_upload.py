@@ -79,7 +79,7 @@ class GDocsUploadTest(unittest.TestCase):
                 os.makedirs(bc_dir)
 
             # Create, or if it exists, append to the bc_metrics file
-            bc_file = os.path.join(bc_dir, "%s_%s_%s_bc.metrics" % (lane_name, fc_date, fc_name))
+            bc_file = os.path.join(bc_dir, "%s_%s_%s.bc_metrics" % (lane_name, fc_date, fc_name))
             with open(bc_file, "a") as fh:
                 bcw = UnicodeWriter(fh, dialect='excel-tab')
 

@@ -46,7 +46,7 @@ def remote_copy(remote_info, base_dir, protocol):
             # given.
 
         cl = ["rsync", "--checksum", "--archive", \
-                "--compress", "--partial", "--progress", \
+                "--partial", "--progress", \
                 "--prune-empty-dirs", "--verbose", "--include='*/'", \
                 " ".join(include), "--exclude='*'", \
                 "%s@%s:%s" % (remote_info["user"], remote_info["hostname"], \
@@ -73,4 +73,3 @@ def remote_copy(remote_info, base_dir, protocol):
 
     fc_dir = os.path.join(fc_dir, os.path.basename(remote_info['directory']))
     return fc_dir
-
