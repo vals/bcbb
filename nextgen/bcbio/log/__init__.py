@@ -56,7 +56,7 @@ def create_log_handler(config, batch_records=False):
                                       level='INFO', bubble=True)
     if rabbitmq:
         from logbook.queues import RabbitMQHandler
-        handler = RabbitMQHandler(rabbitmq["url"], queue=rabbitmq["log_queue"])
+        handler = RabbitMQHandler(rabbitmq["url"], queue=rabbitmq["log_queue"], bubble=True)
 
     if batch_records:
         handler = logbook.handlers.GroupHandler(handler)
@@ -81,10 +81,14 @@ class RecordProgress:
         self.dir = work_dir
         self.fo = force_overwrite
 
+    def tag_progress(self, record):
+        record.extra["progress"] = self.step
+
     def progress(self, action):
         self.step += 1
         self._timestamp_file(action)
-        logger2.critical(action)
+        with logbook.Processor(self.tag_progress):
+            logger2.info(action)
 
     def _action_fname(self, action):
         return os.path.join(self.dir, "{s:02d}_{act}.txt".format(s=self.step, act=action))

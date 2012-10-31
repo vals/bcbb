@@ -49,7 +49,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
     setup_logging(config)
     handler = create_log_handler(config)
-    with handler:
+    with handler, logger.catch_exceptions():
         run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 
 

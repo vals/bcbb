@@ -25,7 +25,7 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     if custom_config["algorithm"].get("filter_phix", False):
         # If we are starting from demultiplexed material, we will skip a lane-wise screening
         # Screening will be performed on a sample basis
-        if custom_config["algorithm"].get("demultiplexed",False):
+        if custom_config["algorithm"].get("demultiplexed", False):
             logger.warn("Will not filter phix lane-wise on already demultiplexed files. You will have to specify genomes_filter_out option for each sample")
         else:
             logger.info("Filtering phiX from %s" % lane_name)
@@ -74,8 +74,8 @@ def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
     #   - If filter_phix is true, phix has been filtered lane-wise and need not be run again
     #   - If demultiplexed is true, lane-wise filtering has been skipped and we need to do it here
     if genome_build is not None and os.path.exists(fastq1) and \
-    (genome_build != "phix" or not config["algorithm"].get("filter_phix",False) \
-     or config["algorithm"].get("demultiplexed",False)):
+    (genome_build != "phix" or not config["algorithm"].get("filter_phix", False) \
+     or config["algorithm"].get("demultiplexed", False)):
         if genome_build == "spiked_phix":
             genome_build = "phix"
 
