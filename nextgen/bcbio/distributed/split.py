@@ -8,9 +8,9 @@ back into a summarized output file.
 This provides a framework for that process, making it easier to utilize with
 splitting specific code.
 """
-import os
 import copy
 import collections
+
 
 def parallel_split_combine(args, split_fn, parallel_fn,
                            parallel_name, combine_name,
@@ -20,6 +20,7 @@ def parallel_split_combine(args, split_fn, parallel_fn,
     split_fn: Split an input file into parts for processing. Returns
       the name of the combined output file along with the individual
       split output names and arguments for the parallel function.
+
     parallel_fn: Reference to run_parallel function that will run
       single core, multicore, or distributed as needed.
     """
@@ -29,6 +30,7 @@ def parallel_split_combine(args, split_fn, parallel_fn,
                                                 file_key, combine_arg_keys)
     parallel_fn(combine_name, combine_args)
     return finished_out + final_args
+
 
 def _organize_output(output, combine_map, file_key, combine_arg_keys):
     """Combine output details for parallelization.
@@ -51,6 +53,7 @@ def _organize_output(output, combine_map, file_key, combine_arg_keys):
             final_args.append([data])
     combine_args = [[v, k] + extra_args[k] for (k, v) in out_map.iteritems()]
     return combine_args, final_args
+
 
 def _get_split_tasks(args, split_fn, file_key):
     """Split up input files and arguments, returning arguments for parallel processing.

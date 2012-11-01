@@ -22,9 +22,10 @@ Workflow:
 import os
 import sys
 from optparse import OptionParser
-
 import datetime
+
 import yaml
+import logbook
 
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_fastq_dir
@@ -47,9 +48,12 @@ def main(config_file, fc_dir, run_info_yaml=None):
     if config.get("log_dir", None) is None:
         config["log_dir"] = os.path.join(work_dir, "log")
 
+    def insert_command(record):
+        record.extra["command"] = sys.argv
+
     setup_logging(config)
     handler = create_log_handler(config)
-    with handler, logger.catch_exceptions():
+    with handler, logbook.Processor(insert_command), logger.catch_exceptions():
         run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 
 

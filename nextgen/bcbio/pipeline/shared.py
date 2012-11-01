@@ -11,6 +11,7 @@ from bcbio.pipeline.alignment import get_genome_ref
 from bcbio.utils import file_exists, safe_makedir, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 
+
 # ## Split/Combine helpers
 
 def combine_bam(in_files, out_file, config):
@@ -23,11 +24,13 @@ def combine_bam(in_files, out_file, config):
     runner.run_fn("picard_index", out_file)
     return out_file
 
+
 def split_bam_by_chromosome(output_ext, file_key, default_targets=None):
     """Provide targets to process a BAM file by individual chromosome regions.
     """
     if default_targets is None:
         default_targets = []
+
     def _do_work(data):
         bam_file = data[file_key]
         out_file = "{base}{ext}".format(base=os.path.splitext(bam_file)[0],
@@ -43,8 +46,11 @@ def split_bam_by_chromosome(output_ext, file_key, default_targets=None):
                                                base=os.path.splitext(os.path.basename(bam_file))[0],
                                                ref=chr_ref, ext=output_ext))
                     part_info.append((chr_ref, chr_out))
+
         return out_file, part_info
+
     return _do_work
+
 
 def write_nochr_reads(in_file, out_file):
     """Write a BAM file of reads that are not on a reference chromosome.
@@ -61,7 +67,8 @@ def write_nochr_reads(in_file, out_file):
                             out_bam.write(read)
     return out_file
 
-def subset_bam_by_region(in_file, region, out_file_base = None):
+
+def subset_bam_by_region(in_file, region, out_file_base=None):
     """Subset BAM files based on specified chromosome region.
     """
     if out_file_base is not None:

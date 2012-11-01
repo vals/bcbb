@@ -19,6 +19,7 @@ from bcbio.distributed.split import parallel_split_combine
 from bcbio.pipeline.shared import (split_bam_by_chromosome, configured_ref_file)
 from bcbio.variation.realign import has_aligned_reads
 
+
 # ## GATK Genotype calling
 
 def unified_genotyper(align_bam, ref_file, config, dbsnp=None,
@@ -66,6 +67,7 @@ def unified_genotyper(align_bam, ref_file, config, dbsnp=None,
                                  "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
     return out_file
 
+
 # ## Utility functions for dealing with VCF files
 
 def split_snps_indels(broad_runner, orig_file, ref_file):
@@ -88,6 +90,7 @@ def split_snps_indels(broad_runner, orig_file, ref_file):
                 broad_runner.run_gatk(cur_params)
     return snp_file, indel_file
 
+
 def combine_variant_files(orig_files, out_file, ref_file, config):
     """Combine multiple VCF files into a single output file.
     """
@@ -106,6 +109,7 @@ def combine_variant_files(orig_files, out_file, ref_file, config):
             broad_runner.run_gatk(params)
     return out_file
 
+
 # ## Variant filtration -- shared functionality
 
 def variant_filtration(call_file, ref_file, vrn_files, config):
@@ -120,6 +124,7 @@ def variant_filtration(call_file, ref_file, vrn_files, config):
     orig_files = [snp_filter_file, indel_filter_file]
     out_file = "{base}combined.vcf".format(base=os.path.commonprefix(orig_files))
     return combine_variant_files(orig_files, out_file, ref_file, config)
+
 
 def _apply_variant_recal(broad_runner, snp_file, ref_file, recal_file,
                          tranch_file, filter_type):
@@ -140,16 +145,18 @@ def _apply_variant_recal(broad_runner, snp_file, ref_file, recal_file,
             broad_runner.run_gatk(params)
     return out_file
 
+
 def _shared_variant_filtration(filter_type, snp_file, ref_file):
     """Share functionality for filtering variants.
     """
-    recal_file = "{base}.recal".format(base = os.path.splitext(snp_file)[0])
-    tranches_file = "{base}.tranches".format(base = os.path.splitext(snp_file)[0])
+    recal_file = "{base}.recal".format(base=os.path.splitext(snp_file)[0])
+    tranches_file = "{base}.tranches".format(base=os.path.splitext(snp_file)[0])
     params = ["-T", "VariantRecalibrator",
               "-R", ref_file,
               "--input", snp_file,
               "--mode", filter_type]
     return params, recal_file, tranches_file
+
 
 def variant_filtration_with_exp(broad_runner, snp_file, ref_file, filter_type,
                                 expressions):
@@ -173,6 +180,7 @@ def variant_filtration_with_exp(broad_runner, snp_file, ref_file, filter_type,
                                "--filterExpression", exp])
             broad_runner.run_gatk(params)
     return out_file
+
 
 # ## SNP specific variant filtration
 
@@ -212,7 +220,7 @@ def _variant_filtration_snp(broad_runner, snp_file, ref_file, vrn_files,
         else:
             params.extend(["-an", "DP"])
         # also check if we've failed recal and needed to do strict filtering
-        filter_file = "{base}-filterSNP.vcf".format(base = os.path.splitext(snp_file)[0])
+        filter_file = "{base}-filterSNP.vcf".format(base=os.path.splitext(snp_file)[0])
         if file_exists(filter_file):
             config["algorithm"]["coverage_interval"] = "regional"
             return _variant_filtration_snp(broad_runner, snp_file, ref_file, vrn_files,
@@ -231,6 +239,7 @@ def _variant_filtration_snp(broad_runner, snp_file, ref_file, vrn_files,
                                                    config)
         return _apply_variant_recal(broad_runner, snp_file, ref_file, recal_file,
                                     tranches_file, filter_type)
+
 
 # ## Indel specific variant filtration
 
@@ -263,6 +272,7 @@ def _variant_filtration_indel(broad_runner, snp_file, ref_file, vrn_files,
         return _apply_variant_recal(broad_runner, snp_file, ref_file, recal_file,
                                     tranches_file, filter_type)
 
+
 # ## Variant evaluation
 
 def gatk_evaluate_variants(vcf_file, ref_file, config, dbsnp=None, intervals=None):
@@ -272,6 +282,7 @@ def gatk_evaluate_variants(vcf_file, ref_file, config, dbsnp=None, intervals=Non
     eval_file = variant_eval(vcf_file, ref_file, dbsnp, intervals, runner)
     stats = _extract_eval_stats(eval_file)
     return _format_stats(stats['called'])
+
 
 def _format_stats(stats):
     """Convert statistics into high level summary of major variables.
@@ -291,15 +302,16 @@ def _format_stats(stats):
         titv_novel = float(ti_novel) / float(tv_novel)
     else:
         titv_all, titv_dbsnp, titv_novel = (-1.0, -1.0, -1.0)
-    return dict(total=total, dbsnp_pct = dbsnp, titv_all=titv_all,
+    return dict(total=total, dbsnp_pct=dbsnp, titv_all=titv_all,
                 titv_dbsnp=titv_dbsnp, titv_novel=titv_novel)
+
 
 def _extract_eval_stats(eval_file):
     """Parse statistics of interest from GATK output file.
     """
     stats = dict()
     for snp_type in ['called', 'filtered']:
-        stats[snp_type]  = dict()
+        stats[snp_type] = dict()
         for dbsnp_type in ['known', 'novel']:
             stats[snp_type][dbsnp_type] = dict(ti=0, tv=0)
     for line in _eval_analysis_type(eval_file, "Ti/Tv Variant Evaluator"):
@@ -314,6 +326,7 @@ def _extract_eval_stats(eval_file):
                 stats[snp_type][dbsnp_type]["ti"] = int(line[6])
                 stats[snp_type][dbsnp_type]["tv"] = int(line[7])
     return stats
+
 
 def _eval_analysis_type(in_file, analysis_name):
     """Retrieve data lines associated with a particular analysis.
@@ -337,6 +350,7 @@ def _eval_analysis_type(in_file, analysis_name):
                 break
             parts = line.rstrip("\n\r").split()
             yield parts
+
 
 def variant_eval(vcf_in, ref_file, dbsnp, target_intervals, picard):
     """Evaluate variants in comparison with dbSNP reference.
@@ -370,6 +384,7 @@ def variant_eval(vcf_in, ref_file, dbsnp, target_intervals, picard):
             picard.run_gatk(params)
     return out_file
 
+
 def _is_bed_file(fname):
     """Simple check if a file is in BED format.
     """
@@ -391,6 +406,7 @@ def _is_bed_file(fname):
 
 # ## High level functionality to run genotyping in parallel
 
+
 def parallel_variantcall(sample_info, parallel_fn):
     """Provide sample genotyping, running in parallel over individual chromosomes.
     """
@@ -401,6 +417,7 @@ def parallel_variantcall(sample_info, parallel_fn):
             to_process.append(x)
         else:
             finished.append(x)
+
     if len(to_process) > 0:
         split_fn = split_bam_by_chromosome("-variants.vcf", "work_bam")
         processed = parallel_split_combine(to_process, split_fn, parallel_fn,
@@ -408,7 +425,9 @@ def parallel_variantcall(sample_info, parallel_fn):
                                            "combine_variant_files",
                                            "vrn_file", ["sam_ref", "config"])
         finished.extend(processed)
+
     return finished
+
 
 def variantcall_sample(data, region=None, out_file=None):
     """Parallel entry point for doing genotyping of a region of a sample.

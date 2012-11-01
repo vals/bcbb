@@ -30,6 +30,7 @@ def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
     """
     if out_file is None:
         out_file = "%s-variants.vcf" % os.path.splitext(align_bam)[0]
+
     if not file_exists(out_file):
         logger.info("Genotyping with FreeBayes: {region} {fname}".format(
             region=region, fname=os.path.basename(align_bam)))
@@ -40,6 +41,7 @@ def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
             cl += _freebayes_options_from_config(config["algorithm"])
             if region:
                 cl.extend(["-r", region])
+
             subprocess.check_call(cl)
 
     return out_file
