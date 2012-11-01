@@ -10,6 +10,7 @@ import functools
 import ConfigParser
 import csv, codecs, cStringIO
 import datetime
+import gzip
 
 try:
     import multiprocessing
@@ -197,6 +198,27 @@ def add_full_path(dirname, basedir=None):
     return dirname
 
 
+def compress_files(to_compress):
+    """Compress all the files in the set to_compress
+    """
+    from bcbio.distributed.transaction import file_transaction
+    raw_size = 0
+    gzipped_size = 0
+    for file in to_compress:
+        out_file = file + '.gz'
+        if file_exists(str(file)) and not file_exists(out_file):
+            with file_transaction(out_file) as tx_out_file:
+                raw_size += os.stat(file).st_size
+                f_in = open(file, 'rb')
+                f_out = gzip.open(tx_out_file, 'wb')
+                f_out.writelines(f_in)
+                f_out.close()
+                f_in.close()
+                os.remove(file)
+                gzipped_size += os.stat(tx_out_file).st_size
+    return raw_size, gzipped_size
+
+
 # ## Dealing with configuration files
 
 def merge_config_files(fnames):
@@ -284,21 +306,21 @@ class RecordProgress:
     """A simple interface for recording progress of the parallell
        workflow and outputting timestamp files
     """
-    
+
     def __init__(self, work_dir, force_overwrite=False):
         self.step = 0
         self.dir = work_dir
         self.fo = force_overwrite
-        
+
     def progress(self, action):
         self.step += 1
         self._timestamp_file(action)
-    
+
     def _action_fname(self, action):
         return os.path.join(self.dir, "{s:02d}_{act}.txt".format(s=self.step,act=action))
-    
+
     def _timestamp_file(self, action):
-        """Write a timestamp to the specified file, either appending or 
+        """Write a timestamp to the specified file, either appending or
         overwriting an existing file
         """
         fname = self._action_fname(action)
@@ -307,5 +329,5 @@ class RecordProgress:
             mode = "a"
         with open(fname, mode) as out_handle:
             out_handle.write("{}\n".format(datetime.datetime.now().isoformat()))
-         
-        
+
+
