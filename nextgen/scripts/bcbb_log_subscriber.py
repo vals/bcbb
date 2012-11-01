@@ -1,6 +1,6 @@
 """Catch log messages from a RabbitMQ queue as configured in post_process.yaml
 
-\t%prog post_process_file.yaml [options]
+\t%prog post_process.yaml [options]
 
 Redirects the messages to handlers as specified by the options
 """
@@ -18,7 +18,7 @@ from logbook.more import DatabaseHandler
 from logbook.more import CouchDBBackend
 
 
-def main(config_file):
+def main(config_file, **kwargs):
     with open(config_file) as fh:
         config = yaml.load(fh)
 
@@ -29,15 +29,24 @@ def main(config_file):
         sys.exit()
 
     handlers = [NullHandler()]
-    handlers.append(StderrHandler(bubble=True))
-    handlers.append(FileHandler("bcbb.log", bubble=True))
+    if not kwargs["quiet"]:
+        handlers.append(StderrHandler(bubble=True))
 
-    cdb_settings = config["couchdb_logging"]
-    db_handler = DatabaseHandler(cdb_settings["couchdb_url"],
-                                 backend=CouchDBBackend,
-                                 db="logging_test",
-                                 bubble=True)
-    handlers.append(db_handler)
+    if kwargs["filename"]:
+        handlers.append(FileHandler(kwargs["filename"], bubble=True))
+
+    if kwargs["log_db"]:
+        try:
+            cdb_settings = config["couchdb_logging"]
+        except KeyError:
+            print("CouchDB logging not configured in {}".format(config_file))
+            sys.exit()
+
+        db_handler = DatabaseHandler(cdb_settings["couchdb_url"],
+                                     backend=CouchDBBackend,
+                                     db=cdb_settings["database"],
+                                     bubble=True)
+        handlers.append(db_handler)
 
     setup = NestedSetup(handlers)
 
@@ -56,6 +65,16 @@ def main(config_file):
 
 if __name__ == "__main__":
     parser = OptionParser(usage=__doc__)
+    parser.add_option("-q", "--quiet",
+                      action="store_true", dest="quiet", default=False,
+                      help="Don't forward log records to StdErr")
+    parser.add_option("-f", "--log-file", dest="filename", default=None,
+                      help="Save log records in supplied file",
+                      metavar="bcbb.log")
+    parser.add_option("--db", "--couchdb", action="store_true", dest="log_db",
+                      default=False,
+                      help="Log to CouchDB database, configuration need to be \
+                      supplied in the post_process.yaml")
 
     (options, args) = parser.parse_args()
 
@@ -65,4 +84,8 @@ if __name__ == "__main__":
 
     config_file = args[0]
 
-    main(config_file)
+    kwargs = dict(quiet=options.quiet,
+                  filename=options.filename,
+                  log_db=options.log_db)
+
+    main(config_file, **kwargs)
