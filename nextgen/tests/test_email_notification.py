@@ -17,7 +17,7 @@ class TestEmailNotification(unittest.TestCase):
 
     def setUp(self):
         self.data_dir = os.path.join(os.path.dirname(__file__), "data", "automated")
-        self.config_file = os.path.join(self.data_dir, get_post_process_yaml)
+        self.config_file = os.path.join(self.data_dir, get_post_process_yaml(self))
         assert os.path.exists(self.config_file), "Could not locate required configuration file %s" % self.config_file
 
     def _get_log_handler(self, config):
