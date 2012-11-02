@@ -9,7 +9,6 @@ import itertools
 import functools
 import ConfigParser
 import csv, codecs, cStringIO
-import datetime
 import gzip
 
 try:
@@ -306,6 +305,7 @@ class RecordProgress:
     """A simple interface for recording progress of the parallell
        workflow and outputting timestamp files
     """
+    from bcbio.log import utc_time
 
     def __init__(self, work_dir, force_overwrite=False):
         self.step = 0
@@ -328,6 +328,6 @@ class RecordProgress:
         if file_exists(fname) and not self.fo:
             mode = "a"
         with open(fname, mode) as out_handle:
-            out_handle.write("{}\n".format(datetime.datetime.now().isoformat()))
+            out_handle.write("{}\n".format(utc_time()))
 
 

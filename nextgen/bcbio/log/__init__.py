@@ -2,6 +2,7 @@
 """
 import os
 import sys
+from datetime import datetime
 
 import logging
 
@@ -54,3 +55,11 @@ def create_log_handler(config, batch_records=False):
         handler = logbook.handlers.GroupHandler(handler)
         
     return handler
+
+def utc_time():
+    """
+    Make an utc_time with appended 'Z'
+    Borrowed from scilifelab.utils.timestamp
+    """
+    return str(datetime.utcnow()) + 'Z'
+    
