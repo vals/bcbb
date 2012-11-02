@@ -341,9 +341,8 @@ def _is_finished_dumping(directory):
     single or paired end run.
     """
     # Check final output files; handles both HiSeq, MiSeq and GAII
-    run_info = os.path.join(directory, "RunInfo.xml")
     hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
-                        _expected_reads(run_info)
+                        _expected_reads(directory)
     # include a check to wait for any ongoing MiSeq analysis
     miseq_analysis_checkpoint = (not os.path.exists(os.path.join(directory, "QueuedForAnalysis.txt")) or os.path.exists(os.path.join(directory, "CompletedJobInfo.xml")))
     
@@ -371,10 +370,58 @@ def _is_finished_dumping_read_1(directory):
     else:
         return False
 
+def _is_finished_first_base_report(directory):
+    """Determine if the first base report has been generated
+    """ 
+    return os.path.exists(os.path.join(directory, 
+                                       "First_Base_Report.htm"))
 
-def _expected_reads(run_info_file):
+def _is_past_initial_processing(directory):
+    """Determine if initial processing has been undertaken
+    """
+    return os.path.exists(os.path.join(directory,
+                                       "initial_processing_started.txt"))
+    
+def _is_finished_basecalling_read(directory, readno):
+    """
+    Determine if a given read has finished being basecalled. Raises a ValueError if 
+    the run is not configured to produce the read
+    """ 
+    if readno < 1 or readno > _expected_reads(directory):
+        raise ValueError("The run will not produce a Read{:d}".format(readno))
+    return os.path.exists(os.path.join(directory, 
+                                       "Basecalling_Netcopy_complete_Read{:d}.txt".format(readno)))
+
+def _do_initial_processing(directory):
+    """Determine if the initial processing actions should be run
+    """
+    return (_is_finished_first_base_report(directory) and
+            not _is_past_initial_processing(directory))
+
+def _do_first_read_processing(directory):
+    """Determine if the processing of the first read should be run
+    """
+    # FIXME: not completed
+    _is_finished_basecalling_read(directory,_last_index_read(directory))
+    
+
+def _last_index_read(directory):
+    """Parse the number of the highest index read from the RunInfo.xml
+    """
+    index_reads = [0]
+    run_info_file = os.path.join(directory, "RunInfo.xml")
+    if os.path.exists(run_info_file):
+        tree = ElementTree()
+        tree.parse(run_info_file)
+        read_elem = tree.find("Run/Reads")
+        index_reads = [int(read.get("Number","0")) for read in read_elem.findall("Read") if read.get("IsIndexedRead","") == "Y"]
+    
+    return max(index_reads)
+    
+def _expected_reads(directory):
     """Parse the number of expected reads from the RunInfo.xml file.
     """
+    run_info_file = os.path.join(directory, "RunInfo.xml")
     reads = []
     if os.path.exists(run_info_file):
         tree = ElementTree()
