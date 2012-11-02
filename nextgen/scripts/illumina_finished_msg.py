@@ -200,6 +200,10 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         logger2.info("Demultiplexing and converting bcl to fastq.gz")
         logger2.debug(cl)
         subprocess.check_call(cl)
+        
+        # Touch an indicator flag that demultiplexing finished successfully
+        utils.touch_file("bcl_to_fastq_r{:d}_successful.txt".format(2-int(r1)))
+        
 
     logger2.debug("Done")
 
