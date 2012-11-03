@@ -240,6 +240,24 @@ def merge_config_files(fnames):
 
     return out
 
+def utc_time():
+    """
+    Make an utc_time with appended 'Z'
+    Borrowed from scilifelab.utils.timestamp
+    """
+    return str(datetime.utcnow()) + 'Z'
+    
+
+def touch_indicator_file(fname, force=False):
+    """Write the current timestamp to the specified file. If it exists, append
+    the timestamp to the end
+    """
+    mode = "w"
+    if file_exists(fname) and not force:
+        mode = "a"
+    with open(fname, mode) as out_handle:
+        out_handle.write("{}\n".format(utc_time()))
+    return fname
 
 # UTF-8 methods for csv module (does not support it in python >2.7)
 # http://docs.python.org/library/csv.html#examples
@@ -305,8 +323,6 @@ class RecordProgress:
     """A simple interface for recording progress of the parallell
        workflow and outputting timestamp files
     """
-    from bcbio.log import utc_time
-
     def __init__(self, work_dir, force_overwrite=False):
         self.step = 0
         self.dir = work_dir
@@ -324,10 +340,6 @@ class RecordProgress:
         overwriting an existing file
         """
         fname = self._action_fname(action)
-        mode = "w"
-        if file_exists(fname) and not self.fo:
-            mode = "a"
-        with open(fname, mode) as out_handle:
-            out_handle.write("{}\n".format(utc_time()))
+        touch_indicator_file(fname,self.fo)
 
 

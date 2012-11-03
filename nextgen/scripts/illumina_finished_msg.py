@@ -29,7 +29,7 @@ import getpass
 import subprocess
 import time
 from optparse import OptionParser
-from xml.etree.ElementTree import ElementTree
+import xml.etree.ElementTree as ET
 
 import logbook
 
@@ -43,20 +43,82 @@ from bcbio.pipeline.config_loader import load_config
 LOG_NAME = os.path.splitext(os.path.basename(__file__))[0]
 log = logbook.Logger(LOG_NAME)
 
-def main(local_config, post_config_file=None, fetch_msg=True, process_msg=True, store_msg=True, 
-         backup_msg=False, qseq=True, fastq=True, remove_qseq=False, compress_fastq=False, casava=False):
+def main(*args, **kwargs):
+    local_config = args[0]
     config = load_config(local_config)
     log_handler = create_log_handler(config, True)
-
     with log_handler.applicationbound():
-        search_for_new(config, local_config, post_config_file, fetch_msg, \
-            process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq, casava)
+        search_for_new(config, *args, **kwargs)
 
+def initial_processing(*args, **kwargs):
+    """Initial processing to be performed after the first base report
+    """
+    pass
 
-def search_for_new(config, config_file, post_config_file, fetch_msg, \
-        process_msg, store_msg, backup_msg, qseq, fastq, remove_qseq, compress_fastq, casava):
+def process_first_read(*args, **kwargs):
+    """Processing to be performed after the first read and the index reads
+    have been sequenced
+    """
+    
+    dname, config = args[0:2]
+    # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
+    if kwargs.get("casava",False):
+        logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
+        
+        # Touch the indicator flag that processing of read1 has been started
+        utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
+        _generate_fastq_with_casava(dname, config, r1=True)
+        _post_process_run(*args, None, **{"fetch_msg": True,
+                                          "process_msg": False,
+                                          "store_msg": kwargs.get("store_msg",False),
+                                          "backup_msg": False})
+        # Touch the indicator flag that processing of read1 has been completed
+        utils.touch_indicator_file(os.path.join(dname,"first_read_processing_completed.txt"))
+        
+def process_second_read(*args, **kwargs):
+    """Processing to be performed after all reads have been sequences
+    """
+    dname, config = args[0:2]
+    logger2.info("The instrument has finished dumping on directory %s" % dname)
+    
+    utils.touch_indicator_file(os.path.join(dname,"second_read_processing_started.txt"))
+    _update_reported(config["msg_db"], dname)
+    fastq_dir = None
+    
+    # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
+    if kwargs.get("casava",False):
+        logger2.info("Generating fastq.gz files for {:s}".format(dname))
+        _generate_fastq_with_casava(dname, config)
+    else:
+        _process_samplesheets(dname, config)
+        if kwargs.get("qseq",True):
+            logger2.info("Generating qseq files for {:s}".format(dname))
+            _generate_qseq(get_qseq_dir(dname), config)
+            
+        if kwargs.get("fastq",True):
+            logger2.info("Generating fastq files for {:s}".format(dname))
+            fastq_dir = _generate_fastq(dname, config)
+            if kwargs.get("remove_qseq",False):
+                _clean_qseq(get_qseq_dir(dname), fastq_dir)
+            _calculate_md5(fastq_dir)
+            if kwargs.get("compress_fastq",False):
+                _compress_fastq(fastq_dir, config)
+    
+    # Call the post_processing method
+    _post_process_run(*args, fastq_dir, **{"fetch_msg": kwargs.get("fetch_msg",True),
+                                           "process_msg": kwargs.get("process_msg",True),
+                                           "store_msg": kwargs.get("store_msg",True),
+                                           "backup_msg": kwargs.get("backup_msg",False)})
+
+    # Update the reported database after successful processing
+    _update_reported(config["msg_db"], dname)
+    utils.touch_indicator_file(os.path.join(dname,"second_read_processing_completed.txt"))
+
+    
+def search_for_new(*args, **kwargs):
     """Search for any new unreported directories.
     """
+    config = args[0]
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
         if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
@@ -64,47 +126,20 @@ def search_for_new(config, config_file, post_config_file, fetch_msg, \
             # Convenient for run_name on "Subject" for email notifications
             run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
             with logbook.Processor(run_setter):
-                if casava and _is_finished_dumping_read_1(dname):
-                    logger2.info("Generating fastq.gz files for read 1 of %s" % dname)
-                    fastq_dir = None
-                    _generate_fastq_with_casava(dname, config, r1=True)
-                    _post_process_run(dname, config, config_file,
-                                      fastq_dir, post_config_file,
-                                      fetch_msg=True, process_msg=False,
-                                      store_msg=store_msg,backup_msg=False)
-    
-                if _is_finished_dumping(dname):
-                    logger2.info("The instrument has finished dumping on directory %s" % dname)
-                    _update_reported(config["msg_db"], dname)
-                    _process_samplesheets(dname, config)
-                    if qseq:
-                        logger2.info("Generating qseq files for %s" % dname)
-                        _generate_qseq(get_qseq_dir(dname), config)
-
-                    fastq_dir = None
-                    if fastq:
-                        logger2.info("Generating fastq files for %s" % dname)
-                        fastq_dir = _generate_fastq(dname, config)
-                        if remove_qseq: _clean_qseq(get_qseq_dir(dname), fastq_dir)
-                        _calculate_md5(fastq_dir)
-                        if compress_fastq: _compress_fastq(fastq_dir, config)
-                    if casava:
-                        logger2.info("Generating fastq.gz files for %s" % dname)
-                        _generate_fastq_with_casava(dname, config)
-
-                    _post_process_run(dname, config, config_file,
-                                      fastq_dir, post_config_file,
-                                      fetch_msg, process_msg, store_msg, backup_msg)
-
-                    # Update the reported database after successful processing
-                    _update_reported(config["msg_db"], dname)
-
+                if _do_second_read_processing(dname):
+                    process_second_read(dname, *args, **kwargs)
+                elif _do_first_read_processing(dname):
+                    process_first_read(dname, *args, **kwargs)
+                elif _do_initial_processing(dname):
+                    initial_processing(dname, *args, **kwargs)
+                else:
+                    pass
+                                
                 # Re-read the reported database to make sure it hasn't
                 # changed while processing.
                 reported = _read_reported(config["msg_db"])
 
-
-def _post_process_run(dname, config, config_file, fastq_dir, post_config_file,
+def _post_process_run(dname, config, config_file, post_config_file, fastq_dir,
                       fetch_msg, process_msg, store_msg, backup_msg):
     """With a finished directory, send out message or process directly.
     """
@@ -376,12 +411,38 @@ def _is_finished_first_base_report(directory):
     return os.path.exists(os.path.join(directory, 
                                        "First_Base_Report.htm"))
 
-def _is_past_initial_processing(directory):
-    """Determine if initial processing has been undertaken
+def _is_started_initial_processing(directory):
+    """Determine if initial processing has been started
     """
     return os.path.exists(os.path.join(directory,
                                        "initial_processing_started.txt"))
+
+def _is_initial_processing(directory):
+    """Determine if initial processing is in progress
+    """
+    return (_is_started_initial_processing(directory) and 
+            not os.path.exists(os.path.join(directory,
+                                            "initial_processing_completed.txt")))
     
+def _is_started_first_read_processing(directory):
+    """Determine if processing of first read has been started
+    """
+    return os.path.exists(os.path.join(directory,
+                                       "first_read_processing_started.txt"))
+
+def _is_processing_first_read(directory):
+    """Determine if processing of first read is in progress
+    """
+    return (_is_started_first_read_processing(directory) and 
+            not os.path.exists(os.path.join(directory,
+                                            "first_read_processing_completed.txt")))
+    
+def _is_started_second_read_processing(directory):
+    """Determine if processing of second read of the pair has been started
+    """
+    return os.path.exists(os.path.join(directory,
+                                       "second_read_processing_started.txt"))
+  
 def _is_finished_basecalling_read(directory, readno):
     """
     Determine if a given read has finished being basecalled. Raises a ValueError if 
@@ -396,27 +457,34 @@ def _do_initial_processing(directory):
     """Determine if the initial processing actions should be run
     """
     return (_is_finished_first_base_report(directory) and
-            not _is_past_initial_processing(directory))
+            not _is_started_initial_processing(directory))
 
 def _do_first_read_processing(directory):
     """Determine if the processing of the first read should be run
     """
-    # FIXME: not completed
-    _is_finished_basecalling_read(directory,_last_index_read(directory))
-    
+    return (_is_finished_basecalling_read(directory,_last_index_read(directory)) and
+            not _is_initial_processing(directory) and
+            not _is_started_first_read_processing(directory))
 
+def _do_second_read_processing(directory):
+    """Determine if the processing of the second read of the pair should be run
+    """
+    return (_is_finished_basecalling_read(directory,_expected_reads(directory)) and
+            not _is_processing_first_read(directory) and
+            not _is_started_second_read_processing(directory))
+    
 def _last_index_read(directory):
     """Parse the number of the highest index read from the RunInfo.xml
     """
-    index_reads = [0]
+    index_reads = []
     run_info_file = os.path.join(directory, "RunInfo.xml")
     if os.path.exists(run_info_file):
-        tree = ElementTree()
+        tree = ET.ElementTree()
         tree.parse(run_info_file)
         read_elem = tree.find("Run/Reads")
         index_reads = [int(read.get("Number","0")) for read in read_elem.findall("Read") if read.get("IsIndexedRead","") == "Y"]
     
-    return max(index_reads)
+    return 0 if len(index_reads) == 0 else max(index_reads)
     
 def _expected_reads(directory):
     """Parse the number of expected reads from the RunInfo.xml file.
@@ -424,12 +492,11 @@ def _expected_reads(directory):
     run_info_file = os.path.join(directory, "RunInfo.xml")
     reads = []
     if os.path.exists(run_info_file):
-        tree = ElementTree()
+        tree = ET.ElementTree()
         tree.parse(run_info_file)
         read_elem = tree.find("Run/Reads")
         reads = read_elem.findall("Read")
     return len(reads)
-
 
 def _is_finished_dumping_checkpoint(directory):
     """Recent versions of RTA (1.10 or better), write the complete file.
@@ -594,3 +661,222 @@ if __name__ == "__main__":
                   qseq=options.qseq, remove_qseq=options.remove_qseq, compress_fastq=options.compress_fastq, casava=options.casava)
 
     main(*args, **kwargs)
+
+### Tests ###
+
+import unittest
+import shutil
+import tempfile
+
+class TestCheckpoints(unittest.TestCase):
+    
+    def setUp(self):
+        self.rootdir = tempfile.mkdtemp(prefix="ifm_test_checkpoints_", dir=self.basedir)
+    def tearDown(self):
+        shutil.rmtree(self.rootdir)
+        
+    @classmethod
+    def _runinfo(cls, outfile, bases_mask="Y101,I7,Y101"):
+        """Return an xml string representing the contents of a RunInfo.xml
+        file with the specified read configuration
+        """
+        root = ET.Element("RunInfo")
+        run = ET.Element("Run",attrib={"Id": "120924_SN0002_0003_CC003CCCXX",
+                                       "Number": "1"})
+        root.append(run)
+        run.append(ET.Element("Flowcell", text="C003CCCXX"))
+        run.append(ET.Element("Instrument", text="SN0002"))
+        run.append(ET.Element("Date", text="120924"))
+        
+        reads = ET.Element("Reads")
+        for n,r in enumerate(bases_mask.split(",")):
+            reads.append(ET.Element("Read", attrib={"Number": str(n+1),
+                                                    "NumCycles": r[1:],
+                                                    "IsIndexedRead": "Y" if r[0] == "I" else "N"}))
+        run.append(reads)
+        run.append(ET.Element("FlowcellLayout", attrib={"LaneCount": "8",
+                                                        "SurfaceCount": "2",
+                                                        "SwathCount": "3",
+                                                        "TileCount": "16"}))
+        
+        et = ET.ElementTree(root)
+        et.write(outfile,encoding="UTF-8")
+        return outfile
+        
+    @classmethod
+    def setUpClass(cls):
+        cls.basedir = tempfile.mkdtemp(prefix="ifm_test_checkpoints_base_")
+        
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.basedir)
+        
+    def test__is_finished_first_base_report(self):
+        """First base report"""
+        self.assertFalse(_is_finished_first_base_report(self.rootdir))
+        utils.touch_file(os.path.join(self.rootdir,"First_Base_Report.htm"))
+        self.assertTrue(_is_finished_first_base_report(self.rootdir))
+        
+    def test__is_started_initial_processing(self):
+        """Initial processing started"""
+        self.assertFalse(_is_started_initial_processing(self.rootdir))
+        utils.touch_indicator_file(os.path.join(self.rootdir,"initial_processing_started.txt"))
+        self.assertTrue(_is_started_initial_processing(self.rootdir))
+        
+    def test__is_started_first_read_processing(self):
+        """First read processing started
+        """
+        self.assertFalse(_is_started_first_read_processing(self.rootdir))
+        utils.touch_indicator_file(os.path.join(self.rootdir,"first_read_processing_started.txt"))
+        self.assertTrue(_is_started_first_read_processing(self.rootdir))
+        
+    def test__is_started_second_read_processing(self):
+        """Second read processing started
+        """
+        self.assertFalse(_is_started_second_read_processing(self.rootdir))
+        utils.touch_indicator_file(os.path.join(self.rootdir,"second_read_processing_started.txt"))
+        self.assertTrue(_is_started_second_read_processing(self.rootdir))
+    
+    def test__is_initial_processing(self):
+        """Initial processing in progress"""
+        self.assertFalse(_is_initial_processing(self.rootdir),
+                         "No indicator files should not indicate processing in progress")
+        utils.touch_indicator_file(os.path.join(self.rootdir,"initial_processing_started.txt"))
+        self.assertTrue(_is_initial_processing(self.rootdir),
+                        "Started indicator file should indicate processing in progress")
+        utils.touch_indicator_file(os.path.join(self.rootdir,"initial_processing_completed.txt"))
+        self.assertFalse(_is_initial_processing(self.rootdir),
+                        "Completed indicator file should not indicate processing in progress")
+        
+    def test__is_processing_first_read(self):
+        """First read processing in progress
+        """
+        self.assertFalse(_is_processing_first_read(self.rootdir),
+                         "No indicator files should not indicate processing in progress")
+        utils.touch_indicator_file(os.path.join(self.rootdir,"first_read_processing_started.txt"))
+        self.assertTrue(_is_processing_first_read(self.rootdir),
+                        "Started indicator file should indicate processing in progress")
+        utils.touch_indicator_file(os.path.join(self.rootdir,"first_read_processing_completed.txt"))
+        self.assertFalse(_is_processing_first_read(self.rootdir),
+                        "Completed indicator file should not indicate processing in progress")
+        
+    def test__do_initial_processing(self):
+        """Initial processing logic
+        """
+        self.assertFalse(_do_initial_processing(self.rootdir),
+                         "Initial processing should not be run with missing indicator flags")
+        utils.touch_file(os.path.join(self.rootdir,"First_Base_Report.htm"))
+        self.assertTrue(_do_initial_processing(self.rootdir),
+                         "Initial processing should be run after first base report creation")
+        utils.touch_indicator_file(os.path.join(self.rootdir,"initial_processing_started.txt"))
+        self.assertFalse(_do_initial_processing(self.rootdir),
+                         "Initial processing should not be run when processing has been started")
+        os.unlink(os.path.join(self.rootdir,"First_Base_Report.htm"))
+        self.assertFalse(_do_initial_processing(self.rootdir),
+                         "Initial processing should not be run when processing has been started " \
+                         "and missing first base report")
+        
+    def test__do_first_read_processing(self):
+        """First read processing logic
+        """
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        self._runinfo(runinfo)
+        self.assertFalse(_do_first_read_processing(self.rootdir),
+                         "Processing should not be run before first read is finished")
+        utils.touch_file(os.path.join(self.rootdir,
+                                      "Basecalling_Netcopy_complete_Read1.txt"))
+        self.assertFalse(_do_first_read_processing(self.rootdir),
+                         "Processing should not be run before last index read is finished")
+        utils.touch_file(os.path.join(self.rootdir,
+                                      "Basecalling_Netcopy_complete_Read2.txt"))
+        utils.touch_indicator_file(os.path.join(self.rootdir,
+                                                "initial_processing_started.txt"))
+        self.assertFalse(_do_first_read_processing(self.rootdir),
+                         "Processing should not be run when previous processing step is in progress")
+        utils.touch_indicator_file(os.path.join(self.rootdir,
+                                                "initial_processing_completed.txt"))
+        self.assertTrue(_do_first_read_processing(self.rootdir),
+                        "Processing should be run when last index read is finished")
+        utils.touch_indicator_file(os.path.join(self.rootdir,
+                                                "first_read_processing_started.txt"))
+        self.assertFalse(_do_first_read_processing(self.rootdir),
+                         "Processing should not be run when processing has started")
+        
+    def test__do_second_read_processing(self):
+        """Second read processing logic
+        """
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        self._runinfo(runinfo)
+        self.assertFalse(_do_second_read_processing(self.rootdir),
+                         "Processing should not be run before any reads are finished")
+        utils.touch_file(os.path.join(self.rootdir,
+                                      "Basecalling_Netcopy_complete_Read2.txt"))
+        self.assertFalse(_do_second_read_processing(self.rootdir),
+                         "Processing should not be run before last read is finished")
+        utils.touch_file(os.path.join(self.rootdir,
+                                      "Basecalling_Netcopy_complete_Read3.txt"))
+        self.assertTrue(_do_second_read_processing(self.rootdir),
+                        "Processing should be run when last read is finished")
+        utils.touch_indicator_file(os.path.join(self.rootdir,
+                                                "second_read_processing_started.txt"))
+        self.assertFalse(_do_second_read_processing(self.rootdir),
+                         "Processing should not be run when processing has started")
+        
+    def test__expected_reads(self):
+        """Get expected number of reads
+        """
+        self.assertEqual(_expected_reads(self.rootdir),0,
+                         "Non-existant RunInfo.xml should return 0 expected reads")
+        
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        self._runinfo(runinfo)
+        self.assertEqual(_expected_reads(self.rootdir),3,
+                         "Default RunInfo.xml should return 3 expected reads")
+        
+        self._runinfo(runinfo, "Y101,I6,I6,Y101")
+        
+        self.assertEqual(_expected_reads(self.rootdir),4,
+                         "Dual-index RunInfo.xml should return 4 expected reads")
+        
+    def test__last_index_read(self):
+        """Get number of last index read
+        """
+        self.assertEqual(_last_index_read(self.rootdir),0,
+                         "Non-existant RunInfo.xml should return 0 as last index read")
+        
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        self._runinfo(runinfo)
+        self.assertEqual(_last_index_read(self.rootdir),2,
+                         "Default RunInfo.xml should return 2 as last index read")
+        
+        self._runinfo(runinfo, "Y101,I6,I6,Y101")
+        self.assertEqual(_last_index_read(self.rootdir),3,
+                         "Dual-index RunInfo.xml should return 3 as last expected read")
+        
+        self._runinfo(runinfo, "Y101,Y101,Y101")
+        self.assertEqual(_last_index_read(self.rootdir),0,
+                         "Non-index RunInfo.xml should return 0 as last expected read")
+        
+    def test__is_finished_basecalling_read(self):
+        """Detect finished read basecalling
+        """
+        
+        # Create a custom RunInfo.xml in the current directory    
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        self._runinfo(runinfo, "Y101,Y101")
+        
+        with self.assertRaises(ValueError):
+            _is_finished_basecalling_read(self.rootdir,0)
+         
+        with self.assertRaises(ValueError):
+            _is_finished_basecalling_read(self.rootdir,3)
+        
+        for read in (1,2):
+            self.assertFalse(_is_finished_basecalling_read(self.rootdir,read),
+                             "Should not return true with missing indicator file")
+            utils.touch_file(os.path.join(self.rootdir,
+                                          "Basecalling_Netcopy_complete_Read{:d}.txt".format(read)))
+            self.assertTrue(_is_finished_basecalling_read(self.rootdir,read),
+                            "Should return true with existing indicator file")
+            
+         
