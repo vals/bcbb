@@ -10,6 +10,7 @@ import functools
 import ConfigParser
 import csv, codecs, cStringIO
 import gzip
+from datetime import datetime
 
 try:
     import multiprocessing

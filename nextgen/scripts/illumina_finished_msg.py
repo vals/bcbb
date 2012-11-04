@@ -68,10 +68,11 @@ def process_first_read(*args, **kwargs):
         # Touch the indicator flag that processing of read1 has been started
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
         _generate_fastq_with_casava(dname, config, r1=True)
-        _post_process_run(*args, None, **{"fetch_msg": True,
-                                          "process_msg": False,
-                                          "store_msg": kwargs.get("store_msg",False),
-                                          "backup_msg": False})
+        args.append(None)
+        _post_process_run(*args, **{"fetch_msg": True,
+                                    "process_msg": False,
+                                    "store_msg": kwargs.get("store_msg",False),
+                                    "backup_msg": False})
         # Touch the indicator flag that processing of read1 has been completed
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_completed.txt"))
         
@@ -101,14 +102,13 @@ def process_second_read(*args, **kwargs):
             if kwargs.get("remove_qseq",False):
                 _clean_qseq(get_qseq_dir(dname), fastq_dir)
             _calculate_md5(fastq_dir)
-            if kwargs.get("compress_fastq",False):
-                _compress_fastq(fastq_dir, config)
-    
+            
     # Call the post_processing method
-    _post_process_run(*args, fastq_dir, **{"fetch_msg": kwargs.get("fetch_msg",True),
-                                           "process_msg": kwargs.get("process_msg",True),
-                                           "store_msg": kwargs.get("store_msg",True),
-                                           "backup_msg": kwargs.get("backup_msg",False)})
+    args.append(fastq_dir)
+    _post_process_run(*args, **{"fetch_msg": kwargs.get("fetch_msg",True),
+                                "process_msg": kwargs.get("process_msg",True),
+                                "store_msg": kwargs.get("store_msg",True),
+                                "backup_msg": kwargs.get("backup_msg",False)})
 
     # Update the reported database after successful processing
     _update_reported(config["msg_db"], dname)
@@ -218,6 +218,10 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
                "--ignore-missing-control"]
 
     cl.extend(options)
+    
+    bm = _get_bases_mask(fc_dir)
+    if bm is not None:
+        cl.extend(["--use-bases-mask", bm])
 
     if r1:
         # Run configuration script
@@ -243,7 +247,7 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     logger2.debug("Done")
 
 
-def _generate_fastq(fc_dir, config):
+def _generate_fastq(fc_dir, config, compress_fastq):
     """Generate fastq files for the current flowcell.
     """
     fc_name, fc_date = get_flowcell_info(fc_dir)
@@ -263,6 +267,8 @@ def _generate_fastq(fc_dir, config):
                   ",".join(lanes)]
             if postprocess_dir:
                 cl += ["-o", fastq_dir]
+            if compress_fastq:
+                cl += ["--gzip"]
 
             logger2.debug("Converting qseq to fastq on all lanes.")
             subprocess.check_call(cl)
@@ -282,42 +288,6 @@ def _calculate_md5(fastq_dir):
             cl = ["md5sum",fastq_file]
             fh.write(subprocess.check_output(cl))
 
-def _compress_fastq(fastq_dir, config):
-    """Compress the fastq files using gzip
-    """
-    glob_str = "*_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    num_cores = config["algorithm"].get("num_cores",1)
-    active_procs = []
-    for fastq_file in fastq_files:
-        # Sleep for one minute while waiting for an open slot
-        while len(active_procs) >= num_cores:
-            time.sleep(60)
-            active_procs, _ = _process_status(active_procs)
-            
-        logger2.debug("Compressing %s using gzip" % fastq_file)
-        cl = ["gzip",fastq_file]
-        active_procs.append(subprocess.Popen(cl))
-    
-    # Wait for the last processes to finish
-    while len(active_procs) > 0:
-        time.sleep(60)
-        active_procs, _ = _process_status(active_procs)
-    
-def _process_status(processes):
-    """Return a list of the processes that are still active and
-       a list of the returncodes of the processes that have finished
-    """
-    active = []
-    retcodes = []
-    for p in processes:
-        c = p.poll()
-        if c is None:
-            active.append(p)
-        else:
-            retcodes.append(c)
-    return active, retcodes
-     
 def _clean_qseq(bc_dir, fastq_dir):
     """Remove the temporary qseq files if the corresponding fastq file 
        has been created
@@ -476,27 +446,13 @@ def _do_second_read_processing(directory):
 def _last_index_read(directory):
     """Parse the number of the highest index read from the RunInfo.xml
     """
-    index_reads = []
-    run_info_file = os.path.join(directory, "RunInfo.xml")
-    if os.path.exists(run_info_file):
-        tree = ET.ElementTree()
-        tree.parse(run_info_file)
-        read_elem = tree.find("Run/Reads")
-        index_reads = [int(read.get("Number","0")) for read in read_elem.findall("Read") if read.get("IsIndexedRead","") == "Y"]
-    
-    return 0 if len(index_reads) == 0 else max(index_reads)
+    read_numbers = [int(read.get("Number",0)) for read in _get_read_configuration(directory) if read.get("IsIndexedRead","") == "Y"]
+    return 0 if len(read_numbers) == 0 else max(read_numbers)
     
 def _expected_reads(directory):
     """Parse the number of expected reads from the RunInfo.xml file.
     """
-    run_info_file = os.path.join(directory, "RunInfo.xml")
-    reads = []
-    if os.path.exists(run_info_file):
-        tree = ET.ElementTree()
-        tree.parse(run_info_file)
-        read_elem = tree.find("Run/Reads")
-        reads = read_elem.findall("Read")
-    return len(reads)
+    return len(_get_read_configuration(directory))
 
 def _is_finished_dumping_checkpoint(directory):
     """Recent versions of RTA (1.10 or better), write the complete file.
@@ -516,7 +472,42 @@ def _is_finished_dumping_checkpoint(directory):
             if ((v1 > check_v1) or (v1 == check_v1 and v2 >= check_v2)):
                 return True
 
+def _get_read_configuration(directory):
+    """Parse the RunInfo.xml w.r.t. read configuration and return a list of dicts
+    """
+    reads = []
+    run_info_file = os.path.join(directory, "RunInfo.xml")
+    if os.path.exists(run_info_file):
+        tree = ET.ElementTree()
+        tree.parse(run_info_file)
+        read_elem = tree.find("Run/Reads")
+        for read in read_elem:
+            reads.append(dict(zip(read.keys(),[read.get(k) for k in read.keys()])))
+    return sorted(reads, key=lambda r: int(r.get("Number",0)))
 
+def _get_bases_mask(directory):
+    """Get the base mask to use with Casava based on the run configuration
+    """
+    runsetup = _get_read_configuration(directory)
+    
+    # Handle the cases we know what to do with, otherwise, let Casava figure out
+    # Case 1: 2x101 PE
+    if (len(runsetup) == 3 and 
+        (runsetup[0]["NumCycles"] == "101" and runsetup[0]["IsIndexedRead"] == "N") and
+        (runsetup[1]["NumCycles"] == "7" and runsetup[1]["IsIndexedRead"] == "Y") and
+        (runsetup[2]["NumCycles"] == "101" and runsetup[2]["IsIndexedRead"] == "N")):
+        return "Y101,I6n,Y101"
+    # Case 2: 2x101 PE, dual indexing
+    if (len(runsetup) == 4 and
+        (runsetup[0]["NumCycles"] == "101" and runsetup[0]["IsIndexedRead"] == "N") and
+        (runsetup[1]["NumCycles"] == "8" and runsetup[1]["IsIndexedRead"] == "Y") and
+        (runsetup[2]["NumCycles"] == "8" and runsetup[2]["IsIndexedRead"] == "Y") and
+        (runsetup[3]["NumCycles"] == "101" and runsetup[3]["IsIndexedRead"] == "N")):
+        return "Y101,I8,I8,Y101"
+    
+    return None
+        
+    
 def _files_to_copy(directory):
     """Retrieve files that should be remotely copied.
     """
@@ -879,4 +870,37 @@ class TestCheckpoints(unittest.TestCase):
             self.assertTrue(_is_finished_basecalling_read(self.rootdir,read),
                             "Should return true with existing indicator file")
             
+    def test__get_bases_mask(self):
+        """Get bases mask
+        """
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        
+        self._runinfo(runinfo)
+        self.assertEqual(_get_bases_mask(self.rootdir),"Y101,I6n,Y101",
+                         "Unexpected bases mask for 2x100 PE")
+        
+        self._runinfo(runinfo, "Y101,I8,I8,Y101")
+        self.assertEqual(_get_bases_mask(self.rootdir),"Y101,I8,I8,Y101",
+                         "Unexpected bases mask for 2x100 PE - Dual index")
+        
+        self._runinfo(runinfo, "Y10,I2,Y10")
+        self.assertIsNone(_get_bases_mask(self.rootdir),
+                        "Expected empty bases mask from unknown run configuration")
+    
+    def test__get_read_configuration(self):
+        """Get read configuration
+        """
+        
+        self.assertListEqual(_get_read_configuration(self.rootdir), [],
+                             "Expected empty list for non-existing RunInfo.xml")
+        
+        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        self._runinfo(runinfo)
+        obs_reads = _get_read_configuration(self.rootdir)
+        self.assertListEqual([r.get("Number",0) for r in obs_reads],["1","2","3"],
+                             "Expected 3 reads for 2x100 PE")
+        
+        
+        
+        
          
