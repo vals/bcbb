@@ -102,7 +102,6 @@ def remove_contaminants(fastq_file, pair_file, ref_file, out_base, fastq_dir, co
             os.rename(out_file,dest_file)
             dest_files.append(dest_file)
     else:
-        dest_files = glob.glob("%s_[12]%s" % (out_root,suffix))    
-    
+        dest_files = sorted(glob.glob("%s_[12]%s" % (out_root,suffix)))
     dest_files.append(out_base)
     return dest_files
