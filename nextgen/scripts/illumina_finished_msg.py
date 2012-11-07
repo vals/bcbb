@@ -53,7 +53,18 @@ def main(*args, **kwargs):
 def initial_processing(*args, **kwargs):
     """Initial processing to be performed after the first base report
     """
-    pass
+    
+    # Touch the indicator flag that processing of read1 has been started
+    utils.touch_indicator_file(os.path.join(dname,"initial_processing_started.txt"))
+    
+    args.append(None)
+    _post_process_run(*args, **{"fetch_msg": True,
+                                "process_msg": False,
+                                "store_msg": kwargs.get("store_msg",False),
+                                "backup_msg": False})
+    
+    # Touch the indicator flag that processing of read1 has been completed
+    utils.touch_indicator_file(os.path.join(dname,"initial_processing_completed.txt"))
 
 def process_first_read(*args, **kwargs):
     """Processing to be performed after the first read and the index reads
@@ -67,12 +78,46 @@ def process_first_read(*args, **kwargs):
         
         # Touch the indicator flag that processing of read1 has been started
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
-        _generate_fastq_with_casava(dname, config, r1=True)
-        args.append(None)
+        unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
+        args.append(unaligned_dir)
         _post_process_run(*args, **{"fetch_msg": True,
                                     "process_msg": False,
                                     "store_msg": kwargs.get("store_msg",False),
                                     "backup_msg": False})
+        
+        # Extract the top barcodes from the undemultiplexed fraction
+        cl = config["program"].get("extract_barcodes",None)
+        if cl is not None:
+            
+            logger2.info("Extracting top indexes from Undetermined indices")
+            infile_glob = os.path.join(unaligned_dir, "Undetermined_indices", "Sample_lane*", "*_R1_*.fastq.gz")
+            infiles = glob.glob(infile_glob)
+            
+            procs = []
+            num_cores = config["algorithm"].get("num_cores", 1)
+            
+            while len(procs) < len(infiles):
+                if len([p for p in procs if p[0].poll() is None]) == num_cores:
+                    sleep(60)
+                else:
+                    infile = infiles.pop()
+                    logger2.info("Extracting top indexes from {:s}".format(infile))
+                    metricfile = infile.replace("fastq.gz","undetermined_indices_metrics")
+                    fh = open(metricfile,"w")
+                    cl = [cl, infile]
+                    p = subprocess.Popen(cl,stdout=fh)
+                    procs.append([p,fh])
+            
+            while len([p for p in procs if p[0].poll() is None]) > 0:
+                sleep(60)
+            
+            for p in procs:
+                close(p[1])
+            
+            logger2.info("Done extracting top indexes")
+            
+            
+        logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
         # Touch the indicator flag that processing of read1 has been completed
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_completed.txt"))
         
@@ -245,6 +290,7 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         
 
     logger2.debug("Done")
+    return unaligned_dir
 
 
 def _generate_fastq(fc_dir, config, compress_fastq):
