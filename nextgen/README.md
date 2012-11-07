@@ -28,6 +28,8 @@ researcher access and additional analysis. See the
 [o6]: http://cloudbiolinux.org
 [o7]: http://wiki.g2.bx.psu.edu/Admin/Cloud
 
+Current build status: [![Build Status](https://secure.travis-ci.org/SciLifeLab/bcbb.png)](http://travis-ci.org/SciLifeLab/bcbb)
+
 ## Code structure
 
 The main scripts that handle automation of the analysis and storage
