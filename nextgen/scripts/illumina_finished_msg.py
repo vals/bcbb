@@ -292,7 +292,10 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
     num_mismatches = config["algorithm"].get("mismatches", 1)
     num_cores = config["algorithm"].get("num_cores", 1)
-
+    im_stats = config["algorithm"].get("ignore-missing-stats",False)
+    im_bcl = config["algorithm"].get("ignore-missing-bcl",False)
+    im_control = config["algorithm"].get("ignore-missing-control",False)
+    
     # Write to log files
     configure_out = os.path.join(fc_dir,"configureBclToFastq.out")
     configure_err = os.path.join(fc_dir,"configureBclToFastq.err")
@@ -304,13 +307,10 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     cl.extend(["--output-dir", unaligned_dir])
     cl.extend(["--sample-sheet", samplesheet_file])
     cl.extend(["--mismatches", str(num_mismatches)])
-
-    options = ["--fastq-cluster-count", "0", \
-               "--ignore-missing-stats", \
-               "--ignore-missing-bcl", \
-               "--ignore-missing-control"]
-
-    cl.extend(options)
+    cl.extend(["--fastq-cluster-count", "0"])
+    if im_stats: cl.append("--ignore-missing-stats")
+    if im_bcl: cl.append("--ignore-missing-bcl")
+    if im_control: cl.append("--ignore-missing-control")
     
     bm = _get_bases_mask(fc_dir)
     if bm is not None:
