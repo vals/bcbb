@@ -182,7 +182,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     metrics = []
     for p in procs:
         # Close the filehandle
-        close(p[1])
+        p[1].close()
         
         # Parse the output into a dict using a DictReader
         with open(p[2]) as fh:
@@ -213,12 +213,12 @@ def search_for_new(*args, **kwargs):
             # Convenient for run_name on "Subject" for email notifications
             run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
             with logbook.Processor(run_setter):
-                if _do_second_read_processing(dname):
-                    process_second_read(dname, *args, **kwargs)
+                if _do_initial_processing(dname):
+                    initial_processing(dname, *args, **kwargs)
                 elif _do_first_read_processing(dname):
                     process_first_read(dname, *args, **kwargs)
-                elif _do_initial_processing(dname):
-                    initial_processing(dname, *args, **kwargs)
+                elif _do_second_read_processing(dname):
+                    process_second_read(dname, *args, **kwargs)
                 else:
                     pass
                                 
@@ -293,6 +293,12 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     num_mismatches = config["algorithm"].get("mismatches", 1)
     num_cores = config["algorithm"].get("num_cores", 1)
 
+    # Write to log files
+    configure_out = os.path.join(fc_dir,"configureBclToFastq.out")
+    configure_err = os.path.join(fc_dir,"configureBclToFastq.err")
+    casava_out = os.path.join(fc_dir,"bclToFastq_R{:d}.out".format(2-int(r1)))
+    casava_err = os.path.join(fc_dir,"bclToFastq_R{:d}.err".format(2-int(r1)))
+
     cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
     cl.extend(["--input-dir", basecall_dir])
     cl.extend(["--output-dir", unaligned_dir])
@@ -314,26 +320,51 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         # Run configuration script
         logger2.info("Configuring BCL to Fastq conversion")
         logger2.debug(cl)
-        subprocess.check_call(cl)
-
+        
+        co = open(configure_out,'w')
+        ce = open(configure_err,'w')
+        p = subprocess.Popen(cl,
+                             stdout=co,
+                             stderr=ce)
+        p.wait()
+        co.close()
+        ce.close()
+        if p.poll() != 0:
+            logger2.error("Configuring BCL to Fastq conversion for {:s} FAILED, " \
+                          "please check log files {:s}, {:s}".format(fc_dir,
+                                                                     configure_out,
+                                                                     configure_err))
+            raise ValueError("{:s} returned non-zero exit status: {:d}".format(cl[0],
+                                                                               p.poll()))
+        
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
         # Perform make
-        cl = ["nohup", "make", "-j", str(num_cores)]
+        cl = ["make", "-j", str(num_cores)]
         if r1:
             cl.append("r1")
 
         logger2.info("Demultiplexing and converting bcl to fastq.gz")
         logger2.debug(cl)
-        subprocess.check_call(cl)
         
-        # Touch an indicator flag that demultiplexing finished successfully
-        utils.touch_file("bcl_to_fastq_r{:d}_successful.txt".format(2-int(r1)))
-        
-
+        co = open(casava_out,'w')
+        ce = open(casava_err,'w')
+        p = subprocess.Popen(cl,
+                             stdout=co,
+                             stderr=ce)
+        p.wait()
+        co.close()
+        ce.close()
+        if p.poll() != 0:
+            logger2.error("BCL to Fastq conversion for {:s} FAILED, " \
+                          "please check log files {:s}, {:s}".format(fc_dir,
+                                                                     casava_out,
+                                                                     casava_err))
+            raise ValueError("{:s} returned non-zero exit status: {:d}".format(cl[0],
+                                                                               p.poll()))
+            
     logger2.debug("Done")
     return unaligned_dir
-
 
 def _generate_fastq(fc_dir, config, compress_fastq):
     """Generate fastq files for the current flowcell.
@@ -434,34 +465,18 @@ def _is_finished_dumping(directory):
     single or paired end run.
     """
     # Check final output files; handles both HiSeq, MiSeq and GAII
-    hi_seq_checkpoint = "Basecalling_Netcopy_complete_Read%s.txt" % \
-                        _expected_reads(directory)
-    # include a check to wait for any ongoing MiSeq analysis
-    miseq_analysis_checkpoint = (not os.path.exists(os.path.join(directory, "QueuedForAnalysis.txt")) or os.path.exists(os.path.join(directory, "CompletedJobInfo.xml")))
-    
+                        
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
-                "Basecalling_Netcopy_complete_READ2.txt",
-                hi_seq_checkpoint]
-    return (reduce(operator.or_,
-            [os.path.exists(os.path.join(directory, f)) for f in to_check]) and miseq_analysis_checkpoint)
+                "Basecalling_Netcopy_complete_READ2.txt"]
+    
+    # Bugfix: On case-isensitive filesystems (e.g. MacOSX), the READ2-check will return true
+    # http://stackoverflow.com/questions/6710511/case-sensitive-path-comparison-in-python
+    for fname in os.listdir(directory):
+        if fname in to_check:
+            return True
+    
+    return _is_finished_basecalling_read(directory,_expected_reads(directory))
 
-
-def _is_finished_dumping_read_1(directory):
-    """Determine if the sequencing directory has all files from read 1, as
-    well as the indexed read (read 2).
-
-    This lets CASAVA 1.8  and above start demultiplexing and converting to
-    fastq.gz while the last read is still being processed.
-    """
-    indexed_read_checkpoint = os.path.join(directory, "Basecalling_Netcopy_complete_Read2.txt")
-    read_1_finished_checkpoint = os.path.join(directory, "Demultiplexing_done_Read1.txt")
-
-    if os.path.exists(indexed_read_checkpoint) \
-    and not os.path.exists(read_1_finished_checkpoint):
-        open(read_1_finished_checkpoint, 'w').close()
-        return True
-    else:
-        return False
 
 def _is_finished_first_base_report(directory):
     """Determine if the first base report has been generated
@@ -527,7 +542,8 @@ def _do_first_read_processing(directory):
 def _do_second_read_processing(directory):
     """Determine if the processing of the second read of the pair should be run
     """
-    return (_is_finished_basecalling_read(directory,_expected_reads(directory)) and
+    return (_is_finished_dumping(directory) and
+            not _is_initial_processing(directory) and
             not _is_processing_first_read(directory) and
             not _is_started_second_read_processing(directory))
     
@@ -886,6 +902,12 @@ class TestCheckpoints(unittest.TestCase):
         """
         runinfo = os.path.join(self.rootdir,"RunInfo.xml")
         self._runinfo(runinfo)
+        utils.touch_file(os.path.join(self.rootdir,
+                                      "Basecalling_Netcopy_complete_READ2.txt"))
+        self.assertTrue(_do_second_read_processing(self.rootdir),
+                        "Processing should be run when last read GAII checkpoint exists")
+        os.unlink(os.path.join(self.rootdir,
+                               "Basecalling_Netcopy_complete_READ2.txt"))
         self.assertFalse(_do_second_read_processing(self.rootdir),
                          "Processing should not be run before any reads are finished")
         utils.touch_file(os.path.join(self.rootdir,
