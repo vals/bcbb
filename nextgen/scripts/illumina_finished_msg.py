@@ -30,6 +30,8 @@ import subprocess
 import time
 from optparse import OptionParser
 import xml.etree.ElementTree as ET
+import re
+import csv
 
 import logbook
 
@@ -57,6 +59,7 @@ def initial_processing(*args, **kwargs):
     # Touch the indicator flag that processing of read1 has been started
     utils.touch_indicator_file(os.path.join(dname,"initial_processing_started.txt"))
     
+    # Upload the necessary files
     args.append(None)
     _post_process_run(*args, **{"fetch_msg": True,
                                 "process_msg": False,
@@ -86,36 +89,10 @@ def process_first_read(*args, **kwargs):
                                     "backup_msg": False})
         
         # Extract the top barcodes from the undemultiplexed fraction
-        cl = config["program"].get("extract_barcodes",None)
-        if cl is not None:
-            
-            logger2.info("Extracting top indexes from Undetermined indices")
-            infile_glob = os.path.join(unaligned_dir, "Undetermined_indices", "Sample_lane*", "*_R1_*.fastq.gz")
-            infiles = glob.glob(infile_glob)
-            
-            procs = []
-            num_cores = config["algorithm"].get("num_cores", 1)
-            
-            while len(procs) < len(infiles):
-                if len([p for p in procs if p[0].poll() is None]) == num_cores:
-                    sleep(60)
-                else:
-                    infile = infiles.pop()
-                    logger2.info("Extracting top indexes from {:s}".format(infile))
-                    metricfile = infile.replace("fastq.gz","undetermined_indices_metrics")
-                    fh = open(metricfile,"w")
-                    cl = [cl, infile]
-                    p = subprocess.Popen(cl,stdout=fh)
-                    procs.append([p,fh])
-            
-            while len([p for p in procs if p[0].poll() is None]) > 0:
-                sleep(60)
-            
-            for p in procs:
-                close(p[1])
-            
-            logger2.info("Done extracting top indexes")
-            
+        if config["program"].get("extract_barcodes",None):
+            extract_top_undetermined_indexes(fc_dir,
+                                             unaligned_dir,
+                                             config)
             
         logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
         # Touch the indicator flag that processing of read1 has been completed
@@ -159,7 +136,72 @@ def process_second_read(*args, **kwargs):
     _update_reported(config["msg_db"], dname)
     utils.touch_indicator_file(os.path.join(dname,"second_read_processing_completed.txt"))
 
+def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
+    """Extract the top N=25 barcodes from the undetermined indices output
+    """
     
+    infile_glob = os.path.join(unaligned_dir, "Undetermined_indices", "Sample_lane*", "*_R1_*.fastq.gz")
+    infiles = glob.glob(infile_glob)
+    
+    # Only run as many simultaneous processes as number of cores specified in config        
+    procs = []
+    num_cores = config["algorithm"].get("num_cores", 1)
+    
+    # Iterate over the infiles and process each one        
+    while len(infiles) > 0:
+        # Wait one minute if we are already using the maximum amount of cores
+        if len([p for p in procs if p[0].poll() is None]) == num_cores:
+            sleep(60)
+        else:
+            infile = infiles.pop()
+            fname = os.path.basename(infile)
+    
+            # Parse the lane number from the filename
+            m = re.search(r'_L0*(\d+)_',fname)
+            if len(m.groups()) == 0:
+                raise ValueError("Could not determine lane from filename {:s}".format(fname)) 
+            lane = m.group(1)
+            
+            # Open a subprocess for the extraction, writing output and errors to a metric file
+            logger2.info("Extracting top indexes from lane {:s}".format(lane))
+            metricfile = os.path.join(fc_dir,fname.replace("fastq.gz",
+                                                           "undetermined_indices_metrics"))
+            fh = open(metricfile,"w")
+            cl = [config["program"]["extract_barcodes"],
+                  infile,
+                  lane]
+            p = subprocess.Popen(cl,stdout=fh,stderr=fh)
+            procs.append([p,fh,metricfile])
+    
+    # Wait until all running processes have finished
+    while len([p for p in procs if p[0].poll() is None]) > 0:
+        sleep(60)
+    
+    # Parse all metricfiles into one list of dicts
+    logger2.info("Merging lane metrics into one flowcell metric")
+    metrics = []
+    for p in procs:
+        # Close the filehandle
+        close(p[1])
+        
+        # Parse the output into a dict using a DictReader
+        with open(p[2]) as fh:
+            c = csv.DictReader(fh, dialect=csv.excel_tab)
+            for row in c:
+                metrics.append(c)
+        # Remove the metricfile
+        os.unlink(p[2])
+    
+    # Write the metrics to one output file
+    metricfile = os.path.join(fc_dir,"{:s}.undemultiplexed_metric".format(fc_dir.split("_")[-1]))
+    with open(metricfile,"w") as fh:
+        w = csv.DictWriter(fh,fieldnames=metrics[0].keys())
+        w.writeheader()
+        w.writerows(metrics)
+    
+    logger2.info("Undemultiplexed metrics written to {:s}".format(metricfile))
+    return metricfile
+
 def search_for_new(*args, **kwargs):
     """Search for any new unreported directories.
     """
