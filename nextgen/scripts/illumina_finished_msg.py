@@ -676,7 +676,7 @@ def _get_directories(config):
     for directory in config["dump_directories"]:
         for fpath in sorted(os.listdir(directory)):
             m = re.match("\d{6}_[A-Za-z0-9]+_\d+_[AB][A-Z0-9\-]+", fpath)
-            if not os.path.isdir(fpath) or m is None:
+            if not os.path.isdir(os.path.join(directory,fpath)) or m is None:
                 continue
             yield os.path.join(directory,fpath)
 
@@ -1007,6 +1007,27 @@ class TestCheckpoints(unittest.TestCase):
         self.assertListEqual([r.get("Number",0) for r in obs_reads],["1","2","3"],
                              "Expected 3 reads for 2x100 PE")
         
+    def test__get_directories(self):
+        """Get run output directories
+        """
+        config = {"dump_directories": [self.rootdir]}
+        obs_dirs = [d for d in _get_directories(config)]
+        self.assertListEqual([],obs_dirs,
+                              "Expected empty list for getting non-existing run directories")
+        utils.touch_file(os.path.join(self.rootdir, "111111_SN111_1111_A11111111"))
+        obs_dirs = [d for d in _get_directories(config)]
+        self.assertListEqual([],obs_dirs,
+                              "Should not pick up files, only directories")
+        exp_dirs = [os.path.join(self.rootdir, "222222_SN222_2222_A2222222")]
+        os.mkdir(exp_dirs[-1])
+        obs_dirs = [d for d in _get_directories(config)]
+        self.assertListEqual(sorted(exp_dirs),sorted(obs_dirs),
+                              "Should pick up matching directory - hiseq-style")
+        exp_dirs.append(os.path.join(self.rootdir, "333333_M33333_3333_A000000000-A3333"))
+        os.mkdir(exp_dirs[-1])
+        obs_dirs = [d for d in _get_directories(config)]
+        self.assertListEqual(sorted(exp_dirs),sorted(obs_dirs),
+                              "Should pick up matching directory - miseq-style")
         
         
         
