@@ -674,14 +674,11 @@ def _read_reported(msg_db):
 
 def _get_directories(config):
     for directory in config["dump_directories"]:
-        globs = []
-        globs.extend(glob.glob(os.path.join(directory, "*[Aa]*[Xx][Xx]")))
-        # Glob to capture MiSeq flowcells
-        globs.extend(glob.glob(os.path.join(directory, "*_M*AMS*")))
-        for dname in sorted(globs):
-            if os.path.isdir(dname):
-                yield dname
-
+        for fpath in sorted(os.listdir(directory)):
+            m = re.match("\d{6}_[A-Za-z0-9]+_\d+_[AB][A-Z0-9\-]+", fpath)
+            if not os.path.isdir(fpath) or m is None:
+                continue
+            yield os.path.join(directory,fpath)
 
 def _update_reported(msg_db, new_dname):
     """Add a new directory to the database of reported messages.
