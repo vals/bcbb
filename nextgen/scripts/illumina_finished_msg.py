@@ -52,6 +52,30 @@ def main(*args, **kwargs):
     with log_handler.applicationbound():
         search_for_new(config, *args, **kwargs)
 
+def search_for_new(*args, **kwargs):
+    """Search for any new unreported directories.
+    """
+    config = args[0]
+    reported = _read_reported(config["msg_db"])
+    for dname in _get_directories(config):
+        if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
+            # Injects run_name on logging calls.
+            # Convenient for run_name on "Subject" for email notifications
+            run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
+            with logbook.Processor(run_setter):
+                if _do_initial_processing(dname):
+                    initial_processing(dname, *args, **kwargs)
+                elif _do_first_read_processing(dname):
+                    process_first_read(dname, *args, **kwargs)
+                elif _do_second_read_processing(dname):
+                    process_second_read(dname, *args, **kwargs)
+                else:
+                    pass
+                                
+                # Re-read the reported database to make sure it hasn't
+                # changed while processing.
+                reported = _read_reported(config["msg_db"])
+
 def initial_processing(*args, **kwargs):
     """Initial processing to be performed after the first base report
     """
@@ -201,30 +225,6 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     
     logger2.info("Undemultiplexed metrics written to {:s}".format(metricfile))
     return metricfile
-
-def search_for_new(*args, **kwargs):
-    """Search for any new unreported directories.
-    """
-    config = args[0]
-    reported = _read_reported(config["msg_db"])
-    for dname in _get_directories(config):
-        if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
-            # Injects run_name on logging calls.
-            # Convenient for run_name on "Subject" for email notifications
-            run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
-            with logbook.Processor(run_setter):
-                if _do_initial_processing(dname):
-                    initial_processing(dname, *args, **kwargs)
-                elif _do_first_read_processing(dname):
-                    process_first_read(dname, *args, **kwargs)
-                elif _do_second_read_processing(dname):
-                    process_second_read(dname, *args, **kwargs)
-                else:
-                    pass
-                                
-                # Re-read the reported database to make sure it hasn't
-                # changed while processing.
-                reported = _read_reported(config["msg_db"])
 
 def _post_process_run(dname, config, config_file, post_config_file, fastq_dir,
                       fetch_msg, process_msg, store_msg, backup_msg):
@@ -535,7 +535,10 @@ def _do_initial_processing(directory):
 def _do_first_read_processing(directory):
     """Determine if the processing of the first read should be run
     """
-    return (_is_finished_basecalling_read(directory,_last_index_read(directory)) and
+    # If run is not indexed, the first read itself is the highest number
+    read = max(1,_last_index_read(directory))
+    # FIXME: Handle a case where the index reads are the first to be read
+    return (_is_finished_basecalling_read(directory,read) and
             not _is_initial_processing(directory) and
             not _is_started_first_read_processing(directory))
 
