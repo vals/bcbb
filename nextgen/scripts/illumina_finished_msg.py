@@ -47,10 +47,14 @@ log = logbook.Logger(LOG_NAME)
 
 def main(*args, **kwargs):
     local_config = args[0]
+    post_process_config = args[1] if len(args) > 1 else None
     config = load_config(local_config)
     log_handler = create_log_handler(config, True)
     with log_handler.applicationbound():
-        search_for_new(config, *args, **kwargs)
+        search_for_new(config, 
+                       local_config, 
+                       post_process_config, 
+                       **kwargs)
 
 def search_for_new(*args, **kwargs):
     """Search for any new unreported directories.
@@ -80,15 +84,17 @@ def initial_processing(*args, **kwargs):
     """Initial processing to be performed after the first base report
     """
     
+    dname = args[0]
     # Touch the indicator flag that processing of read1 has been started
     utils.touch_indicator_file(os.path.join(dname,"initial_processing_started.txt"))
     
     # Upload the necessary files
-    args.append(None)
-    _post_process_run(*args, **{"fetch_msg": True,
-                                "process_msg": False,
-                                "store_msg": kwargs.get("store_msg",False),
-                                "backup_msg": False})
+    loc_args = args + (None, )
+    #import pdb; pdb.set_trace()
+    _post_process_run(*loc_args, **{"fetch_msg": True,
+                                    "process_msg": False,
+                                    "store_msg": kwargs.get("store_msg",False),
+                                    "backup_msg": False})
     
     # Touch the indicator flag that processing of read1 has been completed
     utils.touch_indicator_file(os.path.join(dname,"initial_processing_completed.txt"))
@@ -106,11 +112,11 @@ def process_first_read(*args, **kwargs):
         # Touch the indicator flag that processing of read1 has been started
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
         unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
-        args.append(unaligned_dir)
-        _post_process_run(*args, **{"fetch_msg": True,
-                                    "process_msg": False,
-                                    "store_msg": kwargs.get("store_msg",False),
-                                    "backup_msg": False})
+        loc_args = args + (unaligned_dir,)
+        _post_process_run(*loc_args, **{"fetch_msg": True,
+                                        "process_msg": False,
+                                        "store_msg": kwargs.get("store_msg",False),
+                                        "backup_msg": False})
         
         # Extract the top barcodes from the undemultiplexed fraction
         if config["program"].get("extract_barcodes",None):
@@ -150,11 +156,11 @@ def process_second_read(*args, **kwargs):
             _calculate_md5(fastq_dir)
             
     # Call the post_processing method
-    args.append(fastq_dir)
-    _post_process_run(*args, **{"fetch_msg": kwargs.get("fetch_msg",True),
-                                "process_msg": kwargs.get("process_msg",True),
-                                "store_msg": kwargs.get("store_msg",True),
-                                "backup_msg": kwargs.get("backup_msg",False)})
+    loc_args = args + (fastq_dir,)
+    _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg",True),
+                                    "process_msg": kwargs.get("process_msg",True),
+                                    "store_msg": kwargs.get("store_msg",True),
+                                    "backup_msg": kwargs.get("backup_msg",False)})
 
     # Update the reported database after successful processing
     _update_reported(config["msg_db"], dname)
