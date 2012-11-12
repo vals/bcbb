@@ -10,6 +10,7 @@ import contextlib
 import collections
 
 from nose.plugins.attrib import attr
+from bcbio.utils import get_post_process_yaml
 
 
 @contextlib.contextmanager
@@ -68,14 +69,6 @@ class AutomatedAnalysisTest(unittest.TestCase):
         os.rename(os.path.basename(dirname), dirname)
         os.remove(os.path.basename(url))
 
-    def _get_post_process_yaml(self):
-        std = os.path.join(self.data_dir, "post_process.yaml")
-        sample = os.path.join(self.data_dir, "post_process-sample.yaml")
-        if os.path.exists(std):
-            return std
-        else:
-            return sample
-
     def test_3_full_pipeline(self):
         """Run full automated analysis pipeline with multiplexing.
         """
@@ -83,7 +76,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  self._get_post_process_yaml(),
+                  get_post_process_yaml(self),
                   os.path.join(self.data_dir, os.pardir, "110106_FC70BUKAAXX"),
                   os.path.join(self.data_dir, "run_info.yaml")]
             subprocess.check_call(cl)
@@ -95,7 +88,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  self._get_post_process_yaml(),
+                  get_post_process_yaml(self),
                   os.path.join(self.data_dir, os.pardir, "110221_empty_FC12345AAXX"),
                   os.path.join(self.data_dir, "run_info-empty.yaml")]
             subprocess.check_call(cl)
@@ -107,7 +100,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  self._get_post_process_yaml(),
+                  get_post_process_yaml(self),
                   os.path.join(self.data_dir, os.pardir, "110907_ERP000591"),
                   os.path.join(self.data_dir, "run_info-rnaseq.yaml")]
             subprocess.check_call(cl)
@@ -120,7 +113,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  self._get_post_process_yaml(),
+                  get_post_process_yaml(self),
                   os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
                   os.path.join(self.data_dir, "run_info-variantcall.yaml")]
             subprocess.check_call(cl)
@@ -131,7 +124,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         self._install_test_files(self.data_dir)
         with make_workdir():
             cl = ["automated_initial_analysis.py",
-                  self._get_post_process_yaml(),
+                  get_post_process_yaml(self),
                   os.path.join(self.data_dir, os.pardir, "100326_FC6107FAAXX"),
                   os.path.join(self.data_dir, "run_info-bam.yaml")]
             subprocess.check_call(cl)

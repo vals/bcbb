@@ -23,10 +23,15 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     # Filter phiX
     custom_config = _update_config_w_custom(config, lane_items[0])
     if custom_config["algorithm"].get("filter_phix", False):
-        logger.info("Filtering phiX from %s" % lane_name)
-        info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
-        processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, custom_config)
-        (full_fastq1, full_fastq2, _, lane_name) = processed[0][0:4]
+        # If we are starting from demultiplexed material, we will skip a lane-wise screening
+        # Screening will be performed on a sample basis
+        if custom_config["algorithm"].get("demultiplexed",False):
+            logger.warn("Will not filter phix lane-wise on already demultiplexed files. You will have to specify genomes_filter_out option for each sample")
+        else:
+            logger.info("Filtering phiX from %s" % lane_name)
+            info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
+            processed = remove_contaminants(full_fastq1, full_fastq2, info, lane_name, info["description"], dirs, custom_config)
+            (full_fastq1, full_fastq2, _, lane_name) = processed[0][0:4]
 
     logger.info("Demultiplexing %s" % lane_name)
     bc_files = split_by_barcode(full_fastq1, full_fastq2, lane_items,
@@ -65,8 +70,12 @@ def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
     base_name = None
     genome_build = info.get("genomes_filter_out", None)
     # Skip filtering of phix in case we have already done that for the lane
-    if genome_build is not None and not (genome_build == "phix" \
-    and config["algorithm"].get("filter_phix", False)) and os.path.exists(fastq1):
+    # FIXME: This logic is way too complicated..
+    #   - If filter_phix is true, phix has been filtered lane-wise and need not be run again
+    #   - If demultiplexed is true, lane-wise filtering has been skipped and we need to do it here
+    if genome_build is not None and os.path.exists(fastq1) and \
+    (genome_build != "phix" or not config["algorithm"].get("filter_phix",False) \
+     or config["algorithm"].get("demultiplexed",False)):
         if genome_build == "spiked_phix":
             genome_build = "phix"
 

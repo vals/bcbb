@@ -11,6 +11,7 @@ from bcbio.pipeline.alignment import get_genome_ref
 from bcbio.utils import file_exists, safe_makedir, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 
+
 # ## Split/Combine helpers
 
 def combine_bam(in_files, out_file, config):
@@ -23,11 +24,13 @@ def combine_bam(in_files, out_file, config):
     runner.run_fn("picard_index", out_file)
     return out_file
 
+
 def split_bam_by_chromosome(output_ext, file_key, default_targets=None):
     """Provide targets to process a BAM file by individual chromosome regions.
     """
     if default_targets is None:
         default_targets = []
+
     def _do_work(data):
         bam_file = data[file_key]
         out_file = "{base}{ext}".format(base=os.path.splitext(bam_file)[0],
@@ -36,6 +39,7 @@ def split_bam_by_chromosome(output_ext, file_key, default_targets=None):
         if not file_exists(out_file):
             work_dir = safe_makedir(
                 "{base}-split".format(base=os.path.splitext(out_file)[0]))
+
             with closing(pysam.Samfile(bam_file, "rb")) as work_bam:
                 for chr_ref in list(work_bam.references) + default_targets:
                     chr_out = os.path.join(work_dir,
@@ -43,8 +47,11 @@ def split_bam_by_chromosome(output_ext, file_key, default_targets=None):
                                                base=os.path.splitext(os.path.basename(bam_file))[0],
                                                ref=chr_ref, ext=output_ext))
                     part_info.append((chr_ref, chr_out))
+
         return out_file, part_info
+
     return _do_work
+
 
 def write_nochr_reads(in_file, out_file):
     """Write a BAM file of reads that are not on a reference chromosome.
@@ -59,9 +66,11 @@ def write_nochr_reads(in_file, out_file):
                     for read in in_bam:
                         if read.tid < 0:
                             out_bam.write(read)
+
     return out_file
 
-def subset_bam_by_region(in_file, region, out_file_base = None):
+
+def subset_bam_by_region(in_file, region, out_file_base=None):
     """Subset BAM files based on specified chromosome region.
     """
     if out_file_base is not None:
@@ -81,6 +90,7 @@ def subset_bam_by_region(in_file, region, out_file_base = None):
                         if read.tid == target_tid:
                             out_bam.write(read)
     return out_file
+
 
 # ## Retrieving file information from configuration variables
 
