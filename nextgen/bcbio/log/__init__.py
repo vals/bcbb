@@ -90,6 +90,10 @@ class RecordProgress:
         with logbook.Processor(self.tag_progress):
             logger2.info(action)
 
+    def dummy(self):
+        with logbook.Processor(self.tag_progress):
+            logger2.info("HACK")
+
     def _action_fname(self, action):
         return os.path.join(self.dir, "{s:02d}_{act}.txt".format(s=self.step, act=action))
 

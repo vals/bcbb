@@ -53,7 +53,9 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
     setup_logging(config)
     handler = create_log_handler(config)
-    with handler, logbook.Processor(insert_command), logger.catch_exceptions():
+    with handler, \
+         logbook.Processor(insert_command):
+
         run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 
 
@@ -79,14 +81,17 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
     [to_compress.add(f) for f in lane_items[0][0:2]]
+    prog.dummy()
     prog.progress("process_lane")
 
     # Remove spiked in controls, contaminants etc.
     lane_items = run_parallel("remove_contaminants", lane_items)
     [to_compress.add(f) for f in lane_items[0][0:2]]
+    prog.dummy()
     prog.progress("remove_contaminants")
     align_items = run_parallel("process_alignment", lane_items)
     [to_compress.add(f) for f in align_items[0]['fastq']]
+    prog.dummy()
     prog.progress("process_alignment")
 
     # process samples, potentially multiplexed across multiple lanes
@@ -94,30 +99,40 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     samples = run_parallel("merge_sample", samples)
     to_compress.add(samples[0][0]['fastq1'])
     to_compress.add(samples[0][0]['fastq2'])
+    prog.dummy()
     prog.progress("merge_sample")
     samples = run_parallel("mark_duplicates_sample", samples)
     to_compress.add(samples[0][0]['fastq1'])
     to_compress.add(samples[0][0]['fastq2'])
+    prog.dummy()
     prog.progress("mark_duplicates_sample")
     run_parallel("screen_sample_contaminants", samples)
+    prog.dummy()
     prog.progress("screen_sample_contaminants")
     samples = run_parallel("recalibrate_sample", samples)
+    prog.dummy()
     prog.progress("recalibrate_sample")
     samples = parallel_realign_sample(samples, run_parallel)
+    prog.dummy()
     prog.progress("realign_sample")
     samples = parallel_variantcall(samples, run_parallel)
+    prog.dummy()
     prog.progress("variantcall")
     samples = run_parallel("detect_sv", samples)
+    prog.dummy()
     prog.progress("detect_sv")
     samples = run_parallel("process_sample", samples)
+    prog.dummy()
     prog.progress("process_sample")
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
+    prog.dummy()
     prog.progress("generate_bigwig")
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
+    prog.dummy()
     prog.progress("write_metrics")
 
-    #Compress all files in to_compress
+    # Compress all files in to_compress
     if config['algorithm'].get('compress_files', True):
         (before, after) = utils.compress_files(to_compress)
         logger.info("Space used by the files before compressing (in bytes): " \
