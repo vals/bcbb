@@ -80,35 +80,48 @@ Scripts involved in the processing:
 
 ## Installation
 
-### Required libraries and data files
+### Auto-installation
 
-The code drives a number of next-generation sequencing analysis
-tools; install these on any machines involved in the processing. The
-[CloudBioLinux][i2] and [Galaxy CloudMan][i3] projects contain
-automated scripts to help with installation:
+[Here](https://github.com/SciLifeLab/bcbio-nextgen-deploy) you can find a set of scripts to automatically download and set-up the pipeline.
+This set of scripts will pull the pipeline code and install on your system the pipeline and all the necessary requirements to have it working. Basically, there
+are three installation options available. First, download the scripts:
 
-* [Install bioinformatics software][i4]
-* Install data files like genome builds in association with
-  Galaxy: [my script][i5] and [from the Galaxy team][i6].
+        git clone https://github.com/SciLifeLab/bcbio-nextgen-deploy.git && cd bcbio-nextgen-deploy
 
-Or they can be install manually; the Requirements section below lists
-all software used by the pipeline.
+#### Installation in UPPMAX
 
-### Scripts and configuration
+After downloading the scripts in your UPPMAX account, the following command will install and configure the pipeline, 
+as well as run the standard test suite in a batch job:
 
-Clone a copy of the code from GitHub:
+        python deploy_non_root.py install
 
-      git clone https://github.com/chapmanb/bcbb.git
+To uninstall the pipeline from your account, execute:
 
-Use Python 2.7, and install with:
+        python deploy_non_root.py uninstall
 
-      cd bcbb/nextgen && python setup.py install
 
-The setup script installs required python library dependencies.
+#### Installation within a virtual machine
 
-Copy the YAML & ini files in config and adjust them to match your
-environment. It is also a good idea to set your $PATH pointing to
-any third-party binaries you are using.
+If you want to perform the installation within a virtual machine, you can do it executing:
+
+        fab -f deploy_on_vm.py install
+
+This will create a virtual machine, install the pipeline and run the tests. You need [vagrant](http://vagrantup.com) and 
+[python fabric](http://docs.fabfile.org/en/1.4.3/) to install the pipeline this way.
+
+#### Local installation
+
+To perform a local installation, execute the same command than installing in UPPMAX:
+
+        python deploy_non_root.py install
+
+The script will take care of installing the pipeline properly depending on the environment (UPPMAX or local).
+
+### Notes
+You don't need root access to install the pipeline or to run the tests with this scripts, as it is installed in a python virtual environment. However, to install
+the pipeline locally, we assume that you have installed all the pipeline requirements in your machine, otherwise you have to install them. Please refer to 
+the requirements section below. 
+
 
 ### Configuration
 
@@ -212,6 +225,10 @@ configuration for the tests for your environment:
 * `tests/data/automated/run_info.yaml` -- Change the `analysis` variable
   can to 'Standard' if SNP calling is not required in your
   environment. This will run a smaller pipeline of alignment and analysis.
+
+To run the basic functionality test suite, which takes less time than the full test suite, use:
+
+        nosetests -v -s -a standard
 
 ### RabbitMQ messaging server
 
