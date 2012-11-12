@@ -94,10 +94,6 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
 
     # process samples, potentially multiplexed across multiple lanes
     samples = organize_samples(align_items, dirs, config_file)
-
-    import ipdb
-    ipdb.set_trace()
-    
     samples = run_parallel("merge_sample", samples)
     to_compress.add(samples[0][0]['fastq1'])
     to_compress.add(samples[0][0]['fastq2'])
