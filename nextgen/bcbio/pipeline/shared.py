@@ -39,6 +39,7 @@ def split_bam_by_chromosome(output_ext, file_key, default_targets=None):
         if not file_exists(out_file):
             work_dir = safe_makedir(
                 "{base}-split".format(base=os.path.splitext(out_file)[0]))
+
             with closing(pysam.Samfile(bam_file, "rb")) as work_bam:
                 for chr_ref in list(work_bam.references) + default_targets:
                     chr_out = os.path.join(work_dir,
@@ -65,6 +66,7 @@ def write_nochr_reads(in_file, out_file):
                     for read in in_bam:
                         if read.tid < 0:
                             out_bam.write(read)
+
     return out_file
 
 
@@ -88,6 +90,7 @@ def subset_bam_by_region(in_file, region, out_file_base=None):
                         if read.tid == target_tid:
                             out_bam.write(read)
     return out_file
+
 
 # ## Retrieving file information from configuration variables
 

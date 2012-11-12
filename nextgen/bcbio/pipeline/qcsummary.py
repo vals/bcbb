@@ -62,8 +62,9 @@ def _generate_pdf(graphs, summary, overrep, bam_file, sample_name,
     out_tmpl = Template(_base_template)
     with open(out_file, "w") as out_handle:
         out_handle.write(out_tmpl.render(parts=[section]))
-    cl = [config.get("program", {}).get("pdflatex", "pdflatex"), out_file]
-    subprocess.check_call(cl)
+    if config["algorithm"].get("write_summary", True):
+        cl = [config.get("program", {}).get("pdflatex", "pdflatex"), out_file]
+        subprocess.check_call(cl)
     return "%s.pdf" % os.path.splitext(out_file)[0]
 
 

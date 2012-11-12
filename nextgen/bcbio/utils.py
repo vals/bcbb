@@ -244,6 +244,15 @@ def merge_config_files(fnames):
     return out
 
 
+def get_post_process_yaml(self):
+    std = os.path.join(self.data_dir, "post_process.yaml")
+    sample = os.path.join(self.data_dir, "post_process-sample.yaml")
+    if os.path.exists(std):
+        return std
+    else:
+        return sample
+
+
 # UTF-8 methods for csv module (does not support it in python >2.7)
 # http://docs.python.org/library/csv.html#examples
 

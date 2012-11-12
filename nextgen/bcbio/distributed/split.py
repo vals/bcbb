@@ -29,6 +29,7 @@ def parallel_split_combine(args, split_fn, parallel_fn,
     combine_args, final_args = _organize_output(split_output, combine_map,
                                                 file_key, combine_arg_keys)
     parallel_fn(combine_name, combine_args)
+
     return finished_out + final_args
 
 
@@ -52,6 +53,7 @@ def _organize_output(output, combine_map, file_key, combine_arg_keys):
             already_added.append(cur_out)
             final_args.append([data])
     combine_args = [[v, k] + extra_args[k] for (k, v) in out_map.iteritems()]
+
     return combine_args, final_args
 
 
