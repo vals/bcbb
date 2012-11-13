@@ -7,7 +7,7 @@ from contextlib import closing
 import pysam
 
 from bcbio import broad
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.utils import curdir_tmpdir, file_exists, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 from bcbio.distributed.split import parallel_split_combine
@@ -39,12 +39,16 @@ def gatk_realigner_targets(runner, align_bam, ref_file, dbsnp=None,
                       ]
             if region:
                 params += ["-L", region]
+
             if dbsnp:
                 params += ["--known", dbsnp]
+
             if deep_coverage:
                 params += ["--mismatchFraction", "0.30",
                            "--maxIntervalSize", "650"]
+
             runner.run_gatk(params)
+
     return out_file
 
 

@@ -16,6 +16,7 @@ from bcbio.log import logger2 as log
 from bcbio.broad.metrics import *
 from bcbio.pipeline.qcsummary import FastQCParser
 
+
 class MetricsParser():
     """Basic class for parsing metrics"""
     def __init__(self):
@@ -30,7 +31,7 @@ class MetricsParser():
             vals = line.rstrip("\t\n\r").split("\t")
             data[vals[0]] = int(vals[1])
         return data
-    
+
     def parse_filter_metrics(self, in_handle):
         data = {}
         data["reads"] = int(in_handle.readline().rstrip("\n").split(" ")[-1])
@@ -599,12 +600,16 @@ class FlowcellQCMetrics(QCMetrics):
     def get_full_flowcell(self):
         vals = self["metrics"]["RunInfo"]["Id"].split("_")
         return vals[-1]
+
     def get_flowcell(self):
         return self.get("metrics").get("RunInfo").get("Flowcell")
+
     def get_date(self):
         return self.get("metrics").get("RunInfo").get("Date")
+
     def get_run_name(self):
         return "%s_%s" % (self.get_date(), self.get_full_flowcell())
+
     def name(self):
         return str(self.run_id)
 

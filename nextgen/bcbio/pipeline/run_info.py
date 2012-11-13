@@ -12,7 +12,7 @@ import collections
 
 import yaml
 
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_flowcell_info
 

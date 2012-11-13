@@ -4,7 +4,7 @@ import os
 import copy
 import glob
 
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.pipeline.fastq import get_fastq_files, get_multiplex_items
 from bcbio.pipeline.demultiplex import split_by_barcode
 from bcbio.pipeline.alignment import align_to_sort_bam, remove_contaminants as rc
@@ -25,8 +25,10 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
     if custom_config["algorithm"].get("filter_phix", False):
         # If we are starting from demultiplexed material, we will skip a lane-wise screening
         # Screening will be performed on a sample basis
-        if custom_config["algorithm"].get("demultiplexed",False):
-            logger.warn("Will not filter phix lane-wise on already demultiplexed files. You will have to specify genomes_filter_out option for each sample")
+        if custom_config["algorithm"].get("demultiplexed", False):
+            logger.warn("Will not filter phix lane-wise on already demultiplexed files. " \
+                "You will have to specify genomes_filter_out option for each sample")
+
         else:
             logger.info("Filtering phiX from %s" % lane_name)
             info = {"genomes_filter_out": "spiked_phix", "description": lane_name}
@@ -48,14 +50,17 @@ def process_lane(lane_items, fc_name, fc_date, dirs, config):
             cur_lane_desc = item["description"]
             if item.get("name", "") and config["algorithm"].get("include_short_name", True):
                 cur_lane_desc = "%s : %s" % (item["name"], cur_lane_desc)
+
             if item["barcode_id"] is not None:
                 cur_lane_name += "_%s" % (item["barcode_id"])
+
             if config["algorithm"].get("trim_reads", False):
                 trim_info = brun_trim_fastq([x for x in [fastq1, fastq2] if x is not None],
                                             dirs, config)
                 fastq1 = trim_info[0]
                 if fastq2 is not None:
                     fastq2 = trim_info[1]
+
             out.append((fastq1, fastq2, item, cur_lane_name, cur_lane_desc,
                         dirs, config))
 
@@ -74,8 +79,8 @@ def remove_contaminants(fastq1, fastq2, info, lane_name, lane_desc,
     #   - If filter_phix is true, phix has been filtered lane-wise and need not be run again
     #   - If demultiplexed is true, lane-wise filtering has been skipped and we need to do it here
     if genome_build is not None and os.path.exists(fastq1) and \
-    (genome_build != "phix" or not config["algorithm"].get("filter_phix",False) \
-     or config["algorithm"].get("demultiplexed",False)):
+    (genome_build != "phix" or not config["algorithm"].get("filter_phix", False) \
+     or config["algorithm"].get("demultiplexed", False)):
         if genome_build == "spiked_phix":
             genome_build = "phix"
 

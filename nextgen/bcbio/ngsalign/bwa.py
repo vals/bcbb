@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
 
@@ -22,20 +22,25 @@ def align(fastq_file, pair_file, ref_file, out_base, align_dir, config,
         if not file_exists(sai1_file):
             with file_transaction(sai1_file) as tx_sai1_file:
                 _run_bwa_align(fastq_file, ref_file, tx_sai1_file, config)
+
         if sai2_file and not file_exists(sai2_file):
             with file_transaction(sai2_file) as tx_sai2_file:
                 _run_bwa_align(pair_file, ref_file, tx_sai2_file, config)
+
         align_type = "sampe" if sai2_file else "samse"
         sam_cl = [config["program"]["bwa"], align_type, ref_file, sai1_file]
         if sai2_file:
             sam_cl.append(sai2_file)
+
         sam_cl.append(fastq_file)
         if sai2_file:
             sam_cl.append(pair_file)
+
         with file_transaction(sam_file) as tx_sam_file:
             with open(tx_sam_file, "w") as out_handle:
                 logger.info(" ".join(sam_cl))
                 subprocess.check_call(sam_cl, stdout=out_handle)
+
     return sam_file
 
 
@@ -44,6 +49,7 @@ def _bwa_args_from_config(config):
     core_flags = ["-t", str(cores)] if cores else []
     qual_format = config["algorithm"].get("quality_format", "").lower()
     qual_flags = ["-I"] if qual_format == "illumina" else []
+
     return core_flags + qual_flags
 
 

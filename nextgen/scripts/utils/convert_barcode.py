@@ -13,11 +13,13 @@ import sys
 import re
 
 from optparse import OptionParser
-from bcbio.pipeline.flowcell import Flowcell, Lane
+from bcbio.pipeline.flowcell import Flowcell
+from bcbio.pipeline.flowcell import Lane
 
 import yaml
 import fnmatch
 import shutil
+
 
 def main(run_info_yaml, glob_str):
     fp = open(run_info_yaml)
@@ -28,7 +30,7 @@ def main(run_info_yaml, glob_str):
         bcmap = _name_to_barcode_id(fc)
     else:
         bcmap = _barcode_id_to_name(fc)
-    
+
     if options.recursive:
         for root, dirnames, filenames in os.walk("./"):
             for filename in fnmatch.filter(filenames, glob_str):
@@ -38,12 +40,13 @@ def main(run_info_yaml, glob_str):
         for filename in fnmatch.filter(filenames, glob_str):
             rename_file(filename, bcmap)
 
+
 def rename_file(filename, bcmap):
     if options.verbose:
         print filename
     lane, date, fc, bc = _get_flowcell_info(filename)
     from_str = "%s_%s_%s_%s" % (lane, date, fc, bc)
-    to_str  = "%s_%s_%s_%s" % (lane, date, fc, bcmap[lane][str(bc)])
+    to_str = "%s_%s_%s_%s" % (lane, date, fc, bcmap[lane][str(bc)])
     src = filename
     tgt = src.replace(from_str, to_str)
     if options.dry_run:
@@ -51,7 +54,8 @@ def rename_file(filename, bcmap):
     else:
         print "renaming %s to %s" % (src, tgt)
         shutil.move(src, tgt)
-        
+
+
 def _barcode_id_to_name(fc):
     bcid2name = dict()
     for lane in fc.get_lanes():
@@ -59,12 +63,14 @@ def _barcode_id_to_name(fc):
         bcid2name[lane.get_name()] = dict([(str(mp.get_barcode_id()), mp.get_barcode_name()) for mp in multiplex])
     return bcid2name
 
+
 def _name_to_barcode_id(fc):
     name2bcid = dict()
     for lane in run_info:
         multiplex = lane.get_samples()
         bcid2name[lane] = dict([(mp.get_barcode_name(), str(mp.get_barcode_id())) for mp in multiplex])
     return name2bcid
+
 
 def _get_flowcell_info(filename):
     fn = os.path.basename(filename)
@@ -100,6 +106,6 @@ if __name__ == "__main__":
     if len(args) < 2:
         print __doc__
         sys.exit()
-    kwargs = dict(
-        )
+    kwargs = dict()
+
     main(*args, **kwargs)

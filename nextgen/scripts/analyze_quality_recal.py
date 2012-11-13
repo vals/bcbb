@@ -25,7 +25,6 @@ Requirements:
     mako
     latex (texlive)
 """
-import sys
 import os
 import csv
 import glob
@@ -45,6 +44,7 @@ try:
     import rpy2.robjects as robjects
 except (ImportError, LookupError):
     robjects = None
+
 
 def main(recal_bam, fastq1, fastq2=None, chunk_size=None, input_format=None,
         db_dir=None, work_dir=None):

@@ -8,7 +8,9 @@ import contextlib
 import itertools
 import functools
 import ConfigParser
-import csv, codecs, cStringIO
+import csv
+import codecs
+import cStringIO
 import datetime
 import gzip
 

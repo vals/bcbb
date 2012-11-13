@@ -20,6 +20,7 @@ def parallel_split_combine(args, split_fn, parallel_fn,
     split_fn: Split an input file into parts for processing. Returns
       the name of the combined output file along with the individual
       split output names and arguments for the parallel function.
+
     parallel_fn: Reference to run_parallel function that will run
       single core, multicore, or distributed as needed.
     """

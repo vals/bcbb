@@ -22,14 +22,16 @@ Workflow:
 import os
 import sys
 from optparse import OptionParser
-
 import datetime
+
 import yaml
+import logbook
 
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
-from bcbio.log import logger, setup_logging, version
+from bcbio.log import logger2 as logger, setup_logging, version, create_log_handler
+from bcbio.log import RecordProgress
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
 from bcbio.pipeline.demultiplex import add_multiplex_across_lanes
@@ -38,8 +40,6 @@ from bcbio.pipeline.qcsummary import write_metrics, write_project_summary
 from bcbio.variation.realign import parallel_realign_sample
 from bcbio.variation.genotype import parallel_variantcall
 from bcbio.pipeline.config_loader import load_config
-#from bcbio.google.sequencing_report import queue_report
-#from bcbio.qc.qcreport import report_to_statusdb
 
 
 def main(config_file, fc_dir, run_info_yaml=None):
@@ -48,14 +48,20 @@ def main(config_file, fc_dir, run_info_yaml=None):
     if config.get("log_dir", None) is None:
         config["log_dir"] = os.path.join(work_dir, "log")
 
+    def insert_command(record):
+        record.extra["command"] = sys.argv
+
     setup_logging(config)
-    run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
+    handler = create_log_handler(config)
+    with handler, \
+         logbook.Processor(insert_command):
+
+        run_main(config, config_file, fc_dir, work_dir, run_info_yaml)
 
 
 def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
-
     _record_sw_versions(config, os.path.join(work_dir, "bcbb_software_versions.txt"))
-    prog = utils.RecordProgress(work_dir)
+    prog = RecordProgress(work_dir)
     to_compress = set()
     prog.progress("analysis_start")
 
@@ -75,21 +81,17 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     lanes = ((info, fc_name, fc_date, dirs, config) for info in run_items)
     lane_items = run_parallel("process_lane", lanes)
     [to_compress.add(f) for f in lane_items[0][0:2]]
+    prog.dummy()
     prog.progress("process_lane")
-
-    # upload the sequencing report to Google Docs
-    # will skip this for now and rely on external mechanism for uploading this data
-    #gdocs_indicator = os.path.join(work_dir, "gdocs_report_complete.txt")
-    #if not os.path.exists(gdocs_indicator) \
-    #and queue_report(fc_date, fc_name, os.path.abspath(run_info_yaml), dirs, config, config_file):
-    #    utils.touch_file(gdocs_indicator)
 
     # Remove spiked in controls, contaminants etc.
     lane_items = run_parallel("remove_contaminants", lane_items)
     [to_compress.add(f) for f in lane_items[0][0:2]]
+    prog.dummy()
     prog.progress("remove_contaminants")
     align_items = run_parallel("process_alignment", lane_items)
     [to_compress.add(f) for f in align_items[0]['fastq']]
+    prog.dummy()
     prog.progress("process_alignment")
 
     # process samples, potentially multiplexed across multiple lanes
@@ -97,33 +99,40 @@ def run_main(config, config_file, fc_dir, work_dir, run_info_yaml):
     samples = run_parallel("merge_sample", samples)
     to_compress.add(samples[0][0]['fastq1'])
     to_compress.add(samples[0][0]['fastq2'])
+    prog.dummy()
     prog.progress("merge_sample")
     samples = run_parallel("mark_duplicates_sample", samples)
     to_compress.add(samples[0][0]['fastq1'])
     to_compress.add(samples[0][0]['fastq2'])
+    prog.dummy()
     prog.progress("mark_duplicates_sample")
     run_parallel("screen_sample_contaminants", samples)
+    prog.dummy()
     prog.progress("screen_sample_contaminants")
     samples = run_parallel("recalibrate_sample", samples)
+    prog.dummy()
     prog.progress("recalibrate_sample")
     samples = parallel_realign_sample(samples, run_parallel)
+    prog.dummy()
     prog.progress("realign_sample")
     samples = parallel_variantcall(samples, run_parallel)
+    prog.dummy()
     prog.progress("variantcall")
     samples = run_parallel("detect_sv", samples)
+    prog.dummy()
     prog.progress("detect_sv")
     samples = run_parallel("process_sample", samples)
+    prog.dummy()
     prog.progress("process_sample")
     samples = run_parallel("generate_bigwig", samples, {"programs": ["ucsc_bigwig"]})
+    prog.dummy()
     prog.progress("generate_bigwig")
     write_project_summary(samples)
     write_metrics(run_info, fc_name, fc_date, dirs)
+    prog.dummy()
     prog.progress("write_metrics")
-    # Write statusdb metrics
-    # will skip this for now and rely on external mechanism for uploading this data
-    #report_to_statusdb(fc_name, fc_date, run_info_yaml, dirs, config)
 
-    #Compress all files in to_compress
+    # Compress all files in to_compress
     if config['algorithm'].get('compress_files', True):
         (before, after) = utils.compress_files(to_compress)
         logger.info("Space used by the files before compressing (in bytes): " \

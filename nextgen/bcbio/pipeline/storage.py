@@ -1,6 +1,6 @@
 """Transfer raw files from finished NGS runs for backup and storage.
 """
-from bcbio.log import logger
+from bcbio.log import logger2 as logger
 from bcbio.pipeline.config_loader import load_config
 from bcbio.pipeline.transfer import remote_copy
 
