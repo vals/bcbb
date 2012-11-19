@@ -141,21 +141,13 @@ def run_has_samplesheet(fc_dir, config, require_single=True):
     """
     fc_name, _ = get_flowcell_info(fc_dir)
     sheet_dirs = config.get("samplesheet_directories", [])
-    fcid_sheet = {}
+    # The pipeline usually includes the flowcell position in the name, so allow for that
+    # when searching for matching samplesheet
+    fc_ss_name = ["{:s}.csv".format(fc_name),
+                  "{:s}.csv".format(fc_name[1:])]
+    
     for ss_dir in (s for s in sheet_dirs if os.path.exists(s)):
-        with utils.chdir(ss_dir):
-            for ss in glob.glob("*.csv"):
-                fc_ids = _get_flowcell_id(ss, require_single)
-                for fcid in fc_ids:
-                    if fcid:
-                        fcid_sheet[fcid] = os.path.join(ss_dir, ss)
-
-    # difflib handles human errors while entering data on the SampleSheet.
-    # Only one best candidate is returned (if any). 0.85 cutoff allows for
-    # maximum of 2 mismatches in fcid
-
-    potential_fcids = difflib.get_close_matches(fc_name, fcid_sheet.keys(), 1, 0.85)
-    if len(potential_fcids) > 0 and potential_fcids[0] in fcid_sheet:
-        return fcid_sheet[potential_fcids[0]]
-    else:
-        return None
+        for ss in os.listdir(ss_dir):
+            if ss in fc_ss_name:
+                return os.path.join(ss_dir, ss)
+    
