@@ -142,13 +142,18 @@ def run_has_samplesheet(fc_dir, config, require_single=True):
     """
     fc_name, _ = get_flowcell_info(fc_dir)
     sheet_dirs = config.get("samplesheet_directories", [])
-    # The pipeline usually includes the flowcell position in the name, so allow for that
-    # when searching for matching samplesheet
-    fc_ss_name = ["{:s}.csv".format(fc_name),
-                  "{:s}.csv".format(fc_name[1:])]
-    
+    fcid_sheet = {}
     for ss_dir in (s for s in sheet_dirs if os.path.exists(s)):
-        for ss in os.listdir(ss_dir):
-            if ss in fc_ss_name:
-                return os.path.join(ss_dir, ss)
+        with utils.chdir(ss_dir):
+            for ss in glob.glob("*.csv"):
+                fc_ids = _get_flowcell_id(ss, require_single)
+                for fcid in fc_ids:
+                    if fcid:
+                        fcid_sheet[fcid] = os.path.join(ss_dir, ss)
+
+    # The pipeline leaves the flowcell position in the name, so account for that
+    for fcid in [fc_name, fc_name[1:]]:
+        if fcid in fcid_sheet:
+            return fcid_sheet[fcid]
     
+    return None
