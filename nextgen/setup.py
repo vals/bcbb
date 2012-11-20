@@ -3,9 +3,12 @@
 """
 from setuptools import setup, find_packages
 import os
+import subprocess
+
+commit = subprocess.check_output(["git", "rev-parse", "--verify", "HEAD"])
 
 setup(name="bcbio-nextgen",
-      version="0.3a",
+      version="0.3a rev: {}".format(commit),
       author="Brad Chapman",
       author_email="chapmanb@50mail.com",
       description="Automated, distributed next-gen sequencing pipeline; includes Galaxy interaction",
@@ -29,7 +32,7 @@ setup(name="bcbio-nextgen",
            'scripts/store_finished_sqn.py',
            'scripts/upload_to_galaxy.py',
            'scripts/variant_effects.py',
-           'scripts/count_barcodes.py'  # temporary name
+           'scripts/count_barcodes.py'
           ],
       package_data={
           'config': ['*.yaml'],
@@ -50,7 +53,7 @@ setup(name="bcbio-nextgen",
           "gdata >= 2.0.14",
           "drmaa >= 0.5",
           "couchdb >= 0.8",
-          "BeautifulSoup4"
+          "BeautifulSoup4",
       ])
 
 os.system("git rev-parse --short --verify HEAD > ~/.bcbb_pipeline_version")

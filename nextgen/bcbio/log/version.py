@@ -113,7 +113,7 @@ def _get_output(exe, param=''):
     return output
 
 
-def _get_pipeline_version():
+def get_pipeline_version():
     v = 'N/A'
     try:
         dist = pkg_resources.get_distribution("bcbio-nextgen")
@@ -136,7 +136,7 @@ def get_version(name, exe):
 
     # If the executable is a python script, attempt to get the path and the git commit hash for the repository
     if os.path.splitext(exe)[1] == '.py':
-        version = _get_pipeline_version()
+        version = get_pipeline_version()
 
     # Else, if we have a function that knows how to get the version info from the particular piece of software, call that
     elif name in templates:
