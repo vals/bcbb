@@ -14,6 +14,7 @@ import yaml
 
 from bcbio.solexa.flowcell import (get_flowcell_info)
 from bcbio import utils
+from bcbio.log import logger2 as log
 
 
 def _organize_lanes(info_iter, barcode_ids):
@@ -77,24 +78,22 @@ def _read_input_csv(in_file):
 
     try:
         with open(in_file, "rU") as in_handle:
-            dialect = csv.Sniffer().sniff(in_handle.read(1024))
-            in_handle.seek(0)
-
+            
+            dialect = csv.excel
             reader = csv.DictReader(in_handle, dialect=dialect)
-            #reader.next()  # No need to skip header with csv.sniffer
             for line in reader:
                 if line:  # skip empty lines
                     # convert '__' to '.'
                     for key, val in line.items():
                         if val is not None and type(val) is str:
-                            line[key] = val.replace('__','.')
-                            
+                            line[key] = val.replace('__', '.')
+
                     yield line['FCID'], line['Lane'], line['SampleID'], \
                           line['SampleRef'], line['Index'], line['Description'], \
                           line.get('Recipe', None), line.get('Operator', None), \
                           line.get('SampleProject', line['Description'])
     except ValueError:
-        print "Corrupt samplesheet %s, please fix it" % in_file
+        log.warning("Corrupt samplesheet %s, please fix it" % in_file)
         pass
 
 
