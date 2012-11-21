@@ -170,6 +170,9 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
     num_mismatches = config["algorithm"].get("mismatches", 1)
     num_cores = config["algorithm"].get("num_cores", 1)
+    ignore_missing_stats = config["algorithm"].get("ignore-missing-stats", False)
+    ignore_missing_bcl = config["algorithm"].get("ignore-missing-bcl", False)
+    ignore_missing_control = config["algorithm"].get("ignore-missing-control", False)
 
     cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
     cl.extend(["--input-dir", basecall_dir])
@@ -177,29 +180,49 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     cl.extend(["--sample-sheet", samplesheet_file])
     cl.extend(["--mismatches", str(num_mismatches)])
 
-    options = ["--fastq-cluster-count", "0", \
-               "--ignore-missing-stats", \
-               "--ignore-missing-bcl", \
-               "--ignore-missing-control"]
-
+    options = ["--fastq-cluster-count", "0"]
+    if ignore_missing_stats:
+        options.append("--ignore-missing-stats")
+    if ignore_missing_bcl:
+        options.append("--ignore-missing-bcl")
+    if ignore_missing_control:
+        options.append("--ignore-missing-control")
+    
     cl.extend(options)
 
     if r1:
         # Run configuration script
         logger2.info("Configuring BCL to Fastq conversion")
         logger2.debug(cl)
-        subprocess.check_call(cl)
+
+        outname = os.path.join(fc_dir,"configureBclToFastq.out")
+        errname = os.path.join(fc_dir,"configureBclToFastq.err")
+        outh = open(outname,"w")
+        errh = open(errname,"w")
+
+        subprocess.check_call(cl, stdout=outh, stderr=errh)
+ 
+        outh.close()
+        errh.close()
 
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
         # Perform make
-        cl = ["nohup", "make", "-j", str(num_cores)]
+        cl = ["make", "-j", str(num_cores)]
         if r1:
             cl.append("r1")
 
         logger2.info("Demultiplexing and converting bcl to fastq.gz")
         logger2.debug(cl)
-        subprocess.check_call(cl)
+        outname = "bclToFastq{:s}.out".format("_r1" if r1 else "")        
+        errname = "bclToFastq{:s}.err".format("_r1" if r1 else "")        
+        outh = open(outname,"w")
+        errh = open(errname,"w")
+
+        subprocess.check_call(cl, stdout=outh, stderr=errh)
+ 
+        outh.close()
+        errh.close()
 
     logger2.debug("Done")
 
