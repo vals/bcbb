@@ -14,7 +14,6 @@ import yaml
 
 from bcbio.solexa.flowcell import (get_flowcell_info)
 from bcbio import utils
-from bcbio.log import logger2 as log
 
 
 def _organize_lanes(info_iter, barcode_ids):
@@ -93,7 +92,7 @@ def _read_input_csv(in_file):
                           line.get('Recipe', None), line.get('Operator', None), \
                           line.get('SampleProject', line['Description'])
     except ValueError:
-        log.warning("Corrupt samplesheet %s, please fix it" % in_file)
+        print "Corrupt samplesheet %s, please fix it" % in_file
         pass
 
 
