@@ -30,7 +30,10 @@ import logbook
 from bcbio.galaxy.api import GalaxyApiAccess
 from bcbio.solexa.flowcell import get_fastq_dir
 from bcbio import utils
-from bcbio.log import logger2 as logger, setup_logging, version, create_log_handler
+from bcbio.log import logger2 as logger
+from bcbio.log import setup_logging
+from bcbio.log import version
+from bcbio.log import create_log_handler
 from bcbio.log import RecordProgress
 from bcbio.distributed.messaging import parallel_runner
 from bcbio.pipeline.run_info import get_run_info
@@ -50,6 +53,7 @@ def main(config_file, fc_dir, run_info_yaml=None):
 
     def insert_command(record):
         record.extra["command"] = sys.argv
+        record.extra["version"] = version.get_pipeline_version()
 
     setup_logging(config)
     handler = create_log_handler(config)
