@@ -223,7 +223,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
         os.unlink(p[2])
     
     # Write the metrics to one output file
-    metricfile = os.path.join(fc_dir,"{:s}.undemultiplexed_metric".format(fc_dir.split("_")[-1]))
+    metricfile = os.path.join(fc_dir,"Unaligned","Basecall_Stats_{}".format(fc_dir.split("_")[-1][1:]),"Undemultiplexed_stats.metrics")
     with open(metricfile,"w") as fh:
         w = csv.DictWriter(fh,fieldnames=metrics[0].keys())
         w.writeheader()
@@ -329,19 +329,17 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         
         co = open(configure_out,'w')
         ce = open(configure_err,'w')
-        p = subprocess.Popen(cl,
-                             stdout=co,
-                             stderr=ce)
-        p.wait()
-        co.close()
-        ce.close()
-        if p.poll() != 0:
-            logger2.error("Configuring BCL to Fastq conversion for {:s} FAILED, " \
-                          "please check log files {:s}, {:s}".format(fc_dir,
-                                                                     configure_out,
-                                                                     configure_err))
-            raise ValueError("{:s} returned non-zero exit status: {:d}".format(cl[0],
-                                                                               p.poll()))
+        try:
+            subprocess.check_call(cl,stdout=co,stderr=ce)
+            co.close()
+            ce.close()
+        except subprocess.CalledProcessError, e:
+            logger2.error("Configuring BCL to Fastq conversion for {:s} FAILED " \
+                          "(exit code {}), please check log files {:s}, {:s}".format(fc_dir,
+                                                                                     str(e.returncode),
+                                                                                     configure_out,
+                                                                                     configure_err))
+            raise e
         
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
@@ -355,19 +353,18 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         
         co = open(casava_out,'w')
         ce = open(casava_err,'w')
-        p = subprocess.Popen(cl,
-                             stdout=co,
-                             stderr=ce)
-        p.wait()
-        co.close()
-        ce.close()
-        if p.poll() != 0:
-            logger2.error("BCL to Fastq conversion for {:s} FAILED, " \
-                          "please check log files {:s}, {:s}".format(fc_dir,
-                                                                     casava_out,
-                                                                     casava_err))
-            raise ValueError("{:s} returned non-zero exit status: {:d}".format(cl[0],
-                                                                               p.poll()))
+        try:
+            subprocess.check_call(cl,stdout=co,stderr=ce)
+            co.close()
+            ce.close()
+        except subprocess.CalledProcessError, e:
+            logger2.error("BCL to Fastq conversion for {:s} FAILED " \
+                          "(exit code {}), please check log files {:s}, "\
+                          "{:s}".format(fc_dir,
+                                        str(e.returncode),
+                                        casava_out,
+                                        casava_err))
+            raise e
             
     logger2.debug("Done")
     return unaligned_dir
