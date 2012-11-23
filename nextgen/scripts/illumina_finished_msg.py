@@ -112,18 +112,19 @@ def process_first_read(*args, **kwargs):
         # Touch the indicator flag that processing of read1 has been started
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
         unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
+        
+        # Extract the top barcodes from the undemultiplexed fraction
+        if config["program"].get("extract_barcodes",None):
+            extract_top_undetermined_indexes(dname,
+                                             unaligned_dir,
+                                             config)
+            
         loc_args = args + (unaligned_dir,)
         _post_process_run(*loc_args, **{"fetch_msg": True,
                                         "process_msg": False,
                                         "store_msg": kwargs.get("store_msg",False),
                                         "backup_msg": False})
         
-        # Extract the top barcodes from the undemultiplexed fraction
-        if config["program"].get("extract_barcodes",None):
-            extract_top_undetermined_indexes(fc_dir,
-                                             unaligned_dir,
-                                             config)
-            
         logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
         # Touch the indicator flag that processing of read1 has been completed
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_completed.txt"))
