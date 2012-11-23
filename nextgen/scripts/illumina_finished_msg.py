@@ -311,9 +311,9 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
     cl.extend(["--input-dir", basecall_dir])
     cl.extend(["--output-dir", unaligned_dir])
-    cl.extend(["--sample-sheet", samplesheet_file])
     cl.extend(["--mismatches", str(num_mismatches)])
     cl.extend(["--fastq-cluster-count", "0"])
+    if samplesheet_file is not None: cl.extend(["--sample-sheet", samplesheet_file])
     if im_stats: cl.append("--ignore-missing-stats")
     if im_bcl: cl.append("--ignore-missing-bcl")
     if im_control: cl.append("--ignore-missing-control")
