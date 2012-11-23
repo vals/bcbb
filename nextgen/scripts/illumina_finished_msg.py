@@ -650,7 +650,9 @@ def _files_to_copy(directory):
                          glob.glob("*.csv"),
                          glob.glob("Unaligned/Project_*/**/*.csv"),
                          glob.glob("Unaligned/Undetermined_indices/**/*.csv"),
-                         glob.glob("*.txt")
+                         glob.glob("*.txt"),
+                         glob.glob("*.err"),
+                         glob.glob("*.out"),
                         ])
 
         logs = reduce(operator.add, [["Logs", "Recipe", "Diag", "Data/RTALogs", "Data/Log.txt"]])
