@@ -182,7 +182,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     while len(infiles) > 0:
         # Wait one minute if we are already using the maximum amount of cores
         if len([p for p in procs if p[0].poll() is None]) == num_cores:
-            sleep(60)
+            time.sleep(60)
         else:
             infile = infiles.pop()
             fname = os.path.basename(infile)
@@ -206,7 +206,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     
     # Wait until all running processes have finished
     while len([p for p in procs if p[0].poll() is None]) > 0:
-        sleep(60)
+        time.sleep(60)
     
     # Parse all metricfiles into one list of dicts
     logger2.info("Merging lane metrics into one flowcell metric")
