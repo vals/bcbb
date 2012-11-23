@@ -210,6 +210,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     # Parse all metricfiles into one list of dicts
     logger2.info("Merging lane metrics into one flowcell metric")
     metrics = []
+    header = []
     for p in procs:
         # Close the filehandle
         p[1].close()
@@ -217,6 +218,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
         # Parse the output into a dict using a DictReader
         with open(p[2]) as fh:
             c = csv.DictReader(fh, dialect=csv.excel_tab)
+            header = c.fieldnames
             for row in c:
                 metrics.append(row)
         # Remove the metricfile
@@ -225,7 +227,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     # Write the metrics to one output file
     metricfile = os.path.join(fc_dir,"Unaligned","Basecall_Stats_{}".format(fc_dir.split("_")[-1][1:]),"Undemultiplexed_stats.metrics")
     with open(metricfile,"w") as fh:
-        w = csv.DictWriter(fh,fieldnames=metrics[0].keys())
+        w = csv.DictWriter(fh,fieldnames=header,dialect=csv.excel_tab)
         w.writeheader()
         w.writerows(metrics)
     
