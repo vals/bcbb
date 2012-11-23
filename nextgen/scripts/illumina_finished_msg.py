@@ -198,9 +198,8 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
             metricfile = os.path.join(fc_dir,fname.replace("fastq.gz",
                                                            "undetermined_indices_metrics"))
             fh = open(metricfile,"w")
-            cl = [config["program"]["extract_barcodes"],
-                  infile,
-                  lane]
+            cl = [config["program"]["extract_barcodes"], infile,
+                  '--lane', lane, '--nindex', 10]
             p = subprocess.Popen(cl,stdout=fh,stderr=fh)
             procs.append([p,fh,metricfile])
     
