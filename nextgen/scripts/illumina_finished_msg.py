@@ -112,6 +112,7 @@ def process_first_read(*args, **kwargs):
         # Touch the indicator flag that processing of read1 has been started
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
         unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
+        logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
         
         # Extract the top barcodes from the undemultiplexed fraction
         if config["program"].get("extract_barcodes",None):
@@ -125,7 +126,6 @@ def process_first_read(*args, **kwargs):
                                         "store_msg": kwargs.get("store_msg",False),
                                         "backup_msg": False})
         
-        logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
         # Touch the indicator flag that processing of read1 has been completed
         utils.touch_indicator_file(os.path.join(dname,"first_read_processing_completed.txt"))
         
@@ -198,8 +198,8 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
             metricfile = os.path.join(fc_dir,fname.replace("fastq.gz",
                                                            "undetermined_indices_metrics"))
             fh = open(metricfile,"w")
-            cl = [config["program"]["extract_barcodes"], infile,
-                  '--lane', lane, '--nindex', 10]
+            cl = [config["program"]["extract_barcodes"], infile, lane,
+                  '--nindex', 10]
             p = subprocess.Popen([str(c) for c in cl],stdout=fh,stderr=fh)
             procs.append([p,fh,metricfile])
     
@@ -218,7 +218,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
         with open(p[2]) as fh:
             c = csv.DictReader(fh, dialect=csv.excel_tab)
             for row in c:
-                metrics.append(c)
+                metrics.append(row)
         # Remove the metricfile
         os.unlink(p[2])
     
