@@ -200,7 +200,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
             fh = open(metricfile,"w")
             cl = [config["program"]["extract_barcodes"], infile,
                   '--lane', lane, '--nindex', 10]
-            p = subprocess.Popen(cl,stdout=fh,stderr=fh)
+            p = subprocess.Popen([str(c) for c in cl],stdout=fh,stderr=fh)
             procs.append([p,fh,metricfile])
     
     # Wait until all running processes have finished
