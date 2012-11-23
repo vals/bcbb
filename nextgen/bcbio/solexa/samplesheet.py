@@ -77,18 +77,16 @@ def _read_input_csv(in_file):
 
     try:
         with open(in_file, "rU") as in_handle:
-            dialect = csv.Sniffer().sniff(in_handle.read(1024))
-            in_handle.seek(0)
-
+            
+            dialect = csv.excel
             reader = csv.DictReader(in_handle, dialect=dialect)
-            #reader.next()  # No need to skip header with csv.sniffer
             for line in reader:
                 if line:  # skip empty lines
                     # convert '__' to '.'
                     for key, val in line.items():
                         if val is not None and type(val) is str:
-                            line[key] = val.replace('__','.')
-                            
+                            line[key] = val.replace('__', '.')
+
                     yield line['FCID'], line['Lane'], line['SampleID'], \
                           line['SampleRef'], line['Index'], line['Description'], \
                           line.get('Recipe', None), line.get('Operator', None), \
@@ -150,12 +148,9 @@ def run_has_samplesheet(fc_dir, config, require_single=True):
                     if fcid:
                         fcid_sheet[fcid] = os.path.join(ss_dir, ss)
 
-    # difflib handles human errors while entering data on the SampleSheet.
-    # Only one best candidate is returned (if any). 0.85 cutoff allows for
-    # maximum of 2 mismatches in fcid
-
-    potential_fcids = difflib.get_close_matches(fc_name, fcid_sheet.keys(), 1, 0.85)
-    if len(potential_fcids) > 0 and potential_fcids[0] in fcid_sheet:
-        return fcid_sheet[potential_fcids[0]]
-    else:
-        return None
+    # The pipeline leaves the flowcell position in the name, so account for that
+    for fcid in [fc_name, fc_name[1:]]:
+        if fcid in fcid_sheet:
+            return fcid_sheet[fcid]
+    
+    return None

@@ -9,7 +9,9 @@ import os
 import shutil
 
 from bcbio import broad
-from bcbio.utils import curdir_tmpdir, file_exists, save_diskspace
+from bcbio.utils import curdir_tmpdir
+from bcbio.utils import file_exists
+from bcbio.utils import save_diskspace
 from bcbio.distributed.transaction import file_transaction
 from bcbio.variation.realign import has_aligned_reads
 
