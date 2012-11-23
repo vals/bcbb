@@ -2,11 +2,25 @@
 """
 import os
 import sys
+<<<<<<< HEAD
 import datetime
 
 import logging
 import logbook
+=======
+from datetime import datetime
 
+>>>>>>> 1a415dcf1be131cc9b65180e8b984799d7bfddd5
+
+def utc_time():
+    """
+    Make an utc_time with appended 'Z'
+    Borrowed from scilifelab.utils.timestamp
+    """
+    return str(datetime.utcnow()) + 'Z'
+    
+
+import logging
 from bcbio import utils
 
 LOG_NAME = "nextgen_pipeline"
