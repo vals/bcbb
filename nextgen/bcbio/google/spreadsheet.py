@@ -188,7 +188,7 @@ def get_rows_with_constraint(client, ssheet, wsheet, constraint={}):
     for con_name, con_value in constraint.items():
         con_column = get_column(client, ssheet, wsheet, con_name)
         for i, value in enumerate(con_column):
-            filter_mask[i] &= (_to_unicode(value) == _to_unicode(con_value))
+            filter_mask[i] &= (_to_unicode(value).strip() == _to_unicode(con_value).strip())
 
     # Get the content of the entire worksheet
     content_2d = get_cell_content(client, ssheet, wsheet)
