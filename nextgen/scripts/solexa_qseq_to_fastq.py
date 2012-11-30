@@ -15,6 +15,8 @@ lanes, you should pass:
     1,2,3,4,5,6,7,8
 
 Output files will be in the fastq directory as <lane>_<run_name>_fastq.txt
+If --gzip option is given, the output files will be compressed with gzip, and
+have a .gz extension.
 
 Illumina barcoded samples contain barcodes in a separate qseq lane, which are
 identified by being much shorter than the primary read. Barcodes are added to
@@ -25,15 +27,16 @@ Optional arguments:
     --failed (-f): Write out reads failing the Illumina quality checks instead.
     --outdir (-o): Write out fastq files to different output directory; defaults
                    to a directory named fastq in the current directory.
+    --gzip (-z):   Write compressed output files
 """
 from __future__ import with_statement
 import os
 import sys
 import glob
+import gzip
 from optparse import OptionParser
 
-
-def main(run_name, lane_nums, do_fail=False, outdir=None):
+def main(run_name, lane_nums, do_fail=False, outdir=None, gzip=False):
     if outdir is None:
         outdir = os.path.join(os.getcwd(), "fastq")
     if not os.path.exists(outdir):
@@ -55,10 +58,10 @@ def main(run_name, lane_nums, do_fail=False, outdir=None):
         out_prefix = "%s_%s" % (lane_num, run_name)
         # Skip conversion if outfiles already exists
         if len(glob.glob(os.path.join(outdir,"%s*" % out_prefix))) > 0: continue
-        write_lane(lane_prefix, out_prefix, outdir, fail_dir)
+        write_lane(lane_prefix, out_prefix, outdir, fail_dir, gzip)
 
 
-def write_lane(lane_prefix, out_prefix, outdir, fail_dir):
+def write_lane(lane_prefix, out_prefix, outdir, fail_dir, gzip):
     qseq_files = glob.glob("%s_*qseq.txt" % lane_prefix)
     #_check_filesizes(qseq_files)
     one_files, two_files, bc_files = _split_paired(qseq_files)
@@ -120,7 +123,7 @@ def _qseq_iterator(fname, pass_wanted):
                 assert len(seq) == len(qual)
                 yield name, seq, qual, passed
 
-def _get_outfiles(out_prefix, outdir, has_paired_files):
+def _get_outfiles(out_prefix, outdir, has_paired_files, gzip):
     out_files = {}
     if has_paired_files:
         for num in ("1", "2"):
@@ -129,7 +132,12 @@ def _get_outfiles(out_prefix, outdir, has_paired_files):
     else:
         out_files["1"] = os.path.join(outdir, "%s_fastq.txt" % out_prefix)
     for index, fname in out_files.items():
-        out_files[index] = open(fname, "w")
+        if gzip:
+            fname = "{:s}.gz".format(fname)
+            fh = gzip.open(fname,"wb")
+        else:
+            fh = open(fname, "w")
+        out_files[index] = fh
     return out_files
 
 def _split_paired(files):
@@ -192,8 +200,10 @@ if __name__ == "__main__":
                       default=False)
     parser.add_option("-o", "--outdir", dest="outdir", action="store",
                       default=None)
+    parser.add_option("-z", "--gzip", dest="gzip", action="store_true",
+                      default=False)
     (options, args) = parser.parse_args()
     if len(args) < 2:
         print __doc__
         sys.exit()
-    main(args[0], args[1].split(","), options.do_fail, options.outdir)
+    main(args[0], args[1].split(","), options.do_fail, options.outdir, options.gzip)

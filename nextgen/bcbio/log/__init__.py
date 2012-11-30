@@ -3,10 +3,8 @@
 import os
 import sys
 import datetime
-
 import logging
 import logbook
-
 from bcbio import utils
 
 LOG_NAME = "nextgen_pipeline"
