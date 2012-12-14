@@ -685,7 +685,7 @@ def _read_reported(msg_db):
 def _get_directories(config):
     for directory in config["dump_directories"]:
         for fpath in sorted(os.listdir(directory)):
-            m = re.match("\d{6}_[A-Za-z0-9]+_\d+_[AB][A-Z0-9\-]+", fpath)
+            m = re.match("\d{6}_[A-Za-z0-9]+_\d+_[AB]?[A-Z0-9\-]+", fpath)
             if not os.path.isdir(os.path.join(directory,fpath)) or m is None:
                 continue
             yield os.path.join(directory,fpath)
