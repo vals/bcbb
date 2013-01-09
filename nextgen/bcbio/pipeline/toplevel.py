@@ -74,7 +74,9 @@ def _config_hosts(config):
     if not copy_user or not copy_host:
         copy_user = os.environ["USER"]
         copy_host = re.sub(r'\..*', '', os.uname()[1])
+
     copy_host_str = "%s@%s" % (copy_user, copy_host)
+
     return copy_host_str
 
 
@@ -89,18 +91,22 @@ def _remote_copy(remote_info, config):
     logger.info("Copying analysis files to %s" % fc_dir)
     if not fabric_files.exists(fc_dir):
         fabric.run("mkdir %s" % fc_dir)
+
     for fcopy in remote_info['to_copy']:
         target_loc = os.path.join(fc_dir, fcopy)
         if not fabric_files.exists(target_loc):
             target_dir = os.path.dirname(target_loc)
             if not fabric_files.exists(target_dir):
                 fabric.run("mkdir -p %s" % target_dir)
+
             cl = ["scp", "-r", "%s@%s:%s/%s" %
                   (remote_info["user"], remote_info["hostname"],
                    remote_info["directory"], fcopy),
                   target_loc]
             fabric.run(" ".join(cl))
+
     logger.info("Analysis files copied")
+
     return fc_dir
 
 

@@ -263,6 +263,35 @@ def _post_process_run(dname, config, config_file, post_config_file, fastq_dir,
         analyze_locally(dname, post_config_file, fastq_dir)
 
 
+def simple_upload(remote_info, data):
+    """Upload generated files to specified host using rsync
+    """
+    include = []
+    for fcopy in data['to_copy']:
+        include.append("--include='{}**/*'".format(fcopy))
+        include.append("--include='{}'".format(fcopy))
+        # By including both these patterns we get the entire directory
+        # if a directory is given, or a single file if a single file is
+        # given.
+
+    cl = ["rsync", \
+          "--checksum", \
+          "--archive", \
+          "--partial", "--progress", \
+          "--prune-empty-dirs", \
+          # file / dir inclusion specification
+          "--include='*/'", \
+          " ".join(include), \
+          "--exclude='*'", \
+          # source
+          data["directory"], \
+          # target
+          "{store_user}@{store_host}:{store_dir}".format(**remote_info)
+         ]
+
+    subprocess.check_call(cl)
+
+
 def analyze_locally(dname, post_config_file, fastq_dir):
     """Run analysis directly on the local machine.
     """
