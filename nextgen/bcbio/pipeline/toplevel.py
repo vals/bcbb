@@ -45,7 +45,7 @@ def backup_data(remote_info, config_file):
     _copy_from_sequencer(remote_info, config)
 
 
-# ## Copying over files from sequencer, if necessary
+# Copying over files from sequencer, if necessary
 
 def _copy_from_sequencer(remote_info, config):
     """Get local directory of flowcell info, or copy from sequencer.

@@ -45,16 +45,18 @@ from bcbio.pipeline.config_loader import load_config
 LOG_NAME = os.path.splitext(os.path.basename(__file__))[0]
 log = logbook.Logger(LOG_NAME)
 
+
 def main(*args, **kwargs):
     local_config = args[0]
     post_process_config = args[1] if len(args) > 1 else None
     config = load_config(local_config)
     log_handler = create_log_handler(config, True)
     with log_handler.applicationbound():
-        search_for_new(config, 
-                       local_config, 
-                       post_process_config, 
+        search_for_new(config,
+                       local_config,
+                       post_process_config,
                        **kwargs)
+
 
 def search_for_new(*args, **kwargs):
     """Search for any new unreported directories.
@@ -206,7 +208,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     # Wait until all running processes have finished
     while len([p for p in procs if p[0].poll() is None]) > 0:
         time.sleep(60)
-    
+
     # Parse all metricfiles into one list of dicts
     logger2.info("Merging lane metrics into one flowcell metric")
     metrics = []
@@ -214,7 +216,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     for p in procs:
         # Close the filehandle
         p[1].close()
-        
+
         # Parse the output into a dict using a DictReader
         with open(p[2]) as fh:
             c = csv.DictReader(fh, dialect=csv.excel_tab)
@@ -223,16 +225,17 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
                 metrics.append(row)
         # Remove the metricfile
         os.unlink(p[2])
-    
+
     # Write the metrics to one output file
-    metricfile = os.path.join(fc_dir,"Unaligned","Basecall_Stats_{}".format(fc_dir.split("_")[-1][1:]),"Undemultiplexed_stats.metrics")
-    with open(metricfile,"w") as fh:
-        w = csv.DictWriter(fh,fieldnames=header,dialect=csv.excel_tab)
+    metricfile = os.path.join(fc_dir, "Unaligned", "Basecall_Stats_{}".format(fc_dir.split("_")[-1][1:]), "Undemultiplexed_stats.metrics")
+    with open(metricfile, "w") as fh:
+        w = csv.DictWriter(fh, fieldnames=header, dialect=csv.excel_tab)
         w.writeheader()
         w.writerows(metrics)
-    
+
     logger2.info("Undemultiplexed metrics written to {:s}".format(metricfile))
     return metricfile
+
 
 def _post_process_run(dname, config, config_file, post_config_file, fastq_dir,
                       fetch_msg, process_msg, store_msg, backup_msg):
@@ -686,9 +689,10 @@ def _get_directories(config):
     for directory in config["dump_directories"]:
         for fpath in sorted(os.listdir(directory)):
             m = re.match("\d{6}_[A-Za-z0-9]+_\d+_[AB]?[A-Z0-9\-]+", fpath)
-            if not os.path.isdir(os.path.join(directory,fpath)) or m is None:
+            if not os.path.isdir(os.path.join(directory, fpath)) or m is None:
                 continue
-            yield os.path.join(directory,fpath)
+            yield os.path.join(directory, fpath)
+
 
 def _update_reported(msg_db, new_dname):
     """Add a new directory to the database of reported messages.
@@ -747,7 +751,7 @@ if __name__ == "__main__":
             action="store_true", default=False)
 
     (options, args) = parser.parse_args()
-    
+
     # Option --miseq implies --noprocess, --nostore, --nofastq, --noqseq
     if options.miseq:
         options.fetch_msg = False
