@@ -59,11 +59,7 @@ def _copy_from_sequencer(remote_info, config):
         c_keyfile = config["analysis"].get("copy_keyfile", None)
         with fabric.settings(host_string=c_host_str, key_filename=c_keyfile):
             base_dir = config["store_dir"]
-            try:
-                protocol = config["transfer_protocol"]
-            except KeyError:
-                protocol = None
-                pass
+            protocol = config.get("transfer_protocol", None)
 
             fc_dir = remote_copy(remote_info, base_dir, protocol)
 
