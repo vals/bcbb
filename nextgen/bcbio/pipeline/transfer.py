@@ -2,11 +2,8 @@
 """
 import os
 
-try:
-    import fabric.api as fabric
-    import fabric.contrib.files as fabric_files
-except ImportError:
-    fabric, fabric_files = (None, None)
+import fabric.api as fabric
+import fabric.contrib.files as fabric_files
 
 from bcbio.log import logger2 as logger
 
