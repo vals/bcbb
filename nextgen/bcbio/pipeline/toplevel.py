@@ -20,6 +20,16 @@ from bcbio.pipeline.transfer import remote_copy
 from bcbio.pipeline.config_loader import load_config
 
 
+def analyze(remote_info, config_file):
+    """Starts analysis of data that have been pushed to analysis location
+    """
+    config = load_config(config_file)
+    fc_dir = remote_info["store_dir"]
+    analysis_dir = _run_analysis(fc_dir, remote_info, config, config_file)
+    _upload_to_galaxy(fc_dir, analysis_dir, remote_info,
+                          config, config_file)
+
+
 def analyze_and_upload(remote_info, config_file):
     """Main entry point for analysis and upload to Galaxy.
     """
