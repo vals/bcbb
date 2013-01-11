@@ -49,12 +49,13 @@ log = logbook.Logger(LOG_NAME)
 def main(*args, **kwargs):
     local_config = args[0]
     post_process_config = args[1] if len(args) > 1 else None
+    kwargs["post_process_config"] = post_process_config
     config = load_config(local_config)
+    
     log_handler = create_log_handler(config, True)
     with log_handler.applicationbound():
         search_for_new(config,
                        local_config,
-                       post_process_config,
                        **kwargs)
 
 
@@ -92,7 +93,6 @@ def initial_processing(*args, **kwargs):
     
     # Upload the necessary files
     loc_args = args + (None, )
-    #import pdb; pdb.set_trace()
     _post_process_run(*loc_args, **{"fetch_msg": True,
                                     "process_msg": False,
                                     "store_msg": kwargs.get("store_msg",False),
@@ -804,17 +804,25 @@ if __name__ == "__main__":
         options.qseq = False
         options.casava = False
 
-    kwargs = dict(fetch_msg=options.fetch_msg, process_msg=options.process_msg,
-                  store_msg=options.store_msg, backup_msg=options.backup_msg, fastq=options.fastq,
-                  qseq=options.qseq, remove_qseq=options.remove_qseq, compress_fastq=options.compress_fastq, casava=options.casava)
+    kwargs = {"fetch_msg": options.fetch_msg, \
+              "process_msg": options.process_msg, \
+              "store_msg": options.store_msg, \
+              "backup_msg": options.backup_msg, \
+              "fastq": options.fastq, \
+              "qseq": options.qseq, \
+              "remove_qseq": options.remove_qseq,
+              "compress_fastq": options.compress_fastq, \
+              "casava": options.casava}
 
     main(*args, **kwargs)
+
 
 ### Tests ###
 
 import unittest
 import shutil
 import tempfile
+
 
 class TestCheckpoints(unittest.TestCase):
     
