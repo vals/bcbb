@@ -237,14 +237,26 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     return metricfile
 
 
-def _post_process_run(dname, config, config_file, post_config_file, fastq_dir,
-                      fetch_msg, process_msg, store_msg, backup_msg):
+def _post_process_run(dname, config, config_file, fastq_dir, **kwargs):
     """With a finished directory, send out message or process directly.
     """
-    run_module = "bcbio.distributed.tasks"
+    post_config_file = kwargs.get("post_config_file", None)
+
     # without a configuration file, send out message for processing
     if post_config_file is None:
+        push_data = kwargs.get("push_data", False)
+        fetch_msg = kwargs.get("fetch_msg", False)
+        process_msg = kwargs.get("process_msg", False)
+        store_msg = kwargs.get("store_msg", False)
+        backup_msg = kwargs.get("backup_msg", False)
+
+        run_module = "bcbio.distributed.tasks"
         store_files, process_files, backup_files = _files_to_copy(dname)
+
+        if push_data:
+            data = {"directory": dname, "to_copy": process_files}
+            simple_upload(config, data)
+
         if process_msg:
             finished_message("analyze_and_upload", run_module, dname,
                              process_files, config, config_file)
@@ -258,6 +270,7 @@ def _post_process_run(dname, config, config_file, post_config_file, fastq_dir,
         if backup_msg:
             finished_message("backup_data", run_module, dname,
                              backup_files, config, config_file)
+
     # otherwise process locally
     else:
         analyze_locally(dname, post_config_file, fastq_dir)
@@ -1071,7 +1084,3 @@ class TestCheckpoints(unittest.TestCase):
         obs_dirs = [d for d in _get_directories(config)]
         self.assertListEqual(sorted(exp_dirs),sorted(obs_dirs),
                               "Should pick up matching directory - miseq-style")
-        
-        
-        
-         
