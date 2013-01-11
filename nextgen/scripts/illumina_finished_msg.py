@@ -51,12 +51,10 @@ def main(*args, **kwargs):
     post_process_config = args[1] if len(args) > 1 else None
     kwargs["post_process_config"] = post_process_config
     config = load_config(local_config)
-    
+
     log_handler = create_log_handler(config, True)
     with log_handler.applicationbound():
-        search_for_new(config,
-                       local_config,
-                       **kwargs)
+        search_for_new(config, local_config, **kwargs)
 
 
 def search_for_new(*args, **kwargs):
@@ -78,28 +76,29 @@ def search_for_new(*args, **kwargs):
                     process_second_read(dname, *args, **kwargs)
                 else:
                     pass
-                                
+
                 # Re-read the reported database to make sure it hasn't
                 # changed while processing.
                 reported = _read_reported(config["msg_db"])
 
+
 def initial_processing(*args, **kwargs):
     """Initial processing to be performed after the first base report
     """
-    
     dname = args[0]
     # Touch the indicator flag that processing of read1 has been started
-    utils.touch_indicator_file(os.path.join(dname,"initial_processing_started.txt"))
-    
+    utils.touch_indicator_file(os.path.join(dname, "initial_processing_started.txt"))
+
     # Upload the necessary files
     loc_args = args + (None, )
     _post_process_run(*loc_args, **{"fetch_msg": True,
                                     "process_msg": False,
-                                    "store_msg": kwargs.get("store_msg",False),
+                                    "store_msg": kwargs.get("store_msg", False),
                                     "backup_msg": False})
-    
+
     # Touch the indicator flag that processing of read1 has been completed
-    utils.touch_indicator_file(os.path.join(dname,"initial_processing_completed.txt"))
+    utils.touch_indicator_file(os.path.join(dname, "initial_processing_completed.txt"))
+
 
 def process_first_read(*args, **kwargs):
     """Processing to be performed after the first read and the index reads
@@ -810,7 +809,7 @@ if __name__ == "__main__":
               "backup_msg": options.backup_msg, \
               "fastq": options.fastq, \
               "qseq": options.qseq, \
-              "remove_qseq": options.remove_qseq,
+              "remove_qseq": options.remove_qseq, \
               "compress_fastq": options.compress_fastq, \
               "casava": options.casava}
 
@@ -824,29 +823,47 @@ import shutil
 import tempfile
 
 
+class TestCallsTo_post_process_run(unittest.TestCase):
+    def setUp(self):
+        self.kwargs = {"fetch_msg": None, \
+                       "process_msg": None, \
+                       "store_msg": None, \
+                       "backup_msg": None, \
+                       "fastq": None, \
+                       "qseq": None, \
+                       "remove_qseq": None, \
+                       "compress_fastq": None, \
+                       "casava": None, \
+                       "post_process_config": None}
+
+    def test_call_in_initial_processing(self):
+        args = ["", None, ""]  # [dname, config, local_config]
+        self.assertRaises(OSError, initial_processing, *args, **self.kwargs)
+
+
 class TestCheckpoints(unittest.TestCase):
-    
     def setUp(self):
         self.rootdir = tempfile.mkdtemp(prefix="ifm_test_checkpoints_", dir=self.basedir)
+
     def tearDown(self):
         shutil.rmtree(self.rootdir)
-        
+
     @classmethod
     def _runinfo(cls, outfile, bases_mask="Y101,I7,Y101"):
         """Return an xml string representing the contents of a RunInfo.xml
         file with the specified read configuration
         """
         root = ET.Element("RunInfo")
-        run = ET.Element("Run",attrib={"Id": "120924_SN0002_0003_CC003CCCXX",
-                                       "Number": "1"})
+        run = ET.Element("Run", attrib={"Id": "120924_SN0002_0003_CC003CCCXX",
+                                        "Number": "1"})
         root.append(run)
         run.append(ET.Element("Flowcell", text="C003CCCXX"))
         run.append(ET.Element("Instrument", text="SN0002"))
         run.append(ET.Element("Date", text="120924"))
-        
+
         reads = ET.Element("Reads")
-        for n,r in enumerate(bases_mask.split(",")):
-            reads.append(ET.Element("Read", attrib={"Number": str(n+1),
+        for n, r in enumerate(bases_mask.split(",")):
+            reads.append(ET.Element("Read", attrib={"Number": str(n + 1),
                                                     "NumCycles": r[1:],
                                                     "IsIndexedRead": "Y" if r[0] == "I" else "N"}))
         run.append(reads)
