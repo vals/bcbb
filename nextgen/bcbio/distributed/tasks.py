@@ -20,7 +20,21 @@ import celeryconfig
 @task(queue="google_docs")
 def create_report_on_gdocs(*args):
     [fc_date, fc_name, run_info_yaml, dirs, config] = args
-    return sequencing_report.create_report_on_gdocs(fc_date,fc_name,run_info_yaml,dirs,config)
+    return sequencing_report.create_report_on_gdocs(fc_date, fc_name, run_info_yaml, dirs, config)
+
+
+@task(ignore_results=True, queue="toplevel")
+def analyze(*args):
+    """Run full analysis and upload results to Galaxy instance without first
+    fetching data from the sequencer machine.
+
+    Workers need to run on the machine with Galaxy installed for upload,
+    but the actual processing can be distributed to multiple nodes.
+    """
+    config_file = celeryconfig.BCBIO_CONFIG_FILE
+    remote_info = args[0]
+    toplevel.analyze(remote_info, config_file)
+
 
 @task(ignore_results=True, queue="toplevel")
 def analyze_and_upload(*args):
