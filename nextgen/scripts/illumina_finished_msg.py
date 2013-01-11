@@ -104,82 +104,82 @@ def process_first_read(*args, **kwargs):
     """Processing to be performed after the first read and the index reads
     have been sequenced
     """
-    
     dname, config = args[0:2]
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
-    if kwargs.get("casava",False):
+    if kwargs.get("casava", False):
         logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
-        
+
+        print(args)
         # Touch the indicator flag that processing of read1 has been started
-        utils.touch_indicator_file(os.path.join(dname,"first_read_processing_started.txt"))
+        utils.touch_indicator_file(os.path.join(dname, "first_read_processing_started.txt"))
         unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
         logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
-        
+
         # Extract the top barcodes from the undemultiplexed fraction
-        if config["program"].get("extract_barcodes",None):
-            extract_top_undetermined_indexes(dname,
-                                             unaligned_dir,
-                                             config)
-            
+        if config["program"].get("extract_barcodes", None):
+            extract_top_undetermined_indexes(dname, unaligned_dir, config)
+
         loc_args = args + (unaligned_dir,)
         _post_process_run(*loc_args, **{"fetch_msg": True,
                                         "process_msg": False,
-                                        "store_msg": kwargs.get("store_msg",False),
+                                        "store_msg": kwargs.get("store_msg", False),
                                         "backup_msg": False})
-        
+
         # Touch the indicator flag that processing of read1 has been completed
-        utils.touch_indicator_file(os.path.join(dname,"first_read_processing_completed.txt"))
-        
+        utils.touch_indicator_file(os.path.join(dname, "first_read_processing_completed.txt"))
+
+
 def process_second_read(*args, **kwargs):
     """Processing to be performed after all reads have been sequences
     """
     dname, config = args[0:2]
+    print(args)
     logger2.info("The instrument has finished dumping on directory %s" % dname)
-    
-    utils.touch_indicator_file(os.path.join(dname,"second_read_processing_started.txt"))
+
+    utils.touch_indicator_file(os.path.join(dname, "second_read_processing_started.txt"))
     _update_reported(config["msg_db"], dname)
     fastq_dir = None
-    
+
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
-    if kwargs.get("casava",False):
+    if kwargs.get("casava", False):
         logger2.info("Generating fastq.gz files for {:s}".format(dname))
         _generate_fastq_with_casava(dname, config)
     else:
         _process_samplesheets(dname, config)
-        if kwargs.get("qseq",True):
+        if kwargs.get("qseq", True):
             logger2.info("Generating qseq files for {:s}".format(dname))
             _generate_qseq(get_qseq_dir(dname), config)
-            
-        if kwargs.get("fastq",True):
+
+        if kwargs.get("fastq", True):
             logger2.info("Generating fastq files for {:s}".format(dname))
             fastq_dir = _generate_fastq(dname, config)
-            if kwargs.get("remove_qseq",False):
+            if kwargs.get("remove_qseq", False):
                 _clean_qseq(get_qseq_dir(dname), fastq_dir)
             _calculate_md5(fastq_dir)
-            
+
     # Call the post_processing method
     loc_args = args + (fastq_dir,)
-    _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg",True),
-                                    "process_msg": kwargs.get("process_msg",True),
-                                    "store_msg": kwargs.get("store_msg",True),
-                                    "backup_msg": kwargs.get("backup_msg",False)})
+    _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg", True),
+                                    "process_msg": kwargs.get("process_msg", True),
+                                    "store_msg": kwargs.get("store_msg", True),
+                                    "backup_msg": kwargs.get("backup_msg", False)})
 
     # Update the reported database after successful processing
     _update_reported(config["msg_db"], dname)
-    utils.touch_indicator_file(os.path.join(dname,"second_read_processing_completed.txt"))
+    utils.touch_indicator_file(os.path.join(dname, "second_read_processing_completed.txt"))
+
 
 def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
     """Extract the top N=25 barcodes from the undetermined indices output
     """
-    
     infile_glob = os.path.join(unaligned_dir, "Undetermined_indices", "Sample_lane*", "*_R1_*.fastq.gz")
     infiles = glob.glob(infile_glob)
-    
-    # Only run as many simultaneous processes as number of cores specified in config        
+
+    # Only run as many simultaneous processes as number of cores specified in config
     procs = []
     num_cores = config["algorithm"].get("num_cores", 1)
-    
-    # Iterate over the infiles and process each one        
+
+    # Iterate over the infiles and process each one
     while len(infiles) > 0:
         # Wait one minute if we are already using the maximum amount of cores
         if len([p for p in procs if p[0].poll() is None]) == num_cores:
@@ -187,23 +187,23 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
         else:
             infile = infiles.pop()
             fname = os.path.basename(infile)
-    
+
             # Parse the lane number from the filename
-            m = re.search(r'_L0*(\d+)_',fname)
+            m = re.search(r'_L0*(\d+)_', fname)
             if len(m.groups()) == 0:
-                raise ValueError("Could not determine lane from filename {:s}".format(fname)) 
+                raise ValueError("Could not determine lane from filename {:s}".format(fname))
             lane = m.group(1)
-            
+
             # Open a subprocess for the extraction, writing output and errors to a metric file
             logger2.info("Extracting top indexes from lane {:s}".format(lane))
-            metricfile = os.path.join(fc_dir,fname.replace("fastq.gz",
-                                                           "undetermined_indices_metrics"))
-            fh = open(metricfile,"w")
+            metricfile = os.path.join(fc_dir, fname.replace("fastq.gz",
+                                                            "undetermined_indices_metrics"))
+            fh = open(metricfile, "w")
             cl = [config["program"]["extract_barcodes"], infile, lane,
                   '--nindex', 10]
-            p = subprocess.Popen([str(c) for c in cl],stdout=fh,stderr=fh)
-            procs.append([p,fh,metricfile])
-    
+            p = subprocess.Popen([str(c) for c in cl], stdout=fh, stderr=fh)
+            procs.append([p, fh, metricfile])
+
     # Wait until all running processes have finished
     while len([p for p in procs if p[0].poll() is None]) > 0:
         time.sleep(60)
@@ -839,6 +839,10 @@ class TestCallsTo_post_process_run(unittest.TestCase):
     def test_call_in_initial_processing(self):
         args = ["", None, ""]  # [dname, config, local_config]
         self.assertRaises(OSError, initial_processing, *args, **self.kwargs)
+
+    def test_call_as_in_process_first_read(self):
+        args = ["", None, "", ""] # [dname, config, local_config, unaligned_dir]
+        self.assertRaises(OSError, _post_process_run, *args, **self.kwargs)
 
 
 class TestCheckpoints(unittest.TestCase):
