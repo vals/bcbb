@@ -256,6 +256,10 @@ def _post_process_run(dname, config, config_file, fastq_dir, **kwargs):
             data = {"directory": dname, "to_copy": process_files}
             simple_upload(config, data)
 
+        if push_data and process_msg:
+            finished_message("analyze", run_module, dname,
+                             process_files, config, config_file)
+
         if process_msg:
             finished_message("analyze_and_upload", run_module, dname,
                              process_files, config, config_file)
@@ -289,7 +293,8 @@ def simple_upload(remote_info, data):
     cl = ["rsync", \
           "--checksum", \
           "--archive", \
-          "--partial", "--progress", \
+          "--partial", \
+          "--progress", \
           "--prune-empty-dirs", \
           # file / dir inclusion specification
           "--include='*/'", \
