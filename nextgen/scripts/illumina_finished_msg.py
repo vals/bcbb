@@ -795,6 +795,8 @@ if __name__ == "__main__":
             action="store_true", default=False)
     parser.add_option("-m", "--miseq", dest="miseq",
             action="store_true", default=False)
+    parser.add_option("--push_data", dest="push_data",
+            action="store_true", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -816,7 +818,8 @@ if __name__ == "__main__":
               "qseq": options.qseq, \
               "remove_qseq": options.remove_qseq, \
               "compress_fastq": options.compress_fastq, \
-              "casava": options.casava}
+              "casava": options.casava, \
+              "push_data": options.push_data}
 
     main(*args, **kwargs)
 
