@@ -64,16 +64,23 @@ def search_for_new(*args, **kwargs):
     reported = _read_reported(config["msg_db"])
     for dname in _get_directories(config):
         if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
+
             # Injects run_name on logging calls.
             # Convenient for run_name on "Subject" for email notifications
-            run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
+            def run_setter(record):
+                return record.extra.__setitem__('run', os.path.basename(dname))
+
             with logbook.Processor(run_setter):
                 if _do_initial_processing(dname):
                     initial_processing(dname, *args, **kwargs)
+
                 elif _do_first_read_processing(dname):
+                    print("sdfds")
                     process_first_read(dname, *args, **kwargs)
+
                 elif _do_second_read_processing(dname):
                     process_second_read(dname, *args, **kwargs)
+
                 else:
                     pass
 
@@ -109,7 +116,6 @@ def process_first_read(*args, **kwargs):
     if kwargs.get("casava", False):
         logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
 
-        print(args)
         # Touch the indicator flag that processing of read1 has been started
         utils.touch_indicator_file(os.path.join(dname, "first_read_processing_started.txt"))
         unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
@@ -123,7 +129,8 @@ def process_first_read(*args, **kwargs):
         _post_process_run(*loc_args, **{"fetch_msg": True,
                                         "process_msg": False,
                                         "store_msg": kwargs.get("store_msg", False),
-                                        "backup_msg": False})
+                                        "backup_msg": False,
+                                        "push_data": kwargs.get("push_data", False)})
 
         # Touch the indicator flag that processing of read1 has been completed
         utils.touch_indicator_file(os.path.join(dname, "first_read_processing_completed.txt"))
@@ -519,24 +526,25 @@ def _is_finished_dumping(directory):
     single or paired end run.
     """
     # Check final output files; handles both HiSeq, MiSeq and GAII
-                        
+
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
                 "Basecalling_Netcopy_complete_READ2.txt"]
-    
+
     # Bugfix: On case-isensitive filesystems (e.g. MacOSX), the READ2-check will return true
     # http://stackoverflow.com/questions/6710511/case-sensitive-path-comparison-in-python
     for fname in os.listdir(directory):
         if fname in to_check:
             return True
-    
-    return _is_finished_basecalling_read(directory,_expected_reads(directory))
+
+    return _is_finished_basecalling_read(directory, _expected_reads(directory))
 
 
 def _is_finished_first_base_report(directory):
     """Determine if the first base report has been generated
-    """ 
-    return os.path.exists(os.path.join(directory, 
+    """
+    return os.path.exists(os.path.join(directory,
                                        "First_Base_Report.htm"))
+
 
 def _is_started_initial_processing(directory):
     """Determine if initial processing has been started
@@ -544,41 +552,48 @@ def _is_started_initial_processing(directory):
     return os.path.exists(os.path.join(directory,
                                        "initial_processing_started.txt"))
 
+
 def _is_initial_processing(directory):
     """Determine if initial processing is in progress
     """
-    return (_is_started_initial_processing(directory) and 
+    return (_is_started_initial_processing(directory) and
             not os.path.exists(os.path.join(directory,
                                             "initial_processing_completed.txt")))
-    
+
+
 def _is_started_first_read_processing(directory):
     """Determine if processing of first read has been started
     """
     return os.path.exists(os.path.join(directory,
                                        "first_read_processing_started.txt"))
 
+
 def _is_processing_first_read(directory):
     """Determine if processing of first read is in progress
     """
-    return (_is_started_first_read_processing(directory) and 
+    return (_is_started_first_read_processing(directory) and
             not os.path.exists(os.path.join(directory,
                                             "first_read_processing_completed.txt")))
-    
+
+
 def _is_started_second_read_processing(directory):
     """Determine if processing of second read of the pair has been started
     """
     return os.path.exists(os.path.join(directory,
                                        "second_read_processing_started.txt"))
-  
+
+
 def _is_finished_basecalling_read(directory, readno):
     """
-    Determine if a given read has finished being basecalled. Raises a ValueError if 
+    Determine if a given read has finished being basecalled. Raises a ValueError if
     the run is not configured to produce the read
-    """ 
+    """
     if readno < 1 or readno > _expected_reads(directory):
         raise ValueError("The run will not produce a Read{:d}".format(readno))
-    return os.path.exists(os.path.join(directory, 
+
+    return os.path.exists(os.path.join(directory,
                                        "Basecalling_Netcopy_complete_Read{:d}.txt".format(readno)))
+
 
 def _do_initial_processing(directory):
     """Determine if the initial processing actions should be run
@@ -586,15 +601,24 @@ def _do_initial_processing(directory):
     return (_is_finished_first_base_report(directory) and
             not _is_started_initial_processing(directory))
 
+
 def _do_first_read_processing(directory):
     """Determine if the processing of the first read should be run
     """
     # If run is not indexed, the first read itself is the highest number
-    read = max(1,_last_index_read(directory))
+    read = max(1, _last_index_read(directory))
+
+    # DEBUG
+    print(read)
+    print(_is_finished_basecalling_read(directory, read))
+    print(not _is_initial_processing(directory))
+    print(not _is_started_first_read_processing(directory))
+
     # FIXME: Handle a case where the index reads are the first to be read
-    return (_is_finished_basecalling_read(directory,read) and
+    return (_is_finished_basecalling_read(directory, read) and
             not _is_initial_processing(directory) and
             not _is_started_first_read_processing(directory))
+
 
 def _do_second_read_processing(directory):
     """Determine if the processing of the second read of the pair should be run
@@ -603,17 +627,20 @@ def _do_second_read_processing(directory):
             not _is_initial_processing(directory) and
             not _is_processing_first_read(directory) and
             not _is_started_second_read_processing(directory))
-    
+
+
 def _last_index_read(directory):
     """Parse the number of the highest index read from the RunInfo.xml
     """
-    read_numbers = [int(read.get("Number",0)) for read in _get_read_configuration(directory) if read.get("IsIndexedRead","") == "Y"]
+    read_numbers = [int(read.get("Number", 0)) for read in _get_read_configuration(directory) if read.get("IsIndexedRead", "") == "Y"]
     return 0 if len(read_numbers) == 0 else max(read_numbers)
-    
+
+
 def _expected_reads(directory):
     """Parse the number of expected reads from the RunInfo.xml file.
     """
     return len(_get_read_configuration(directory))
+
 
 def _is_finished_dumping_checkpoint(directory):
     """Recent versions of RTA (1.10 or better), write the complete file.
@@ -633,6 +660,7 @@ def _is_finished_dumping_checkpoint(directory):
             if ((v1 > check_v1) or (v1 == check_v1 and v2 >= check_v2)):
                 return True
 
+
 def _get_read_configuration(directory):
     """Parse the RunInfo.xml w.r.t. read configuration and return a list of dicts
     """
@@ -643,8 +671,9 @@ def _get_read_configuration(directory):
         tree.parse(run_info_file)
         read_elem = tree.find("Run/Reads")
         for read in read_elem:
-            reads.append(dict(zip(read.keys(),[read.get(k) for k in read.keys()])))
-    return sorted(reads, key=lambda r: int(r.get("Number",0)))
+            reads.append(dict(zip(read.keys(), [read.get(k) for k in read.keys()])))
+    return sorted(reads, key=lambda r: int(r.get("Number", 0)))
+
 
 def _get_bases_mask(directory):
     """Get the base mask to use with Casava based on the run configuration
@@ -849,7 +878,7 @@ class TestCallsTo_post_process_run(unittest.TestCase):
         self.assertRaises(OSError, initial_processing, *args, **self.kwargs)
 
     def test_call_as_in_process_first_read(self):
-        args = ["", None, "", ""] # [dname, config, local_config, unaligned_dir]
+        args = ["", None, "", ""]  # [dname, config, local_config, unaligned_dir]
         self.assertRaises(OSError, _post_process_run, *args, **self.kwargs)
 
 
