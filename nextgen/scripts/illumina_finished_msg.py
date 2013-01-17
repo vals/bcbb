@@ -66,14 +66,19 @@ def search_for_new(*args, **kwargs):
         if os.path.isdir(dname) and not any(dir.startswith(dname) for dir in reported):
             # Injects run_name on logging calls.
             # Convenient for run_name on "Subject" for email notifications
-            run_setter = lambda record: record.extra.__setitem__('run', os.path.basename(dname))
+            def run_setter(record):
+                return record.extra.__setitem__('run', os.path.basename(dname))
+
             with logbook.Processor(run_setter):
                 if _do_initial_processing(dname):
                     initial_processing(dname, *args, **kwargs)
+
                 elif _do_first_read_processing(dname):
                     process_first_read(dname, *args, **kwargs)
+
                 elif _do_second_read_processing(dname):
                     process_second_read(dname, *args, **kwargs)
+
                 else:
                     pass
 
@@ -107,23 +112,25 @@ def process_first_read(*args, **kwargs):
     dname, config = args[0:2]
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
     if kwargs.get("casava", False):
-        logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
+        if not kwargs.get("no_casava_processing", False):
+            logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
 
-        print(args)
-        # Touch the indicator flag that processing of read1 has been started
-        utils.touch_indicator_file(os.path.join(dname, "first_read_processing_started.txt"))
-        unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
-        logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
+            # Touch the indicator flag that processing of read1 has been started
+            utils.touch_indicator_file(os.path.join(dname, "first_read_processing_started.txt"))
+            unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
+            logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
 
-        # Extract the top barcodes from the undemultiplexed fraction
-        if config["program"].get("extract_barcodes", None):
-            extract_top_undetermined_indexes(dname, unaligned_dir, config)
+            # Extract the top barcodes from the undemultiplexed fraction
+            if config["program"].get("extract_barcodes", None):
+                extract_top_undetermined_indexes(dname, unaligned_dir, config)
 
+        unaligned_dir = os.path.join(dname, "Unaligned")
         loc_args = args + (unaligned_dir,)
-        _post_process_run(*loc_args, **{"fetch_msg": True,
+        _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg", True),
                                         "process_msg": False,
                                         "store_msg": kwargs.get("store_msg", False),
-                                        "backup_msg": False})
+                                        "backup_msg": False,
+                                        "push_data": kwargs.get("push_data", False)})
 
         # Touch the indicator flag that processing of read1 has been completed
         utils.touch_indicator_file(os.path.join(dname, "first_read_processing_completed.txt"))
@@ -133,7 +140,6 @@ def process_second_read(*args, **kwargs):
     """Processing to be performed after all reads have been sequences
     """
     dname, config = args[0:2]
-    print(args)
     logger2.info("The instrument has finished dumping on directory %s" % dname)
 
     utils.touch_indicator_file(os.path.join(dname, "second_read_processing_started.txt"))
@@ -142,8 +148,10 @@ def process_second_read(*args, **kwargs):
 
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
     if kwargs.get("casava", False):
-        logger2.info("Generating fastq.gz files for {:s}".format(dname))
-        _generate_fastq_with_casava(dname, config)
+        if not kwargs.get("no_casava_processing", False):
+            logger2.info("Generating fastq.gz files for {:s}".format(dname))
+            _generate_fastq_with_casava(dname, config)
+
     else:
         _process_samplesheets(dname, config)
         if kwargs.get("qseq", True):
@@ -155,6 +163,7 @@ def process_second_read(*args, **kwargs):
             fastq_dir = _generate_fastq(dname, config)
             if kwargs.get("remove_qseq", False):
                 _clean_qseq(get_qseq_dir(dname), fastq_dir)
+
             _calculate_md5(fastq_dir)
 
     # Call the post_processing method
@@ -162,7 +171,8 @@ def process_second_read(*args, **kwargs):
     _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg", True),
                                     "process_msg": kwargs.get("process_msg", True),
                                     "store_msg": kwargs.get("store_msg", True),
-                                    "backup_msg": kwargs.get("backup_msg", False)})
+                                    "backup_msg": kwargs.get("backup_msg", False),
+                                    "push_data": kwargs.get("push_data", False)})
 
     # Update the reported database after successful processing
     _update_reported(config["msg_db"], dname)
@@ -184,6 +194,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
         # Wait one minute if we are already using the maximum amount of cores
         if len([p for p in procs if p[0].poll() is None]) == num_cores:
             time.sleep(60)
+
         else:
             infile = infiles.pop()
             fname = os.path.basename(infile)
@@ -192,6 +203,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
             m = re.search(r'_L0*(\d+)_', fname)
             if len(m.groups()) == 0:
                 raise ValueError("Could not determine lane from filename {:s}".format(fname))
+
             lane = m.group(1)
 
             # Open a subprocess for the extraction, writing output and errors to a metric file
@@ -257,10 +269,11 @@ def _post_process_run(dname, config, config_file, fastq_dir, **kwargs):
             simple_upload(config, data)
 
         if push_data and process_msg:
+            config["pushed"] = True
             finished_message("analyze", run_module, dname,
-                             process_files, config, config_file)
+                             process_files, config, config_file, pushed=True)
 
-        if process_msg:
+        if process_msg and not push_data:
             finished_message("analyze_and_upload", run_module, dname,
                              process_files, config, config_file)
         elif fetch_msg:
@@ -284,8 +297,8 @@ def simple_upload(remote_info, data):
     """
     include = []
     for fcopy in data['to_copy']:
-        include.append("--include='{}**/*'".format(fcopy))
-        include.append("--include='{}'".format(fcopy))
+        include.extend(["--include", "{}**/*".format(fcopy)])
+        include.append("--include={}".format(fcopy))
         # By including both these patterns we get the entire directory
         # if a directory is given, or a single file if a single file is
         # given.
@@ -295,16 +308,21 @@ def simple_upload(remote_info, data):
           "--archive", \
           "--partial", \
           "--progress", \
-          "--prune-empty-dirs", \
-          # file / dir inclusion specification
-          "--include='*/'", \
-          " ".join(include), \
-          "--exclude='*'", \
+          "--prune-empty-dirs"
+          ]
+
+    # file / dir inclusion specification
+    cl.extend(["--include", "*/"])
+    cl.extend(include)
+    cl.extend(["--exclude", "*"])
+
+    # source and target
+    cl.extend([
           # source
           data["directory"], \
           # target
           "{store_user}@{store_host}:{store_dir}".format(**remote_info)
-         ]
+         ])
 
     subprocess.check_call(cl)
 
@@ -349,26 +367,33 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
     num_mismatches = config["algorithm"].get("mismatches", 1)
     num_cores = config["algorithm"].get("num_cores", 1)
-    im_stats = config["algorithm"].get("ignore-missing-stats",False)
-    im_bcl = config["algorithm"].get("ignore-missing-bcl",False)
-    im_control = config["algorithm"].get("ignore-missing-control",False)
-    
+    im_stats = config["algorithm"].get("ignore-missing-stats", False)
+    im_bcl = config["algorithm"].get("ignore-missing-bcl", False)
+    im_control = config["algorithm"].get("ignore-missing-control", False)
+
     # Write to log files
-    configure_out = os.path.join(fc_dir,"configureBclToFastq.out")
-    configure_err = os.path.join(fc_dir,"configureBclToFastq.err")
-    casava_out = os.path.join(fc_dir,"bclToFastq_R{:d}.out".format(2-int(r1)))
-    casava_err = os.path.join(fc_dir,"bclToFastq_R{:d}.err".format(2-int(r1)))
+    configure_out = os.path.join(fc_dir, "configureBclToFastq.out")
+    configure_err = os.path.join(fc_dir, "configureBclToFastq.err")
+    casava_out = os.path.join(fc_dir, "bclToFastq_R{:d}.out".format(2 - int(r1)))
+    casava_err = os.path.join(fc_dir, "bclToFastq_R{:d}.err".format(2 - int(r1)))
 
     cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
     cl.extend(["--input-dir", basecall_dir])
     cl.extend(["--output-dir", unaligned_dir])
     cl.extend(["--mismatches", str(num_mismatches)])
     cl.extend(["--fastq-cluster-count", "0"])
-    if samplesheet_file is not None: cl.extend(["--sample-sheet", samplesheet_file])
-    if im_stats: cl.append("--ignore-missing-stats")
-    if im_bcl: cl.append("--ignore-missing-bcl")
-    if im_control: cl.append("--ignore-missing-control")
-    
+    if samplesheet_file is not None:
+        cl.extend(["--sample-sheet", samplesheet_file])
+
+    if im_stats:
+        cl.append("--ignore-missing-stats")
+
+    if im_bcl:
+        cl.append("--ignore-missing-bcl")
+
+    if im_control:
+        cl.append("--ignore-missing-control")
+
     bm = _get_bases_mask(fc_dir)
     if bm is not None:
         cl.extend(["--use-bases-mask", bm])
@@ -377,11 +402,11 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         # Run configuration script
         logger2.info("Configuring BCL to Fastq conversion")
         logger2.debug(cl)
-        
-        co = open(configure_out,'w')
-        ce = open(configure_err,'w')
+
+        co = open(configure_out, 'w')
+        ce = open(configure_err, 'w')
         try:
-            subprocess.check_call(cl,stdout=co,stderr=ce)
+            subprocess.check_call(cl, stdout=co, stderr=ce)
             co.close()
             ce.close()
         except subprocess.CalledProcessError, e:
@@ -391,7 +416,7 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
                                                                                      configure_out,
                                                                                      configure_err))
             raise e
-        
+
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
         # Perform make
@@ -401,11 +426,11 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
 
         logger2.info("Demultiplexing and converting bcl to fastq.gz")
         logger2.debug(cl)
-        
-        co = open(casava_out,'w')
-        ce = open(casava_err,'w')
+
+        co = open(casava_out, 'w')
+        ce = open(casava_err, 'w')
         try:
-            subprocess.check_call(cl,stdout=co,stderr=ce)
+            subprocess.check_call(cl, stdout=co, stderr=ce)
             co.close()
             ce.close()
         except subprocess.CalledProcessError, e:
@@ -416,9 +441,10 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
                                         casava_out,
                                         casava_err))
             raise e
-            
+
     logger2.debug("Done")
     return unaligned_dir
+
 
 def _generate_fastq(fc_dir, config, compress_fastq):
     """Generate fastq files for the current flowcell.
@@ -431,7 +457,7 @@ def _generate_fastq(fc_dir, config, compress_fastq):
     if postprocess_dir:
         fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir), "fastq")
 
-    if not fastq_dir == fc_dir:# and not os.path.exists(fastq_dir):
+    if not fastq_dir == fc_dir:  # and not os.path.exists(fastq_dir):
 
         with utils.chdir(basecall_dir):
             lanes = sorted(list(set([f.split("_")[1] for f in
@@ -448,40 +474,43 @@ def _generate_fastq(fc_dir, config, compress_fastq):
 
     return fastq_dir
 
+
 def _calculate_md5(fastq_dir):
     """Calculate the md5sum for the fastq files
     """
     glob_str = "*_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
-    md5sum_file = os.path.join(fastq_dir,"md5sums.txt")
-    with open(md5sum_file,'w') as fh:
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+
+    md5sum_file = os.path.join(fastq_dir, "md5sums.txt")
+    with open(md5sum_file, 'w') as fh:
         for fastq_file in fastq_files:
             logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
-            cl = ["md5sum",fastq_file]
+            cl = ["md5sum", fastq_file]
             fh.write(subprocess.check_output(cl))
 
+
 def _clean_qseq(bc_dir, fastq_dir):
-    """Remove the temporary qseq files if the corresponding fastq file 
+    """Remove the temporary qseq files if the corresponding fastq file
        has been created
-    """    
+    """
     glob_str = "*_1_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+
     for fastq_file in fastq_files:
         try:
             lane = int(os.path.basename(fastq_file)[0])
         except ValueError:
             continue
-        
+
         logger2.debug("Removing qseq files for lane %d" % lane)
         glob_str = "s_%d_*qseq.txt" % lane
-        
+
         for qseq_file in glob.glob(os.path.join(bc_dir, glob_str)):
             try:
                 os.unlink(qseq_file)
             except:
                 logger2.debug("Could not remove %s" % qseq_file)
+
 
 def _generate_qseq(bc_dir, config):
     """Generate qseq files from illumina bcl files if not present.
@@ -519,24 +548,25 @@ def _is_finished_dumping(directory):
     single or paired end run.
     """
     # Check final output files; handles both HiSeq, MiSeq and GAII
-                        
+
     to_check = ["Basecalling_Netcopy_complete_SINGLEREAD.txt",
                 "Basecalling_Netcopy_complete_READ2.txt"]
-    
+
     # Bugfix: On case-isensitive filesystems (e.g. MacOSX), the READ2-check will return true
     # http://stackoverflow.com/questions/6710511/case-sensitive-path-comparison-in-python
     for fname in os.listdir(directory):
         if fname in to_check:
             return True
-    
-    return _is_finished_basecalling_read(directory,_expected_reads(directory))
+
+    return _is_finished_basecalling_read(directory, _expected_reads(directory))
 
 
 def _is_finished_first_base_report(directory):
     """Determine if the first base report has been generated
-    """ 
-    return os.path.exists(os.path.join(directory, 
+    """
+    return os.path.exists(os.path.join(directory,
                                        "First_Base_Report.htm"))
+
 
 def _is_started_initial_processing(directory):
     """Determine if initial processing has been started
@@ -544,13 +574,15 @@ def _is_started_initial_processing(directory):
     return os.path.exists(os.path.join(directory,
                                        "initial_processing_started.txt"))
 
+
 def _is_initial_processing(directory):
     """Determine if initial processing is in progress
     """
-    return (_is_started_initial_processing(directory) and 
+    return (_is_started_initial_processing(directory) and
             not os.path.exists(os.path.join(directory,
                                             "initial_processing_completed.txt")))
-    
+
+
 def _is_started_first_read_processing(directory):
     """Determine if processing of first read has been started
     """
@@ -580,6 +612,7 @@ def _is_finished_basecalling_read(directory, readno):
     """
     if readno < 1 or readno > _expected_reads(directory):
         raise ValueError("The run will not produce a Read{:d}".format(readno))
+
     return os.path.exists(os.path.join(directory,
                                        "Basecalling_Netcopy_complete_Read{:d}.txt".format(readno)))
 
@@ -596,6 +629,7 @@ def _do_first_read_processing(directory):
     """
     # If run is not indexed, the first read itself is the highest number
     read = max(1, _last_index_read(directory))
+
     # FIXME: Handle a case where the index reads are the first to be read
     return (_is_finished_basecalling_read(directory, read) and
             not _is_initial_processing(directory) and
@@ -642,6 +676,7 @@ def _is_finished_dumping_checkpoint(directory):
             if ((v1 > check_v1) or (v1 == check_v1 and v2 >= check_v2)):
                 return True
 
+
 def _get_read_configuration(directory):
     """Parse the RunInfo.xml w.r.t. read configuration and return a list of dicts
     """
@@ -669,6 +704,7 @@ def _get_bases_mask(directory):
         (runsetup[1]["NumCycles"] == "7" and runsetup[1]["IsIndexedRead"] == "Y") and
         (runsetup[2]["NumCycles"] == "101" and runsetup[2]["IsIndexedRead"] == "N")):
         return "Y101,I6n,Y101"
+
     # Case 2: 2x101 PE, dual indexing
     if (len(runsetup) == 4 and
         (runsetup[0]["NumCycles"] == "101" and runsetup[0]["IsIndexedRead"] == "N") and
@@ -766,7 +802,7 @@ def _update_reported(msg_db, new_dname):
 
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
-                     config, config_file):
+                     config, config_file, pushed=False):
     """Wait for messages with the give tag, passing on to the supplied handler.
     """
     logger2.debug("Calling remote function: %s" % fn_name)
@@ -781,8 +817,14 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
             )
     dirs = {"work": os.getcwd(),
             "config": os.path.dirname(config_file)}
+
     runner = messaging.runner(run_module, dirs, config, config_file, wait=False)
-    runner(fn_name, [[data]])
+
+    if pushed:
+        runner(fn_name, [[config]])
+
+    else:
+        runner(fn_name, [[data]])
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -808,6 +850,8 @@ if __name__ == "__main__":
             action="store_true", default=False)
     parser.add_option("--push_data", dest="push_data",
             action="store_true", default=False)
+    parser.add_option("--no-casava-processing", dest="no_casava_processing",
+            action="store_true", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -830,7 +874,8 @@ if __name__ == "__main__":
               "remove_qseq": options.remove_qseq, \
               "compress_fastq": options.compress_fastq, \
               "casava": options.casava, \
-              "push_data": options.push_data}
+              "push_data": options.push_data, \
+              "no_casava_processing": options.no_casava_processing}
 
     main(*args, **kwargs)
 
@@ -860,7 +905,7 @@ class TestCallsTo_post_process_run(unittest.TestCase):
         self.assertRaises(OSError, initial_processing, *args, **self.kwargs)
 
     def test_call_as_in_process_first_read(self):
-        args = ["", None, "", ""] # [dname, config, local_config, unaligned_dir]
+        args = ["", None, "", ""]  # [dname, config, local_config, unaligned_dir]
         self.assertRaises(OSError, _post_process_run, *args, **self.kwargs)
 
 
