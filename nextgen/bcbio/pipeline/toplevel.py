@@ -128,16 +128,20 @@ def _run_analysis(fc_dir, remote_info, config, config_file):
                     os.getcwd()), os.path.basename(remote_info["directory"]))
     if not os.path.exists(analysis_dir):
         os.makedirs(analysis_dir)
+
     with utils.chdir(analysis_dir):
         if config["algorithm"]["num_cores"] == "messaging":
             prog = config["analysis"].get("distributed_process_program",
                                           "distributed_nextgen_pipeline.py")
         else:
             prog = config["analysis"]["process_program"]
+
         cl = [prog, config_file, fc_dir]
         if run_yaml:
             cl.append(run_yaml)
+
         subprocess.check_call(cl)
+
     return analysis_dir
 
 

@@ -557,28 +557,32 @@ def _is_started_first_read_processing(directory):
     return os.path.exists(os.path.join(directory,
                                        "first_read_processing_started.txt"))
 
+
 def _is_processing_first_read(directory):
     """Determine if processing of first read is in progress
     """
-    return (_is_started_first_read_processing(directory) and 
+    return (_is_started_first_read_processing(directory) and
             not os.path.exists(os.path.join(directory,
                                             "first_read_processing_completed.txt")))
-    
+
+
 def _is_started_second_read_processing(directory):
     """Determine if processing of second read of the pair has been started
     """
     return os.path.exists(os.path.join(directory,
                                        "second_read_processing_started.txt"))
-  
+
+
 def _is_finished_basecalling_read(directory, readno):
     """
-    Determine if a given read has finished being basecalled. Raises a ValueError if 
+    Determine if a given read has finished being basecalled. Raises a ValueError if
     the run is not configured to produce the read
-    """ 
+    """
     if readno < 1 or readno > _expected_reads(directory):
         raise ValueError("The run will not produce a Read{:d}".format(readno))
-    return os.path.exists(os.path.join(directory, 
+    return os.path.exists(os.path.join(directory,
                                        "Basecalling_Netcopy_complete_Read{:d}.txt".format(readno)))
+
 
 def _do_initial_processing(directory):
     """Determine if the initial processing actions should be run
@@ -586,15 +590,17 @@ def _do_initial_processing(directory):
     return (_is_finished_first_base_report(directory) and
             not _is_started_initial_processing(directory))
 
+
 def _do_first_read_processing(directory):
     """Determine if the processing of the first read should be run
     """
     # If run is not indexed, the first read itself is the highest number
-    read = max(1,_last_index_read(directory))
+    read = max(1, _last_index_read(directory))
     # FIXME: Handle a case where the index reads are the first to be read
-    return (_is_finished_basecalling_read(directory,read) and
+    return (_is_finished_basecalling_read(directory, read) and
             not _is_initial_processing(directory) and
             not _is_started_first_read_processing(directory))
+
 
 def _do_second_read_processing(directory):
     """Determine if the processing of the second read of the pair should be run
@@ -603,17 +609,20 @@ def _do_second_read_processing(directory):
             not _is_initial_processing(directory) and
             not _is_processing_first_read(directory) and
             not _is_started_second_read_processing(directory))
-    
+
+
 def _last_index_read(directory):
     """Parse the number of the highest index read from the RunInfo.xml
     """
-    read_numbers = [int(read.get("Number",0)) for read in _get_read_configuration(directory) if read.get("IsIndexedRead","") == "Y"]
+    read_numbers = [int(read.get("Number", 0)) for read in _get_read_configuration(directory) if read.get("IsIndexedRead", "") == "Y"]
     return 0 if len(read_numbers) == 0 else max(read_numbers)
-    
+
+
 def _expected_reads(directory):
     """Parse the number of expected reads from the RunInfo.xml file.
     """
     return len(_get_read_configuration(directory))
+
 
 def _is_finished_dumping_checkpoint(directory):
     """Recent versions of RTA (1.10 or better), write the complete file.
@@ -643,17 +652,19 @@ def _get_read_configuration(directory):
         tree.parse(run_info_file)
         read_elem = tree.find("Run/Reads")
         for read in read_elem:
-            reads.append(dict(zip(read.keys(),[read.get(k) for k in read.keys()])))
-    return sorted(reads, key=lambda r: int(r.get("Number",0)))
+            reads.append(dict(zip(read.keys(), [read.get(k) for k in read.keys()])))
+
+    return sorted(reads, key=lambda r: int(r.get("Number", 0)))
+
 
 def _get_bases_mask(directory):
     """Get the base mask to use with Casava based on the run configuration
     """
     runsetup = _get_read_configuration(directory)
-    
+
     # Handle the cases we know what to do with, otherwise, let Casava figure out
     # Case 1: 2x101 PE
-    if (len(runsetup) == 3 and 
+    if (len(runsetup) == 3 and
         (runsetup[0]["NumCycles"] == "101" and runsetup[0]["IsIndexedRead"] == "N") and
         (runsetup[1]["NumCycles"] == "7" and runsetup[1]["IsIndexedRead"] == "Y") and
         (runsetup[2]["NumCycles"] == "101" and runsetup[2]["IsIndexedRead"] == "N")):
@@ -665,10 +676,10 @@ def _get_bases_mask(directory):
         (runsetup[2]["NumCycles"] == "8" and runsetup[2]["IsIndexedRead"] == "Y") and
         (runsetup[3]["NumCycles"] == "101" and runsetup[3]["IsIndexedRead"] == "N")):
         return "Y101,I8,I8,Y101"
-    
+
     return None
-        
-    
+
+
 def _files_to_copy(directory):
     """Retrieve files that should be remotely copied.
     """
@@ -960,11 +971,11 @@ class TestCheckpoints(unittest.TestCase):
         self.assertFalse(_do_initial_processing(self.rootdir),
                          "Initial processing should not be run when processing has been started " \
                          "and missing first base report")
-        
+
     def test__do_first_read_processing(self):
         """First read processing logic
         """
-        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        runinfo = os.path.join(self.rootdir, "RunInfo.xml")
         self._runinfo(runinfo)
         self.assertFalse(_do_first_read_processing(self.rootdir),
                          "Processing should not be run before first read is finished")
@@ -986,11 +997,11 @@ class TestCheckpoints(unittest.TestCase):
                                                 "first_read_processing_started.txt"))
         self.assertFalse(_do_first_read_processing(self.rootdir),
                          "Processing should not be run when processing has started")
-        
+
     def test__do_second_read_processing(self):
         """Second read processing logic
         """
-        runinfo = os.path.join(self.rootdir,"RunInfo.xml")
+        runinfo = os.path.join(self.rootdir, "RunInfo.xml")
         self._runinfo(runinfo)
         utils.touch_file(os.path.join(self.rootdir,
                                       "Basecalling_Netcopy_complete_READ2.txt"))

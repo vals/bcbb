@@ -32,6 +32,7 @@ def analyze(*args):
     but the actual processing can be distributed to multiple nodes.
     """
     config_file = celeryconfig.BCBIO_CONFIG_FILE
+    print(args)
     remote_info = args[0]
     toplevel.analyze(remote_info, config_file)
 
