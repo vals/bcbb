@@ -75,7 +75,6 @@ def search_for_new(*args, **kwargs):
                     initial_processing(dname, *args, **kwargs)
 
                 elif _do_first_read_processing(dname):
-                    print("sdfds")
                     process_first_read(dname, *args, **kwargs)
 
                 elif _do_second_read_processing(dname):
@@ -114,17 +113,19 @@ def process_first_read(*args, **kwargs):
     dname, config = args[0:2]
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
     if kwargs.get("casava", False):
-        logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
+        if kwargs.get("process_msg", True):
+            logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
 
-        # Touch the indicator flag that processing of read1 has been started
-        utils.touch_indicator_file(os.path.join(dname, "first_read_processing_started.txt"))
-        unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
-        logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
+            # Touch the indicator flag that processing of read1 has been started
+            utils.touch_indicator_file(os.path.join(dname, "first_read_processing_started.txt"))
+            unaligned_dir = _generate_fastq_with_casava(dname, config, r1=True)
+            logger2.info("Done generating fastq.gz files for read 1 of {:s}".format(dname))
 
-        # Extract the top barcodes from the undemultiplexed fraction
-        if config["program"].get("extract_barcodes", None):
-            extract_top_undetermined_indexes(dname, unaligned_dir, config)
+            # Extract the top barcodes from the undemultiplexed fraction
+            if config["program"].get("extract_barcodes", None):
+                extract_top_undetermined_indexes(dname, unaligned_dir, config)
 
+        unaligned_dir = os.path.join(dname, "Unaligned")
         loc_args = args + (unaligned_dir,)
         _post_process_run(*loc_args, **{"fetch_msg": True,
                                         "process_msg": False,
@@ -140,7 +141,6 @@ def process_second_read(*args, **kwargs):
     """Processing to be performed after all reads have been sequences
     """
     dname, config = args[0:2]
-    print(args)
     logger2.info("The instrument has finished dumping on directory %s" % dname)
 
     utils.touch_indicator_file(os.path.join(dname, "second_read_processing_started.txt"))
@@ -291,27 +291,34 @@ def simple_upload(remote_info, data):
     """
     include = []
     for fcopy in data['to_copy']:
-        include.append("--include='{}**/*'".format(fcopy))
-        include.append("--include='{}'".format(fcopy))
+        include.extend(["--include", "{}**/*".format(fcopy)])
+        include.append("--include={}".format(fcopy))
         # By including both these patterns we get the entire directory
         # if a directory is given, or a single file if a single file is
         # given.
 
     cl = ["rsync", \
+          "--dry-run", \
           "--checksum", \
           "--archive", \
           "--partial", \
           "--progress", \
-          "--prune-empty-dirs", \
-          # file / dir inclusion specification
-          "--include='*/'", \
-          " ".join(include), \
-          "--exclude='*'", \
+          "--prune-empty-dirs"
+          ]
+
+    # file / dir inclusion specification
+    cl.extend(["--include", "*/"])
+    cl.extend(include)
+    cl.extend(["--exclude", "*"])
+
+    # source and target
+    cl.extend([
           # source
           data["directory"], \
           # target
-          "{store_user}@{store_host}:{store_dir}".format(**remote_info)
-         ]
+          # "{store_user}@{store_host}:{store_dir}".format(**remote_info)
+          "/home/valentine.svensson/target"
+         ])
 
     subprocess.check_call(cl)
 
@@ -356,26 +363,33 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
     samplesheet_file = samplesheet.run_has_samplesheet(fc_dir, config)
     num_mismatches = config["algorithm"].get("mismatches", 1)
     num_cores = config["algorithm"].get("num_cores", 1)
-    im_stats = config["algorithm"].get("ignore-missing-stats",False)
-    im_bcl = config["algorithm"].get("ignore-missing-bcl",False)
-    im_control = config["algorithm"].get("ignore-missing-control",False)
-    
+    im_stats = config["algorithm"].get("ignore-missing-stats", False)
+    im_bcl = config["algorithm"].get("ignore-missing-bcl", False)
+    im_control = config["algorithm"].get("ignore-missing-control", False)
+
     # Write to log files
-    configure_out = os.path.join(fc_dir,"configureBclToFastq.out")
-    configure_err = os.path.join(fc_dir,"configureBclToFastq.err")
-    casava_out = os.path.join(fc_dir,"bclToFastq_R{:d}.out".format(2-int(r1)))
-    casava_err = os.path.join(fc_dir,"bclToFastq_R{:d}.err".format(2-int(r1)))
+    configure_out = os.path.join(fc_dir, "configureBclToFastq.out")
+    configure_err = os.path.join(fc_dir, "configureBclToFastq.err")
+    casava_out = os.path.join(fc_dir, "bclToFastq_R{:d}.out".format(2 - int(r1)))
+    casava_err = os.path.join(fc_dir, "bclToFastq_R{:d}.err".format(2 - int(r1)))
 
     cl = [os.path.join(casava_dir, "configureBclToFastq.pl")]
     cl.extend(["--input-dir", basecall_dir])
     cl.extend(["--output-dir", unaligned_dir])
     cl.extend(["--mismatches", str(num_mismatches)])
     cl.extend(["--fastq-cluster-count", "0"])
-    if samplesheet_file is not None: cl.extend(["--sample-sheet", samplesheet_file])
-    if im_stats: cl.append("--ignore-missing-stats")
-    if im_bcl: cl.append("--ignore-missing-bcl")
-    if im_control: cl.append("--ignore-missing-control")
-    
+    if samplesheet_file is not None:
+        cl.extend(["--sample-sheet", samplesheet_file])
+
+    if im_stats:
+        cl.append("--ignore-missing-stats")
+
+    if im_bcl:
+        cl.append("--ignore-missing-bcl")
+
+    if im_control:
+        cl.append("--ignore-missing-control")
+
     bm = _get_bases_mask(fc_dir)
     if bm is not None:
         cl.extend(["--use-bases-mask", bm])
@@ -384,11 +398,11 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
         # Run configuration script
         logger2.info("Configuring BCL to Fastq conversion")
         logger2.debug(cl)
-        
-        co = open(configure_out,'w')
-        ce = open(configure_err,'w')
+
+        co = open(configure_out, 'w')
+        ce = open(configure_err, 'w')
         try:
-            subprocess.check_call(cl,stdout=co,stderr=ce)
+            subprocess.check_call(cl, stdout=co, stderr=ce)
             co.close()
             ce.close()
         except subprocess.CalledProcessError, e:
@@ -398,7 +412,7 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
                                                                                      configure_out,
                                                                                      configure_err))
             raise e
-        
+
     # Go to <Unaligned> folder
     with utils.chdir(unaligned_dir):
         # Perform make
@@ -408,11 +422,11 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
 
         logger2.info("Demultiplexing and converting bcl to fastq.gz")
         logger2.debug(cl)
-        
-        co = open(casava_out,'w')
-        ce = open(casava_err,'w')
+
+        co = open(casava_out, 'w')
+        ce = open(casava_err, 'w')
         try:
-            subprocess.check_call(cl,stdout=co,stderr=ce)
+            subprocess.check_call(cl, stdout=co, stderr=ce)
             co.close()
             ce.close()
         except subprocess.CalledProcessError, e:
@@ -423,9 +437,10 @@ def _generate_fastq_with_casava(fc_dir, config, r1=False):
                                         casava_out,
                                         casava_err))
             raise e
-            
+
     logger2.debug("Done")
     return unaligned_dir
+
 
 def _generate_fastq(fc_dir, config, compress_fastq):
     """Generate fastq files for the current flowcell.
@@ -438,7 +453,7 @@ def _generate_fastq(fc_dir, config, compress_fastq):
     if postprocess_dir:
         fastq_dir = os.path.join(postprocess_dir, os.path.basename(fc_dir), "fastq")
 
-    if not fastq_dir == fc_dir:# and not os.path.exists(fastq_dir):
+    if not fastq_dir == fc_dir:  # and not os.path.exists(fastq_dir):
 
         with utils.chdir(basecall_dir):
             lanes = sorted(list(set([f.split("_")[1] for f in
@@ -608,12 +623,6 @@ def _do_first_read_processing(directory):
     # If run is not indexed, the first read itself is the highest number
     read = max(1, _last_index_read(directory))
 
-    # DEBUG
-    print(read)
-    print(_is_finished_basecalling_read(directory, read))
-    print(not _is_initial_processing(directory))
-    print(not _is_started_first_read_processing(directory))
-
     # FIXME: Handle a case where the index reads are the first to be read
     return (_is_finished_basecalling_read(directory, read) and
             not _is_initial_processing(directory) and
@@ -682,11 +691,12 @@ def _get_bases_mask(directory):
     
     # Handle the cases we know what to do with, otherwise, let Casava figure out
     # Case 1: 2x101 PE
-    if (len(runsetup) == 3 and 
+    if (len(runsetup) == 3 and
         (runsetup[0]["NumCycles"] == "101" and runsetup[0]["IsIndexedRead"] == "N") and
         (runsetup[1]["NumCycles"] == "7" and runsetup[1]["IsIndexedRead"] == "Y") and
         (runsetup[2]["NumCycles"] == "101" and runsetup[2]["IsIndexedRead"] == "N")):
         return "Y101,I6n,Y101"
+
     # Case 2: 2x101 PE, dual indexing
     if (len(runsetup) == 4 and
         (runsetup[0]["NumCycles"] == "101" and runsetup[0]["IsIndexedRead"] == "N") and
@@ -694,10 +704,10 @@ def _get_bases_mask(directory):
         (runsetup[2]["NumCycles"] == "8" and runsetup[2]["IsIndexedRead"] == "Y") and
         (runsetup[3]["NumCycles"] == "101" and runsetup[3]["IsIndexedRead"] == "N")):
         return "Y101,I8,I8,Y101"
-    
+
     return None
-        
-    
+
+
 def _files_to_copy(directory):
     """Retrieve files that should be remotely copied.
     """
