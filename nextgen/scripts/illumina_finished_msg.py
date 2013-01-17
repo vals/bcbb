@@ -127,7 +127,7 @@ def process_first_read(*args, **kwargs):
 
         unaligned_dir = os.path.join(dname, "Unaligned")
         loc_args = args + (unaligned_dir,)
-        _post_process_run(*loc_args, **{"fetch_msg": True,
+        _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg", True),
                                         "process_msg": False,
                                         "store_msg": kwargs.get("store_msg", False),
                                         "backup_msg": False,
@@ -148,9 +148,10 @@ def process_second_read(*args, **kwargs):
     fastq_dir = None
 
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
-    if kwargs.get("casava", False) and not kwargs.get("no_casava_processing", False):
-        logger2.info("Generating fastq.gz files for {:s}".format(dname))
-        _generate_fastq_with_casava(dname, config)
+    if kwargs.get("casava", False):
+        if not kwargs.get("no_casava_processing", False):
+            logger2.info("Generating fastq.gz files for {:s}".format(dname))
+            _generate_fastq_with_casava(dname, config)
 
     else:
         _process_samplesheets(dname, config)
@@ -171,7 +172,8 @@ def process_second_read(*args, **kwargs):
     _post_process_run(*loc_args, **{"fetch_msg": kwargs.get("fetch_msg", True),
                                     "process_msg": kwargs.get("process_msg", True),
                                     "store_msg": kwargs.get("store_msg", True),
-                                    "backup_msg": kwargs.get("backup_msg", False)})
+                                    "backup_msg": kwargs.get("backup_msg", False),
+                                    "push_data": kwargs.get("push_data", False)})
 
     # Update the reported database after successful processing
     _update_reported(config["msg_db"], dname)
@@ -268,10 +270,11 @@ def _post_process_run(dname, config, config_file, fastq_dir, **kwargs):
             simple_upload(config, data)
 
         if push_data and process_msg:
+            config["pushed"] = True
             finished_message("analyze", run_module, dname,
-                             process_files, config, config_file)
+                             process_files, config, config_file, pushed=True)
 
-        if process_msg:
+        if process_msg and not push_data:
             finished_message("analyze_and_upload", run_module, dname,
                              process_files, config, config_file)
         elif fetch_msg:
@@ -302,7 +305,6 @@ def simple_upload(remote_info, data):
         # given.
 
     cl = ["rsync", \
-          "--dry-run", \
           "--checksum", \
           "--archive", \
           "--partial", \
@@ -320,8 +322,7 @@ def simple_upload(remote_info, data):
           # source
           data["directory"], \
           # target
-          # "{store_user}@{store_host}:{store_dir}".format(**remote_info)
-          "/home/valentine.svensson/target"
+          "{store_user}@{store_host}:{store_dir}".format(**remote_info)
          ])
 
     subprocess.check_call(cl)
@@ -695,7 +696,7 @@ def _get_bases_mask(directory):
     """Get the base mask to use with Casava based on the run configuration
     """
     runsetup = _get_read_configuration(directory)
-    
+
     # Handle the cases we know what to do with, otherwise, let Casava figure out
     # Case 1: 2x101 PE
     if (len(runsetup) == 3 and
@@ -801,7 +802,7 @@ def _update_reported(msg_db, new_dname):
 
 
 def finished_message(fn_name, run_module, directory, files_to_copy,
-                     config, config_file):
+                     config, config_file, pushed=False):
     """Wait for messages with the give tag, passing on to the supplied handler.
     """
     logger2.debug("Calling remote function: %s" % fn_name)
@@ -816,8 +817,14 @@ def finished_message(fn_name, run_module, directory, files_to_copy,
             )
     dirs = {"work": os.getcwd(),
             "config": os.path.dirname(config_file)}
+
     runner = messaging.runner(run_module, dirs, config, config_file, wait=False)
-    runner(fn_name, [[data]])
+
+    if pushed:
+        runner(fn_name, [[config]])
+
+    else:
+        runner(fn_name, [[data]])
 
 if __name__ == "__main__":
     parser = OptionParser()
