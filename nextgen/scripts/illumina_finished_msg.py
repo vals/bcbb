@@ -113,7 +113,7 @@ def process_first_read(*args, **kwargs):
     dname, config = args[0:2]
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
     if kwargs.get("casava", False):
-        if kwargs.get("process_msg", True):
+        if not kwargs.get("no_casava_processing", False):
             logger2.info("Generating fastq.gz files for read 1 of {:s}".format(dname))
 
             # Touch the indicator flag that processing of read1 has been started
@@ -148,9 +148,10 @@ def process_second_read(*args, **kwargs):
     fastq_dir = None
 
     # Do bcl -> fastq conversion and demultiplexing using Casava1.8+
-    if kwargs.get("casava", False):
+    if kwargs.get("casava", False) and not kwargs.get("no_casava_processing", False):
         logger2.info("Generating fastq.gz files for {:s}".format(dname))
         _generate_fastq_with_casava(dname, config)
+
     else:
         _process_samplesheets(dname, config)
         if kwargs.get("qseq", True):
@@ -162,6 +163,7 @@ def process_second_read(*args, **kwargs):
             fastq_dir = _generate_fastq(dname, config)
             if kwargs.get("remove_qseq", False):
                 _clean_qseq(get_qseq_dir(dname), fastq_dir)
+
             _calculate_md5(fastq_dir)
 
     # Call the post_processing method
@@ -191,6 +193,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
         # Wait one minute if we are already using the maximum amount of cores
         if len([p for p in procs if p[0].poll() is None]) == num_cores:
             time.sleep(60)
+
         else:
             infile = infiles.pop()
             fname = os.path.basename(infile)
@@ -199,6 +202,7 @@ def extract_top_undetermined_indexes(fc_dir, unaligned_dir, config):
             m = re.search(r'_L0*(\d+)_', fname)
             if len(m.groups()) == 0:
                 raise ValueError("Could not determine lane from filename {:s}".format(fname))
+
             lane = m.group(1)
 
             # Open a subprocess for the extraction, writing output and errors to a metric file
@@ -470,40 +474,43 @@ def _generate_fastq(fc_dir, config, compress_fastq):
 
     return fastq_dir
 
+
 def _calculate_md5(fastq_dir):
     """Calculate the md5sum for the fastq files
     """
     glob_str = "*_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
-    md5sum_file = os.path.join(fastq_dir,"md5sums.txt")
-    with open(md5sum_file,'w') as fh:
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+
+    md5sum_file = os.path.join(fastq_dir, "md5sums.txt")
+    with open(md5sum_file, 'w') as fh:
         for fastq_file in fastq_files:
             logger2.debug("Calculating md5 for %s using md5sum" % fastq_file)
-            cl = ["md5sum",fastq_file]
+            cl = ["md5sum", fastq_file]
             fh.write(subprocess.check_output(cl))
 
+
 def _clean_qseq(bc_dir, fastq_dir):
-    """Remove the temporary qseq files if the corresponding fastq file 
+    """Remove the temporary qseq files if the corresponding fastq file
        has been created
-    """    
+    """
     glob_str = "*_1_fastq.txt"
-    fastq_files = glob.glob(os.path.join(fastq_dir,glob_str))
-    
+    fastq_files = glob.glob(os.path.join(fastq_dir, glob_str))
+
     for fastq_file in fastq_files:
         try:
             lane = int(os.path.basename(fastq_file)[0])
         except ValueError:
             continue
-        
+
         logger2.debug("Removing qseq files for lane %d" % lane)
         glob_str = "s_%d_*qseq.txt" % lane
-        
+
         for qseq_file in glob.glob(os.path.join(bc_dir, glob_str)):
             try:
                 os.unlink(qseq_file)
             except:
                 logger2.debug("Could not remove %s" % qseq_file)
+
 
 def _generate_qseq(bc_dir, config):
     """Generate qseq files from illumina bcl files if not present.
@@ -836,6 +843,8 @@ if __name__ == "__main__":
             action="store_true", default=False)
     parser.add_option("--push_data", dest="push_data",
             action="store_true", default=False)
+    parser.add_option("--no-casava-processing", dest="no_casava_processing",
+            action="store_true", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -858,7 +867,8 @@ if __name__ == "__main__":
               "remove_qseq": options.remove_qseq, \
               "compress_fastq": options.compress_fastq, \
               "casava": options.casava, \
-              "push_data": options.push_data}
+              "push_data": options.push_data, \
+              "no_casava_processing": options.no_casava_processing}
 
     main(*args, **kwargs)
 
